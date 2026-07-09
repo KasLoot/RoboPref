@@ -129,8 +129,10 @@ def look_at_xyaxes(pos, target):
     forward /= np.linalg.norm(forward)
     z = -forward
     x = np.cross([0.0, 0.0, 1.0], z)
-    x /= np.linalg.norm(x)
-    return [*x, *np.cross(z, x)]
+    norm = np.linalg.norm(x)
+    if norm < 1e-9:  # looking straight down: "right" is undefined
+        raise ValueError(f"camera at {pos} is directly above its aim point {target}")
+    return [*(x / norm), *np.cross(z, x / norm)]
 
 
 def _restyle(spec):

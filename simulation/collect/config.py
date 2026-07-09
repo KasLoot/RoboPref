@@ -109,8 +109,14 @@ ROBOT_RGBA = (0.55, 0.55, 0.55, 1.0)
 # Pushing it forward alone therefore crops them out. Move it forward AND aim it at the
 # workspace. The camera stays on the y = 0 plane, so its right axis is still exactly
 # world +y and the "white mat = image left" convention is unchanged.
-THIRD_PERSON_POS = (0.85, 0.0, 0.55)
-THIRD_PERSON_AIM = (0.27, 0.0, 0.06)
+#
+#   THIRD_PERSON_POS = (distance from the base, 0, HEIGHT)
+#                       ^ smaller = closer      ^ larger = higher
+#
+# Raising it tilts the view further down, which frames the mats better but walks the
+# arm toward the top edge; past about z = 0.75 with x <= 0.68 the arm starts to clip.
+THIRD_PERSON_POS = (0.75, 0.0, 0.65)
+THIRD_PERSON_AIM = (0.0, 0.0, 0.06)
 CROSS_ARM_HALF = 0.025  # 50 mm arms
 CROSS_ARM_WIDTH = 0.003
 CROSS_THICK = 0.0005  # flush on the mat; visual only (contype=conaffinity=0)
