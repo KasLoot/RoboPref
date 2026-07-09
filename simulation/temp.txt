@@ -1,0 +1,203 @@
+You are working in the RoboPref repository. Your job is to implement and run a
+data-collection suite in MuJoCo for three VLA training dataset categories. Work in
+phases with the gates described below; do not start the full collection run without
+passing the smoke gate.
+
+## Existing code (read all four files first — they work, and they encode tuning)
+
+- `simulation/ik.py` — `DiffIK`, damped-least-squares differential IK for the ARX L5
+  (6 arm joints, TCP offset on `link6`, quats are wxyz). **Frozen: do not modify.**
+  Read the `step()` docstring carefully: the control loop must integrate the
+  *command* (`q_cmd = ik.step(...); data.ctrl[:6] = q_cmd`) and feed the returned
+  command back in. Never rebuild the setpoint from measured `qpos` — that folds
+  gravity sag back into the loop and leaves centimeters of residual.
+- `simulation/servo.py` — `CriticalDamper`; call `damper.apply(data)` every step
+  before `mj_step`. ζ = 1.0 is measured tuning. **Frozen: do not modify or retune.**
+- `simulation/engine.py` — reference for the servo loop structure (`servo_to`),
+  waypoint settling (POS_TOL / ORI_TOL / HOLD / TIMEOUT), and marker drawing. Reuse
+  the pattern, not the file. Keep `engine.py` working.
+- `simulation/camera.py` — Tk preview canvas; cameras `"third_person"` and
+  `"wrist_cam"`; offscreen framebuffer is 640×480. The canvas is for interactive
+  preview only — collection must be headless with its own `mujoco.Renderer`s and
+  must never call `time.sleep`.
+- Scene: `simulation/assets/robots/arx_l5/scene.xml`, keyframe `"home"`. The scene
+  path is currently hardcoded in `engine.py`; put shared paths/constants in a small
+  config module rather than editing `ik.py`/`servo.py`.
+
+## Deliverables
+
+```
+simulation/collect/
+  config.py          # paths, tolerances, budgets, color RGBA table, seed formula
+  scene_builder.py   # per-episode task scenes (MjSpec or XML templating + recompile)
+  expert.py          # scripted pick-and-place expert on DiffIK + CriticalDamper
+  recorder.py        # synchronized HDF5 episode recorder
+  tasks/category_a.py, category_b.py, category_c.py
+  collect.py         # resumable CLI entry point
+  validate.py        # dataset integrity checks + contact sheets
+  README.md          # usage, schema, and every discovered/decided parameter
+```
+
+Dataset root: `/data/datasets/RoboPref` (CLI-overridable, create if missing). One
+subfolder per category, one `scene.yaml` per category, one HDF5 per episode named
+`task_{task_id}_episode_{episode_id}.hdf5` (episode ids start at 1).
+
+## Phase 0 — discover, don't assume (print a model report before writing task code)
+
+Inspect the compiled model and print:
+1. `model.opt.timestep` (expected 0.002 → 500 Hz proprio; whatever it is, record at
+   every physics step and store the actual rate — do not resample).
+2. The gripper actuator: the actuator that does not drive `joint1..joint6` — its
+   name, ctrl range, driven joint(s), and finger opening width. Derive open/closed
+   ctrl values from the range.
+3. A tool-down grasp orientation: the world quaternion that points the TCP axis
+   (+x of `link6`, per `TCP_OFFSET`) along −z world. Derive it from the home pose
+   and verify with a short `servo_to`-style test before trusting it.
+4. Reachable workspace: probe with IK servoing to place the two mats where a
+   tool-down grasp works across their full extent. Pick block size to fit the
+   gripper (start at 0.035 m cubes; adjust from the measured opening).
+
+If anything makes the spec impossible (e.g., gripper cannot span any reasonable
+block), stop and ask. Otherwise decide, document in README, and proceed.
+
+## Phase 1 — scene builder
+
+Build scenes programmatically (prefer `mujoco.MjSpec`; XML string templating is an
+acceptable fallback) and recompile per episode — do not try to mutate one static
+model. Every episode's scene contains:
+
+- White mat (left) and black mat (right): thin colored box geoms, both fully inside
+  the verified workspace.
+- Cross marker: two thin bright geoms flush on the white mat forming a "+", center
+  sampled uniformly per episode from a centered square region (side ≈ 0.10 m) of
+  the white mat.
+- Blocks: free-joint cubes, colors from {red, green, blue, yellow} with clearly
+  distinct RGBA; mass and friction tuned until grasping and 4-high stacking are
+  reliable (raise friction / adjust condim if blocks slip in the smoke test).
+- Spawn helpers: N blocks at random non-overlapping poses on the black mat (center
+  gap ≥ 1.5 × block size, margin from mat edges); for pre-built stacks, spawn the
+  stack at the cross, settle 0.5 s, verify it is intact and in place, else resample.
+- Determinism: `seed = f(category, task_id, episode_id)` with a stable documented
+  formula; use `np.random.default_rng(seed)`; failed episodes retry with a derived
+  seed (`seed + 10_000 * attempt`), never silent reuse.
+
+## Phase 2 — scripted expert
+
+Primitives built on `DiffIK` + `CriticalDamper`, headless, mirroring
+`engine.servo_to` (settling via POS_TOL/ORI_TOL/HOLD, per-waypoint timeout):
+
+- `pick(block)`: pregrasp above the block (tool-down, z clearance) → descend to
+  grasp height → close gripper (fixed duration or until settled) → lift.
+- `place(target_xy, target_z)`: transit above → descend → open → retreat. Looser
+  orientation tolerance during transit is fine; tight at grasp/place.
+- Targets from ground truth: mat placement = cross center at z = half block height;
+  stack placement = current stack-top center at z = top + block size. Re-read block
+  poses from `data` after every placement (earlier placements shift things).
+- Success predicates (ground truth, evaluated after a 1.0 s settle):
+  base block within 2 cm (xy) of the cross; stacked block within 2 cm (xy) of the
+  block below and within z tolerance; block linear speed < 1 cm/s; full-task
+  success = every placement succeeded ∧ executed order = intended order.
+- Failure policy: any timeout or failed predicate → discard the recording, resample
+  the episode with a derived seed, count it. If a task's failure rate exceeds 20%,
+  abort that task and report — do not grind out a bad expert.
+
+## Phase 3 — recorder (HDF5 schema — follow exactly)
+
+All datasets chunked and compressed (lzf or gzip). Proprio and actions logged every
+physics step; cameras captured whenever `sim_time >= next 1/30 s tick` (nominal
+30 Hz — timestamps are authoritative, do not claim exact rates).
+
+```
+/proprio/t                  (T,)   f64  sim time, s
+/proprio/joint_pos          (T,6)  f32  rad
+/proprio/joint_vel          (T,6)  f32  rad/s
+/proprio/joint_torque       (T,6)  f32  data.qfrc_actuator at the arm dofs
+/proprio/ee_pos             (T,3)  f32  TCP world position (DiffIK.tool_pose)
+/proprio/ee_quat_wxyz       (T,4)  f32
+/actions/t                  (T,)   f64
+/actions/q_cmd              (T,6)  f32  the setpoints actually written to data.ctrl
+/actions/gripper            (T,)   f32  gripper ctrl value
+/cameras/<name>/t           (K,)   f64      for <name> in {third_person, wrist_cam}
+/cameras/<name>/rgb         (K,480,640,3) u8
+/cameras/<name>/depth       (K,480,640)   u16  millimeters, 0 = invalid
+```
+
+- Render with dedicated `mujoco.Renderer`s at 640×480 (one for RGB, one with
+  `enable_depth_rendering()`, or toggle a single renderer). Never use the Tk canvas
+  during collection. Convert depth meters → uint16 mm (clip, 0 for invalid). This
+  uint16 choice is a deliberate storage decision — document it in the README.
+- Root attrs: `category, task_id, episode_id, instruction` (verbatim string used),
+  `seed, success` (True for every kept episode), `executed_order` (e.g.
+  `"red,green,blue"` bottom→top; single color for Category C), `blocks_present`,
+  `init_stack` (bottom→top colors, empty if none), `split` (`"val"` for every 10th
+  episode of a task, else `"train"`), `sim_timestep`, `tcp_offset`,
+  `quat_convention="wxyz"`, per-camera intrinsics (fovy, resolution) and extrinsics
+  at episode start.
+
+## Phase 4 — task definitions (budgets are fixed; do not change them)
+
+**Category A — `stacking_blocks_ambiguous`** (task 1). Instruction (all episodes):
+"Stack the blocks from the black mat to the white mat at the cross position."
+Blocks: red, green, blue. 240 episodes = 40 × each of the 6 stacking orders,
+interleaved so a partial run stays balanced. The order lives only in
+`executed_order`, never in the instruction.
+
+**Category B — `stacking_blocks_ordered`** (tasks 1–4). Trained orders:
+red-green-blue, blue-green-red, green-red-blue, red-blue-green. Held out (zero
+episodes, record in scene.yaml): blue-red-green, green-blue-red. Instruction:
+"Stack the blocks from the black mat to the white mat at the cross position, with
+order from bottom to top of {c1}, {c2}, {c3} blocks." 60 episodes per task.
+
+**Category C — `stacking_blocks_decomposed`** (tasks 1–8), colors
+{red, green, blue, yellow}.
+- Tasks 1–4 (T-MAT, one per color): "Place the {color} block on the white mat at
+  the cross position." Initial state: no stack; 2–4 blocks (random subset always
+  including {color}) on the black mat. 60 episodes per task.
+- Tasks 5–8 (T-TOP, one per color): "Place the {color} block on top of the stack
+  at the cross position." Initial state: pre-built stack at the cross of height
+  h ∈ {1,2,3}, balanced round-robin (40 episodes per height); stack colors sampled
+  without replacement from the other three colors; {color} plus 0–2 distractors on
+  the black mat. 120 episodes per task.
+
+Each category's `scene.yaml`: scene description, instruction templates, task ids
+and budgets, randomization ranges, seed formula, split rule, trained/held-out
+orders (B), schema version.
+
+## Phase 5 — CLI, gates, and the run
+
+`collect.py`:
+```
+uv run python simulation/collect/collect.py \
+    --category {a,b,c,all} [--task N] [--episodes N] [--root PATH] \
+    [--preview] [--overwrite]
+```
+- Resumable: skip existing episode files that pass a fast integrity check;
+  `--overwrite` to redo.
+- `--preview` attaches the existing viewer/CameraCanvas for debugging; the default
+  is headless at full speed.
+- Progress bar with per-task counts, running failure rate, and ETA.
+
+`validate.py`: per-task episode counts vs budget; sample episodes checked for
+shapes/dtypes, monotonic timestamps, camera-timestamp alignment (each camera t
+within one physics step of some proprio t), `success == True`, `executed_order`
+consistent with gripper open/close events; balance checks (A: 40/order; C T-TOP:
+40/height); 3 PNG contact sheets per task (first/mid/last frames, both cameras);
+summary table.
+
+**SMOKE GATE (mandatory):** collect 2 episodes for every task across all
+categories, run `validate.py`, and print: per-episode wallclock and sim duration,
+storage per episode, projected total storage and wallclock for the full suite.
+Then STOP and wait for my confirmation before the full run. After confirmation,
+run the full collection, finish with `validate.py` over everything, and paste the
+summary.
+
+## Ground rules
+
+- `ik.py` and `servo.py` are frozen; `damper.apply(data)` precedes every `mj_step`;
+  q_cmd is always integrated, never rebuilt from measured qpos.
+- Deterministic given seeds; every kept episode has `success=True`; discarded
+  attempts are counted and reported, never written.
+- Decide-and-document over ask, except where the model makes the spec impossible.
+- Total scope: 240 + 240 + 720 = 1,200 episodes ≈ 2,160 placements. If projected
+  storage exceeds ~1 TB or wallclock exceeds ~12 h at the smoke gate, report and
+  wait rather than proceeding.
