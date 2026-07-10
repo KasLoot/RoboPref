@@ -10,6 +10,7 @@ Importing this module puts ``simulation/`` on ``sys.path`` so that ``ik`` and
 
 import os
 import sys
+import platform
 from pathlib import Path
 
 import numpy as np
@@ -19,11 +20,43 @@ REPO_DIR = SIM_DIR.parent
 if str(SIM_DIR) not in sys.path:
     sys.path.insert(0, str(SIM_DIR))
 
-# Headless rendering. Must be set before mujoco creates a GL context; importing
-# config before mujoco.Renderer is enough. EGL_DEVICE_ID picks a DRI node --
-# without it EGL initialisation is flaky on this box.
-os.environ.setdefault("MUJOCO_GL", "egl")
-os.environ.setdefault("EGL_DEVICE_ID", "0")
+# Rendering backend. Must be set before MuJoCo creates a GL context.
+# If MUJOCO_GL is set to an invalid value (for example, "eg"), normalise it
+# to a platform-appropriate default so imports fail less often across OSes.
+_SYSTEM = platform.system()
+_MUJOCO_GL = os.environ.get("MUJOCO_GL", "").lower().strip()
+
+_DISABLED = {"disable", "disabled", "off", "false", "0"}
+_VALID = {"enable", "enabled", "on", "true", "1", "glfw", ""}
+if _SYSTEM == "Linux":
+    _VALID.update({"glx", "egl", "osmesa"})
+elif _SYSTEM == "Windows":
+    _VALID.update({"wgl"})
+elif _SYSTEM == "Darwin":
+    _VALID.update({"cgl"})
+
+if _MUJOCO_GL not in _DISABLED and _MUJOCO_GL not in _VALID:
+    if _SYSTEM == "Linux":
+        os.environ["MUJOCO_GL"] = "egl"
+    elif _SYSTEM == "Windows":
+        os.environ["MUJOCO_GL"] = "wgl"
+    elif _SYSTEM == "Darwin":
+        os.environ["MUJOCO_GL"] = "cgl"
+    else:
+        os.environ["MUJOCO_GL"] = "glfw"
+else:
+    if _SYSTEM == "Linux":
+        os.environ.setdefault("MUJOCO_GL", "egl")
+    elif _SYSTEM == "Windows":
+        os.environ.setdefault("MUJOCO_GL", "wgl")
+    elif _SYSTEM == "Darwin":
+        os.environ.setdefault("MUJOCO_GL", "cgl")
+    else:
+        os.environ.setdefault("MUJOCO_GL", "glfw")
+
+# Linux-only: pick a DRI node for EGL.
+if _SYSTEM == "Linux" and os.environ.get("MUJOCO_GL", "").lower().strip() == "egl":
+    os.environ.setdefault("EGL_DEVICE_ID", "0")
 
 SCENE_XML = str(SIM_DIR / "assets" / "robots" / "arx_l5" / "scene.xml")
 DATASET_ROOT = Path("/data/datasets/RoboPref")

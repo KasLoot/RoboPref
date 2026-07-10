@@ -26,7 +26,7 @@ from pathlib import Path
 # "Failed to make the EGL context current" and the process dies. So a preview run puts
 # the whole process on GLFW. This has to happen before config's MUJOCO_GL setdefault.
 if "--preview" in sys.argv:
-    os.environ.setdefault("MUJOCO_GL", "glfw")
+    os.environ["MUJOCO_GL"] = "glfw"
 
 import config as C  # noqa: E402,F401  (must precede mujoco: it sets MUJOCO_GL)
 
