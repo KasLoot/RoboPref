@@ -136,6 +136,7 @@ def run_episode(plan, make_recorder=None, preview=False):
             ex.transfer(color, xy, z)
             placed.append(color)
 
+        ex.finish()
         ex.hold(C.SETTLE_TIME)
         ok, reason = plan.verify(scene, data)
         return ok, reason, data.time, recorder

@@ -1,8 +1,8 @@
 """Shared constants for the RoboPref collection suite.
 
 Everything here is either measured off the compiled model (see README, "Phase 0")
-or derived from something measured. ``ik.py`` and ``servo.py`` are frozen, so this
-module is where scene geometry, tolerances and budgets live.
+or derived from something measured. This module is where scene geometry,
+trajectory limits, tolerances and budgets live.
 
 Importing this module puts ``simulation/`` on ``sys.path`` so that ``ik`` and
 ``servo`` -- which import each other by bare name -- resolve.
@@ -205,6 +205,19 @@ POS_TOL_TRANSIT = 5e-3  # looser while moving through free space
 ORI_TOL_TRANSIT = np.deg2rad(5.0)
 HOLD_TRANSIT = 0.10
 TIMEOUT = 8.0  # s of sim time per waypoint
+
+# Continuous Cartesian trajectories.  Interior semantic waypoints are blended
+# and passed without settling; these limits apply to the single time law over a
+# complete motion phase.  Values are deliberately conservative for the small L5.
+TRAJ_LINEAR_SPEED = 0.12  # m/s
+TRAJ_LINEAR_ACCEL = 0.50  # m/s^2
+TRAJ_LINEAR_JERK = 4.0  # m/s^3
+TRAJ_ANGULAR_SPEED = 1.0  # rad/s
+TRAJ_ANGULAR_ACCEL = 3.0  # rad/s^2
+TRAJ_ANGULAR_JERK = 20.0  # rad/s^3
+TRAJ_JOINT_ACCEL = 8.0  # rad/s^2, final guard after differential IK
+TRAJ_BLEND_RADIUS = 0.012  # m; leaves at least 18 mm of transit clearance
+TRAJ_MIN_DURATION = 0.25  # s
 
 SETTLE_TIME = 1.0  # s of sim time before evaluating success predicates
 STACK_SETTLE_TIME = 0.5  # s to let a pre-built stack come to rest

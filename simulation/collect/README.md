@@ -197,8 +197,8 @@ and the model is recompiled per episode (~17 ms). The robot XML is never touched
 
 ## Expert
 
-Primitives are built on the frozen `DiffIK` + `CriticalDamper`. The inner loop is
-`engine.servo_to`'s, unchanged in shape:
+Primitives use `DiffIK` + `CriticalDamper`. Terminal convergence retains
+`engine.servo_to`'s inner-loop shape:
 
 ```python
 damper.apply(data)
@@ -208,14 +208,23 @@ mujoco.mj_step(model, data)
 ```
 
 The **command** is integrated and fed back; the setpoint is never rebuilt from measured
-`qpos`. Waypoints settle on `POS_TOL`/`ORI_TOL` held for `HOLD`, with an 8 s per-waypoint
-timeout. Transit waypoints use looser tolerances (5 mm, 5°, 0.1 s hold) than
-grasp/place waypoints (1 mm, 1°, 0.3 s).
+`qpos`. Grasp, place, and the final retreat settle on `POS_TOL`/`ORI_TOL` held for
+`HOLD`, with an 8 s terminal timeout.
 
-`pick(color)` → move to the safe height above the block, descend to pregrasp, descend to
-grasp, close, rise straight back to the safe height.
-`place(xy, z)` → arrive above the target at the safe height, descend to hover, descend to
-place, open, rise straight back up.
+Intermediate safe-height, pregrasp, hover, and retreat poses are pass-through control
+points of a continuous Cartesian trajectory. Short quadratic fillets round their
+corners, while a quintic time law limits scalar and angular velocity, acceleration,
+and jerk over the complete motion phase. Differential IK tracks the moving pose using its
+trajectory twist as feed-forward plus proportional pose-error feedback. Joint command
+acceleration receives a final per-step limit. This avoids the old pattern of braking,
+holding for 0.1 s, and accelerating again at every transit waypoint. Orientation
+changes are delayed until the open gripper has cleared a newly placed stack.
+
+`pick(color)` → smoothly join a pending retreat (if any), safe transit, pregrasp, and
+grasp; stop and close.
+`place(xy, z)` → smoothly join vertical lift, safe transit, hover, and place; stop and
+open. The vertical retreat is joined to the next pick, or executed by `finish()` after
+the last placement.
 
 Two corrections make stacking work, and both are load-bearing:
 

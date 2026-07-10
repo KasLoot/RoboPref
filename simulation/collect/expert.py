@@ -1,9 +1,11 @@
-"""Scripted pick-and-place expert on top of the frozen DiffIK + CriticalDamper.
+"""Scripted pick-and-place expert on top of DiffIK + CriticalDamper.
 
-The inner loop is engine.servo_to's, unchanged in shape:
+Terminal convergence keeps engine.servo_to's feedback loop.  Motion phases add a
+feed-forward trajectory twist to the same differential IK solve:
 
     damper.apply(data)
-    q_cmd = ik.step(data, target_pos, target_quat, q_cmd)
+    dq = ik.velocity(data, target_pos, target_quat, feedforward=trajectory_twist)
+    q_cmd = ik.integrate(q_cmd, dq)
     data.ctrl[:6] = q_cmd
     mujoco.mj_step(model, data)
 
@@ -22,6 +24,7 @@ import numpy as np
 import config as C
 from ik import DiffIK
 from servo import CriticalDamper
+from trajectory import BlendedPath, duration_for_limits, smoothstep5
 
 
 class ExpertFailure(RuntimeError):
@@ -55,8 +58,10 @@ class Expert:
         self.ik = DiffIK(self.model, pos_gain=C.GAIN, ori_gain=C.GAIN)
         self.damper = CriticalDamper(self.model)
         self.q_cmd = data.qpos[self.ik.qadr].copy()
+        self._dq_cmd = np.zeros_like(self.q_cmd)
         self.grip = C.GRIP_OPEN
         self._carry = None  # (TCP - block) offset measured on the held block
+        self._pending_retreat = None  # (safe position, orientation) after a release
         self.target_pos = None  # last servo target, for the preview's markers
         self.target_quat = None
 
@@ -64,7 +69,7 @@ class Expert:
             raise RuntimeError("expected actuators 0..5 = arm, 6 = gripper")
 
     # -- physics ------------------------------------------------------------
-    def _step(self, target_pos=None, target_quat=None):
+    def _step(self, target_pos=None, target_quat=None, feedforward=None):
         model, data = self.model, self.data
         qpos = data.qpos[self.ik.qadr].copy()
         qvel = data.qvel[self.ik.dofadr].copy()
@@ -72,7 +77,17 @@ class Expert:
         self.damper.apply(data)
         if target_pos is not None:
             self.target_pos, self.target_quat = target_pos, target_quat
-            self.q_cmd = self.ik.step(data, target_pos, target_quat, self.q_cmd)
+            speed_limits = ({"max_linear_speed": C.TRAJ_LINEAR_SPEED,
+                             "max_angular_speed": C.TRAJ_ANGULAR_SPEED}
+                            if feedforward is not None else {})
+            dq = self.ik.velocity(data, target_pos, target_quat, feedforward=feedforward,
+                                  **speed_limits)
+            max_delta = C.TRAJ_JOINT_ACCEL * model.opt.timestep
+            dq = self._dq_cmd + np.clip(dq - self._dq_cmd, -max_delta, max_delta)
+            self._dq_cmd = dq
+            self.q_cmd = self.ik.integrate(self.q_cmd, dq)
+        else:
+            self._dq_cmd.fill(0.0)
         data.ctrl[:6] = self.q_cmd
         data.ctrl[self.scene.gripper_act] = self.grip
         mujoco.mj_step(model, data)
@@ -121,14 +136,109 @@ class Expert:
             f"timeout at {target_pos} (pos_err={pos_err * 1e3:.2f} mm, "
             f"ori_err={np.rad2deg(ori_err):.2f} deg)")
 
+    @staticmethod
+    def _slerp(start, target, fraction):
+        """Shortest-path quaternion interpolation in wxyz convention."""
+        start = np.asarray(start, dtype=float)
+        target = np.asarray(target, dtype=float)
+        start = start / np.linalg.norm(start)
+        target = target / np.linalg.norm(target)
+        dot = float(np.dot(start, target))
+        if dot < 0.0:
+            target, dot = -target, -dot
+        dot = np.clip(dot, -1.0, 1.0)
+        if dot > 1.0 - 1e-8:
+            result = start + float(fraction) * (target - start)
+            return result / np.linalg.norm(result)
+        theta = np.arccos(dot)
+        result = (np.sin((1.0 - fraction) * theta) * start
+                  + np.sin(fraction * theta) * target) / np.sin(theta)
+        return result / np.linalg.norm(result)
+
+    @staticmethod
+    def _rotation_vector(start, target):
+        """World-frame shortest rotation taking ``start`` onto ``target``."""
+        start = np.asarray(start, dtype=float)
+        target = np.asarray(target, dtype=float)
+        if np.dot(start, target) < 0.0:
+            target = -target
+        conjugate, residual, vector = np.empty(4), np.empty(4), np.empty(3)
+        mujoco.mju_negQuat(conjugate, start)
+        mujoco.mju_mulQuat(residual, target, conjugate)
+        mujoco.mju_quat2Vel(vector, residual, 1.0)
+        return vector
+
+    def trajectory(self, waypoints, target_quat, tight, *, rotate_after=None,
+                   rotate_before=None):
+        """Track one smooth trajectory through pass-through ``waypoints``.
+
+        A quintic progress law supplies bounded velocity, acceleration and jerk.
+        Differential IK receives its Cartesian velocity as feed-forward, leaving
+        pose error to provide tracking correction.  Only the final waypoint uses
+        the normal tolerance/hold convergence check.
+
+        ``rotate_after``/``rotate_before`` delimit the safe part of the path in
+        which orientation may change; this prevents an open gripper rotating next
+        to a newly placed stack.
+        """
+        target_quat = np.asarray(target_quat, dtype=float)
+        start_pos, start_quat = self.ik.tool_pose(self.data)
+        points = [start_pos] + [np.asarray(point, dtype=float) for point in waypoints]
+        for point in points[1:]:
+            if not C.reachable(point):
+                raise ExpertFailure(f"target {point} outside the verified workspace")
+
+        try:
+            path = BlendedPath(points, C.TRAJ_BLEND_RADIUS)
+        except ValueError:
+            return self.servo(points[-1], target_quat, tight)
+
+        rotation_start = 0.0 if rotate_after is None else path.closest_fraction(rotate_after)
+        rotation_end = 1.0 if rotate_before is None else path.closest_fraction(rotate_before)
+        if rotation_end <= rotation_start + 1e-3:
+            rotation_start, rotation_end = 0.0, 1.0
+        rotation = self._rotation_vector(start_quat, target_quat)
+        limits = {
+            "linear_speed": C.TRAJ_LINEAR_SPEED,
+            "linear_accel": C.TRAJ_LINEAR_ACCEL,
+            "linear_jerk": C.TRAJ_LINEAR_JERK,
+            "angular_speed": C.TRAJ_ANGULAR_SPEED,
+            "angular_accel": C.TRAJ_ANGULAR_ACCEL,
+            "angular_jerk": C.TRAJ_ANGULAR_JERK,
+            "min_duration": C.TRAJ_MIN_DURATION,
+        }
+        duration = duration_for_limits(
+            path.length, np.linalg.norm(rotation), (rotation_start, rotation_end), limits)
+
+        started = self.data.time
+        while self.data.time - started < duration:
+            tau = min((self.data.time - started) / duration, 1.0)
+            progress, progress_rate = smoothstep5(tau)
+            progress, progress_rate = float(progress), float(progress_rate) / duration
+            target_pos, tangent = path.at(progress * path.length)
+            linear_velocity = tangent * path.length * progress_rate
+
+            local = (progress - rotation_start) / (rotation_end - rotation_start)
+            quat_progress, quat_local_rate = smoothstep5(local)
+            quat_progress, quat_local_rate = float(quat_progress), float(quat_local_rate)
+            quat_rate = (quat_local_rate * progress_rate
+                         / (rotation_end - rotation_start))
+            target_orientation = self._slerp(start_quat, target_quat, quat_progress)
+            twist = np.concatenate([linear_velocity, rotation * quat_rate])
+            self._step(target_pos, target_orientation, feedforward=twist)
+
+        # The time law reaches zero velocity at the end.  Retain the original
+        # terminal accuracy and stability test without stopping at any via point.
+        self.servo(points[-1], target_quat, tight)
+
     # -- primitives ---------------------------------------------------------
     def pick(self, color):
         """Pregrasp above the block, descend, close, lift. Returns the grasp quat.
 
         The block pose is re-read from ``data`` at call time: earlier placements and
-        settling move things. After the lift we measure where the block actually
-        ended up in the fingers -- closing them nudges it by ~0.7 mm, and it can
-        settle a little low -- and ``place`` corrects the target by that offset.
+        settling move things. After closing we measure where the block actually
+        ended up in the fingers -- closing nudges it by ~0.7 mm -- and ``place``
+        corrects the target by that offset.
         """
         pos = self.scene.block_pos(self.data, color)
         quat = C.tool_down_quat(C.grasp_yaw(self.scene.block_yaw(self.data, color)))
@@ -138,18 +248,26 @@ class Expert:
         safe = np.array([pos[0], pos[1], max(self.safe_z, grasp[2] + C.LIFT_DZ)])
 
         self.set_grip(C.GRIP_OPEN, 0.0)
-        self.servo(safe, quat, tight=False)  # cross the scene high, then come down
-        self.servo(pregrasp, quat, tight=False)
-        self.servo(grasp, quat, tight=True)
+        waypoints = []
+        rotate_after = None
+        if self._pending_retreat is not None:
+            retreat, _ = self._pending_retreat
+            waypoints.append(retreat)
+            rotate_after = retreat
+            self._pending_retreat = None
+        waypoints.extend([safe, pregrasp, grasp])
+        self.trajectory(waypoints, quat, tight=True, rotate_after=rotate_after,
+                        rotate_before=pregrasp)
         self.set_grip(C.GRIP_CLOSE, C.GRIP_CLOSE_TIME)
-        self.servo(safe, quat, tight=False)  # straight up, never diagonally
 
+        # Closing has already captured its ~0.7 mm lateral nudge.  Measuring here
+        # lets lift, transit and descent form one continuous motion phase.
         tcp = self.ik.tool_pose(self.data)[0]
         self._carry = tcp - self.scene.block_pos(self.data, color)
         return quat
 
     def place(self, target_xy, target_z, quat):
-        """Transit above the target, descend, open, retreat.
+        """Lift, transit above the target, descend, open, and queue the retreat.
 
         ``target_xy``/``target_z`` are where the *block centre* should come to rest.
         The TCP target is offset by the measured carry offset, so the block -- not
@@ -165,16 +283,26 @@ class Expert:
         hover = place_pos + [0.0, 0.0, C.HOVER_DZ]
         safe = np.array([place_pos[0], place_pos[1], max(self.safe_z, hover[2])])
 
-        self.servo(safe, quat, tight=False)  # arrive over the target from above
-        self.servo(hover, quat, tight=False)
-        self.servo(place_pos, quat, tight=True)
+        tcp = self.ik.tool_pose(self.data)[0]
+        lift = np.array([tcp[0], tcp[1], max(self.safe_z, hover[2])])
+        self.trajectory([lift, safe, hover, place_pos], quat, tight=True)
         self.set_grip(C.GRIP_OPEN, C.GRIP_OPEN_TIME)
-        self.servo(safe, quat, tight=False)  # straight up, clear of the stack
+        # The next pick joins this vertical retreat to its safe transit without
+        # stopping.  finish() executes it after the final placement.
+        self._pending_retreat = (safe, np.asarray(quat, dtype=float))
         self._carry = None
 
     def transfer(self, color, target_xy, target_z):
         quat = self.pick(color)
         self.place(target_xy, target_z, quat)
+
+    def finish(self):
+        """Execute the final pending vertical retreat and come to rest."""
+        if self._pending_retreat is None:
+            return
+        safe, quat = self._pending_retreat
+        self._pending_retreat = None
+        self.trajectory([safe], quat, tight=False)
 
 
 def stack_target(scene, data, below):

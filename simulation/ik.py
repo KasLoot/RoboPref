@@ -83,14 +83,30 @@ class DiffIK:
         mujoco.mju_quat2Vel(err[3:], residual, 1.0)
         return err
 
-    def velocity(self, data, target_pos, target_quat=None):
+    def velocity(self, data, target_pos, target_quat=None, feedforward=None,
+                 max_linear_speed=None, max_angular_speed=None):
         """Arm joint velocities (rad/s) driving the tool toward the target pose.
+
+        ``feedforward`` is an optional desired Cartesian twist ``(v, omega)``.
+        The pose-error term then acts as tracking feedback instead of being solely
+        responsible for generating motion.  Omitting it preserves the original
+        fixed-target servo behaviour.
 
         Scaled down as a group if any joint exceeds ``max_speed``, so the
         commanded direction is preserved.
         """
         err = self.error(data, target_pos, target_quat)
         twist = np.concatenate([self.pos_gain * err[:3], self.ori_gain * err[3:]])
+        if feedforward is not None:
+            ff = np.asarray(feedforward, dtype=float)
+            if ff.shape != (6,):
+                raise ValueError(f"feedforward twist must have shape (6,), got {ff.shape}")
+            twist += ff
+        for part, limit in ((twist[:3], max_linear_speed),
+                            (twist[3:], max_angular_speed)):
+            norm = np.linalg.norm(part)
+            if limit is not None and norm > limit:
+                part *= float(limit) / norm
 
         mujoco.mj_jac(self.model, data, self._jacp, self._jacr, self.tool_pose(data)[0], self.body)
         jac = np.vstack([self._jacp, self._jacr])[:, self.dofadr]
@@ -104,7 +120,15 @@ class DiffIK:
         scale = np.max(np.abs(dq)) / self.max_speed
         return dq / scale if scale > 1.0 else dq
 
-    def step(self, data, target_pos, target_quat, q_cmd, dt=None):
+    def integrate(self, q_cmd, dq, dt=None):
+        """Integrate a joint-velocity command and clamp it to joint limits."""
+        q = np.asarray(q_cmd, dtype=float) + np.asarray(dq, dtype=float) * (
+            self.model.opt.timestep if dt is None else dt)
+        q[self.limited] = np.clip(q[self.limited], self.lo, self.hi)
+        return q
+
+    def step(self, data, target_pos, target_quat, q_cmd, dt=None, feedforward=None,
+             max_linear_speed=None, max_angular_speed=None):
         """Integrate one velocity step onto ``q_cmd`` and clamp to joint limits.
 
         Returns the next position setpoint for the arm actuators, which are
@@ -119,7 +143,7 @@ class DiffIK:
 
         ``dt`` defaults to the physics timestep, right for one call per mj_step.
         """
-        dq = self.velocity(data, target_pos, target_quat)
-        q = np.asarray(q_cmd, dtype=float) + dq * (self.model.opt.timestep if dt is None else dt)
-        q[self.limited] = np.clip(q[self.limited], self.lo, self.hi)
-        return q
+        dq = self.velocity(
+            data, target_pos, target_quat, feedforward=feedforward,
+            max_linear_speed=max_linear_speed, max_angular_speed=max_angular_speed)
+        return self.integrate(q_cmd, dq, dt)
