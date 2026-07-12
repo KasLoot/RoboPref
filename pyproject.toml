@@ -7,11 +7,16 @@ requires-python = ">=3.13"
 dependencies = [
     "colorama>=0.4.6",
     "h5py>=3.16.0",
+    "jax>=0.10.2",
     "mujoco>=3.10.0",
     "ollama>=0.6.2",
     "openai>=2.44.0",
+    "orbax>=0.1.9",
     "pillow>=12.3.0",
     "pillow-heif>=1.4.0",
     "pyyaml>=6.0.3",
+    "sentencepiece>=0.2.2",
+    "torch>=2.13.0",
+    "torchvision>=0.28.0",
     "tqdm>=4.68.3",
 ]
