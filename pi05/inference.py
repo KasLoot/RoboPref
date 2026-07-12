@@ -117,7 +117,7 @@ def make_droid_example(seed: int = 0, prompt: str = "do something") -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Pi-0.5 PyTorch inference demo.")
-    parser.add_argument("--checkpoint", default="/data/models/pi05_base", help="Checkpoint dir (contains params/ and assets/).")
+    parser.add_argument("--checkpoint", default="/data/models/pi05_base_pytorch", help="Checkpoint dir (contains params/ and assets/).")
     parser.add_argument("--embodiment", default="droid", help="Which assets/<embodiment>/norm_stats.json to use.")
     parser.add_argument("--tokenizer", default=str(DEFAULT_TOKENIZER))
     parser.add_argument("--prompt", default="do something")
