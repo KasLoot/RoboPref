@@ -25,11 +25,12 @@ DEFAULT_TOKENIZER = pathlib.Path.home() / ".cache/openpi/big_vision/paligemma_to
 
 
 class Pi05Policy:
-    """End-to-end DROID policy: raw observation dict -> action chunk.
+    """Raw observation -> unnormalized action chunk, for any embodiment.
 
     Wraps the model together with the tokenizer and the per-embodiment
-    normalization statistics, and applies the same input/output pipeline as the
-    original openpi policy for the pi05 DROID setup.
+    normalization statistics. ``infer_raw`` is the generic entry point (images
+    keyed by model slot); ``infer`` keeps the original DROID observation-dict
+    interface on top of it.
     """
 
     def __init__(
@@ -39,6 +40,7 @@ class Pi05Policy:
         tokenizer_path: str | pathlib.Path = DEFAULT_TOKENIZER,
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
         dtype: torch.dtype | None = None,
+        token_len: int | None = None,
     ):
         self.device = device
         # bf16 on GPU (the ~3.3B-param model does not fit in float32 on a 12 GB
@@ -48,43 +50,41 @@ class Pi05Policy:
             dtype = torch.bfloat16 if str(device).startswith("cuda") else torch.float32
         self.config = Pi05Config()
         self.model = Pi05Model.from_pretrained(checkpoint_dir, self.config, dtype=dtype, device=device)
-        self.tokenizer = utils.PaligemmaTokenizer(tokenizer_path, max_len=self.config.max_token_len)
+        # Padding shorter than max_token_len is exact (pad tokens are masked);
+        # fine-tuned embodiments pass the token_len they were trained with.
+        self.tokenizer = utils.PaligemmaTokenizer(
+            tokenizer_path, max_len=token_len or self.config.max_token_len)
         self.norm_stats = utils.load_norm_stats(pathlib.Path(checkpoint_dir) / "assets", embodiment)
 
-    def infer(self, observation: dict, *, num_steps: int = 10, noise=None) -> np.ndarray:
-        """Predict actions for a DROID observation.
+    def infer_raw(self, images: dict, state: np.ndarray, prompt: str, *,
+                  num_steps: int = 10, noise=None) -> np.ndarray:
+        """Predict an unnormalized ``(horizon, 32)`` action chunk.
 
-        Expected keys (matching ``droid_policy.make_droid_example``):
-            observation/exterior_image_1_left: (H, W, 3) uint8
-            observation/wrist_image_left:      (H, W, 3) uint8
-            observation/joint_position:        (7,) float
-            observation/gripper_position:      (1,) float
-            prompt:                            str
+        Args:
+            images: model image slot -> (H, W, 3) uint8, e.g.
+                ``{"base_0_rgb": ..., "left_wrist_0_rgb": ...}``. Only provided
+                slots are embedded; a slot may also map to None, which feeds a
+                zero image with a False mask (identical result, slower).
+            state: raw low-dim state; quantile-normalized with the embodiment's
+                stats, then discretized into the prompt.
+            prompt: language instruction.
+
+        The caller slices the action dims it uses; dims beyond the embodiment's
+        stats pass through unnormalization untouched.
         """
-        # --- assemble & normalize the low-dim state (7 joints + 1 gripper) ---
-        gripper = np.atleast_1d(np.asarray(observation["observation/gripper_position"], dtype=np.float32))
-        state = np.concatenate([np.asarray(observation["observation/joint_position"], dtype=np.float32), gripper])
-        state = utils.normalize_quantile(state, self.norm_stats["state"])
+        state = utils.normalize_quantile(np.asarray(state, dtype=np.float32),
+                                         self.norm_stats["state"])
+        tokens, token_mask = self.tokenizer.tokenize(prompt, state)
 
-        # --- tokenize prompt + discretized state (pi05 discrete-state format) ---
-        tokens, token_mask = self.tokenizer.tokenize(observation["prompt"], state)
-
-        # --- images: exterior -> base, wrist -> left wrist, right wrist masked ---
-        base = utils.image_to_model_input(np.asarray(observation["observation/exterior_image_1_left"]))
-        wrist = utils.image_to_model_input(np.asarray(observation["observation/wrist_image_left"]))
-        images = {
-            "base_0_rgb": base,
-            "left_wrist_0_rgb": wrist,
-            "right_wrist_0_rgb": np.zeros_like(base),
-        }
-        image_present = {"base_0_rgb": True, "left_wrist_0_rgb": True, "right_wrist_0_rgb": False}
-
-        # --- to tensors (add batch dim, HWC -> CHW) ---
         img_tensors, mask_tensors = {}, {}
         for key, img in images.items():
-            t = torch.from_numpy(img).permute(2, 0, 1)[None].to(self.device, self.model.dtype)
+            present = img is not None
+            if not present:
+                img = np.zeros((224, 224, 3), dtype=np.uint8)
+            model_input = utils.image_to_model_input(np.asarray(img))
+            t = torch.from_numpy(model_input).permute(2, 0, 1)[None].to(self.device, self.model.dtype)
             img_tensors[key] = t
-            mask_tensors[key] = torch.tensor([image_present[key]], device=self.device)
+            mask_tensors[key] = torch.tensor([present], device=self.device)
 
         tok = torch.from_numpy(tokens)[None].to(self.device)
         tok_mask = torch.from_numpy(token_mask)[None].to(self.device)
@@ -93,12 +93,31 @@ class Pi05Policy:
         if noise is not None:
             noise_t = torch.from_numpy(np.asarray(noise, dtype=np.float32))[None].to(self.device, self.model.dtype)
 
-        # --- sample actions, then unnormalize back to robot units ---
         actions = self.model.sample_actions(
             img_tensors, mask_tensors, tok, tok_mask, num_steps=num_steps, noise=noise_t
         )
         actions = actions[0].float().cpu().numpy()  # (horizon, 32)
-        actions = utils.unnormalize_quantile(actions, self.norm_stats["actions"])
+        return utils.unnormalize_quantile(actions, self.norm_stats["actions"])
+
+    def infer(self, observation: dict, *, num_steps: int = 10, noise=None) -> np.ndarray:
+        """Predict actions for a DROID observation (original interface).
+
+        Expected keys (matching ``droid_policy.make_droid_example``):
+            observation/exterior_image_1_left: (H, W, 3) uint8
+            observation/wrist_image_left:      (H, W, 3) uint8
+            observation/joint_position:        (7,) float
+            observation/gripper_position:      (1,) float
+            prompt:                            str
+        """
+        gripper = np.atleast_1d(np.asarray(observation["observation/gripper_position"], dtype=np.float32))
+        state = np.concatenate([np.asarray(observation["observation/joint_position"], dtype=np.float32), gripper])
+        images = {
+            "base_0_rgb": np.asarray(observation["observation/exterior_image_1_left"]),
+            "left_wrist_0_rgb": np.asarray(observation["observation/wrist_image_left"]),
+            "right_wrist_0_rgb": None,  # zero-filled and masked out, as before
+        }
+        actions = self.infer_raw(images, state, observation["prompt"],
+                                 num_steps=num_steps, noise=noise)
         # DROID uses the first 8 action dimensions (7 joint velocities + 1 gripper).
         return actions[:, :8]
 

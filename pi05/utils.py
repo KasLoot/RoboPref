@@ -88,16 +88,9 @@ class NormStats:
     q99: np.ndarray
 
 
-def load_norm_stats(assets_dir: str | pathlib.Path, embodiment: str) -> dict[str, NormStats]:
-    """Load ``norm_stats.json`` for a given embodiment (e.g. ``"droid"``).
-
-    The file lives at ``<checkpoint>/assets/<embodiment>/norm_stats.json`` and
-    contains statistics for the ``state`` and ``actions`` keys.
-    """
-    path = pathlib.Path(assets_dir) / embodiment / "norm_stats.json"
-    with path.open("r") as f:
-        raw = json.load(f)["norm_stats"]
-
+def parse_norm_stats(raw: dict) -> dict[str, NormStats]:
+    """Build ``NormStats`` from a decoded norm_stats payload (the dict under
+    the JSON's top-level ``"norm_stats"`` key)."""
     stats = {}
     for key, values in raw.items():
         stats[key] = NormStats(
@@ -107,6 +100,17 @@ def load_norm_stats(assets_dir: str | pathlib.Path, embodiment: str) -> dict[str
             q99=np.asarray(values["q99"], dtype=np.float32),
         )
     return stats
+
+
+def load_norm_stats(assets_dir: str | pathlib.Path, embodiment: str) -> dict[str, NormStats]:
+    """Load ``norm_stats.json`` for a given embodiment (e.g. ``"droid"``).
+
+    The file lives at ``<checkpoint>/assets/<embodiment>/norm_stats.json`` and
+    contains statistics for the ``state`` and ``actions`` keys.
+    """
+    path = pathlib.Path(assets_dir) / embodiment / "norm_stats.json"
+    with path.open("r") as f:
+        return parse_norm_stats(json.load(f)["norm_stats"])
 
 
 def normalize_quantile(x: np.ndarray, stats: NormStats) -> np.ndarray:

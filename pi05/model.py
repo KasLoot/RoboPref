@@ -465,9 +465,17 @@ class Pi05Model(nn.Module):
 
     # ---- prefix / suffix embedding -------------------------------------- #
     def embed_prefix(self, images, image_masks, tokens, token_mask):
-        """Embed images + language tokens into the shared prefix sequence."""
+        """Embed images + language tokens into the shared prefix sequence.
+
+        Image keys absent from ``images`` are skipped entirely. This is exactly
+        equivalent to passing a zero image with a False mask -- masked tokens
+        can neither attend nor be attended to, and positions count only valid
+        tokens -- but skips their vision-encoder and attention cost.
+        """
         embs, masks = [], []
         for key in self.IMAGE_KEYS:
+            if key not in images:
+                continue
             image_tokens = self.vision(images[key])  # (B, 256, 2048)
             embs.append(image_tokens)
             masks.append(image_masks[key][:, None].expand(-1, image_tokens.shape[1]))
@@ -503,6 +511,36 @@ class Pi05Model(nn.Module):
         ar_mask[0] = True
         return action_tokens, input_mask, ar_mask, adarms_cond
 
+    # ---- shared prefix/suffix passes ------------------------------------- #
+    # compute_loss trains against the exact attention patterns sample_actions
+    # executes; both MUST go through these two helpers so the mask/position
+    # construction cannot drift apart.
+    def _prefix_kv(self, images, image_masks, tokens, token_mask):
+        """One forward pass over the prefix (expert 0 only) -> (kv_cache, prefix_mask)."""
+        prefix_emb, prefix_mask, prefix_ar = self.embed_prefix(images, image_masks, tokens, token_mask)
+        prefix_attn = make_attn_mask(prefix_mask, prefix_ar)
+        prefix_positions = torch.cumsum(prefix_mask.int(), dim=1) - 1
+        _, kv_cache = self.llm([prefix_emb, None], prefix_positions, prefix_attn)
+        return kv_cache, prefix_mask
+
+    def _suffix_velocity(self, x_t, timestep, prefix_mask, kv_cache):
+        """Velocity field for noisy actions ``x_t`` at ``timestep``, attending to
+        the cached prefix. The suffix attends to all valid prefix tokens plus
+        itself (bidirectionally); positions continue after the valid prefix."""
+        horizon = x_t.shape[1]
+        suffix_emb, suffix_mask, suffix_ar, adarms_cond = self.embed_suffix(x_t, timestep)
+
+        suffix_attn = make_attn_mask(suffix_mask, suffix_ar)                    # (B, H, H)
+        prefix_kv_mask = prefix_mask[:, None, :].expand(-1, horizon, -1)        # (B, H, prefix_len)
+        full_attn = torch.cat([prefix_kv_mask, suffix_attn], dim=-1)            # (B, H, prefix+H)
+        positions = prefix_mask.int().sum(dim=-1, keepdim=True) + torch.cumsum(suffix_mask.int(), dim=-1) - 1
+
+        (_, suffix_out), _ = self.llm(
+            [None, suffix_emb], positions, full_attn,
+            adarms_cond=[None, adarms_cond], kv_cache=kv_cache,
+        )
+        return self.action_out_proj(suffix_out[:, -horizon:])
+
     # ---- action sampling (flow matching) -------------------------------- #
     @torch.no_grad()
     def sample_actions(self, images, image_masks, tokens, token_mask, *, num_steps: int = 10, noise=None):
@@ -514,16 +552,8 @@ class Pi05Model(nn.Module):
         if noise is None:
             noise = torch.randn(batch_size, horizon, adim, device=device, dtype=self.dtype)
 
-        # 1) Fill the KV cache with a single forward pass over the prefix (expert 0 only).
-        prefix_emb, prefix_mask, prefix_ar = self.embed_prefix(images, image_masks, tokens, token_mask)
-        prefix_attn = make_attn_mask(prefix_mask, prefix_ar)
-        prefix_positions = torch.cumsum(prefix_mask.int(), dim=1) - 1
-        _, kv_cache = self.llm([prefix_emb, None], prefix_positions, prefix_attn)
-
-        prefix_len = prefix_emb.shape[1]
-        # Precompute how the suffix attends to the (fixed) prefix.
-        prefix_kv_mask = prefix_mask[:, None, :].expand(-1, horizon, -1)  # (B, H, prefix_len)
-        prefix_count = prefix_mask.int().sum(dim=-1, keepdim=True)        # (B, 1)
+        # 1) Fill the KV cache with a single forward pass over the prefix.
+        kv_cache, prefix_mask = self._prefix_kv(images, image_masks, tokens, token_mask)
 
         # 2) Integrate the velocity field from t=1 (noise) down to t=0.
         dt = -1.0 / num_steps
@@ -531,21 +561,57 @@ class Pi05Model(nn.Module):
         time = 1.0
         while time >= -dt / 2:
             timestep = torch.full((batch_size,), time, device=device, dtype=self.dtype)
-            suffix_emb, suffix_mask, suffix_ar, adarms_cond = self.embed_suffix(x_t, timestep)
-
-            suffix_attn = make_attn_mask(suffix_mask, suffix_ar)               # (B, H, H)
-            full_attn = torch.cat([prefix_kv_mask, suffix_attn], dim=-1)        # (B, H, prefix+H)
-            positions = prefix_count + torch.cumsum(suffix_mask.int(), dim=-1) - 1
-
-            (_, suffix_out), _ = self.llm(
-                [None, suffix_emb], positions, full_attn,
-                adarms_cond=[None, adarms_cond], kv_cache=kv_cache,
-            )
-            v_t = self.action_out_proj(suffix_out[:, -horizon:])
+            v_t = self._suffix_velocity(x_t, timestep, prefix_mask, kv_cache)
             x_t = x_t + dt * v_t
             time += dt
 
         return x_t
+
+    # ---- flow-matching training loss ------------------------------------ #
+    def compute_loss(self, images, image_masks, tokens, token_mask, actions, *,
+                     time=None, noise=None, freeze_prefix: bool = True):
+        """Per-sample flow-matching loss for a batch of action chunks.
+
+        ``sample_actions`` integrates ``x_t <- x_t + dt * v`` from t=1 (noise)
+        to t=0 (actions), so the marginal path is ``x_t = t*eps + (1-t)*a`` and
+        the velocity target is ``u = eps - a``. The suffix pass below mirrors
+        the sampling loop's mask/position construction exactly, so training and
+        inference see identical attention patterns.
+
+        With ``freeze_prefix`` the vision/backbone prefix runs under no_grad and
+        its KV cache enters the suffix attention as a constant: gradients reach
+        only the action expert (expert 1) and the action/time heads.
+
+        Args:
+            actions: ``(B, horizon, action_dim)`` normalized, zero-padded chunk.
+            time: optional ``(B,)`` flow times in (0, 1]; sampled from the
+                openpi convention ``Beta(1.5, 1)*0.999 + 0.001`` when None.
+            noise: optional ``(B, horizon, action_dim)`` standard normal.
+
+        Returns:
+            ``(B,)`` float32 loss, the MSE over all horizon x action_dim dims.
+        """
+        actions = actions.float()
+        batch_size = actions.shape[0]
+
+        if noise is None:
+            noise = torch.randn_like(actions)
+        else:
+            noise = noise.float()
+        if time is None:
+            time = torch.distributions.Beta(1.5, 1.0).sample((batch_size,)) * 0.999 + 0.001
+        time = time.to(device=actions.device, dtype=torch.float32)
+
+        t = time[:, None, None]
+        x_t = t * noise + (1.0 - t) * actions
+        u_t = noise - actions
+
+        prefix_ctx = torch.no_grad() if freeze_prefix else torch.enable_grad()
+        with prefix_ctx:
+            kv_cache, prefix_mask = self._prefix_kv(images, image_masks, tokens, token_mask)
+
+        v_t = self._suffix_velocity(x_t.to(self.dtype), time.to(self.dtype), prefix_mask, kv_cache)
+        return ((v_t.float() - u_t) ** 2).mean(dim=(-2, -1))
 
     @property
     def dtype(self) -> torch.dtype:
@@ -597,6 +663,43 @@ class Pi05Model(nn.Module):
         flat = utils.load_orbax_params(params_path)
         load_jax_weights(model, flat)  # copies (and frees) arrays one at a time
         return model
+
+
+# --------------------------------------------------------------------------- #
+# Trainable-parameter selection                                                #
+# --------------------------------------------------------------------------- #
+# Expert-1 weights + adaRMS modulations + action/time heads. The count is fixed
+# by the architecture; asserting it catches any silent drift in parameter names.
+ACTION_EXPERT_PARAM_COUNT = 430_098_464
+
+
+def action_expert_parameters(model: Pi05Model) -> list[str]:
+    """Names of the parameters trained during an action-expert-only fine-tune.
+
+    Everything the suffix pass touches: per-layer expert-1 attention / MLP /
+    adaRMS modulation weights, the expert-1 final norm, the action in/out
+    projections and the timestep MLP. The vision tower, the token embedder and
+    all expert-0 (PaliGemma) weights stay frozen.
+    """
+    names = []
+    for name, _ in model.named_parameters():
+        parts = name.split(".")
+        if name.startswith(("action_in_proj.", "action_out_proj.",
+                            "time_mlp_in.", "time_mlp_out.", "llm.final_norm.1.")):
+            names.append(name)
+        elif name.startswith("llm.layers.") and (
+            (parts[3] == "attn" and parts[5] == "1")
+            or (parts[3] in ("mlp", "pre_attn_norm", "pre_ffw_norm") and parts[4] == "1")
+        ):
+            names.append(name)
+
+    params = dict(model.named_parameters())
+    total = sum(params[n].numel() for n in names)
+    if total != ACTION_EXPERT_PARAM_COUNT:
+        raise RuntimeError(
+            f"action-expert selection matched {total:,} params, "
+            f"expected {ACTION_EXPERT_PARAM_COUNT:,} -- parameter names drifted?")
+    return names
 
 
 # --------------------------------------------------------------------------- #
