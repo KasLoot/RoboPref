@@ -18,7 +18,5 @@ dependencies = [
     "pillow-heif>=1.4.0",
     "pyyaml>=6.0.3",
     "sentencepiece>=0.2.2",
-    "torch>=2.13.0",
-    "torchvision>=0.28.0",
     "tqdm>=4.68.3",
 ]
