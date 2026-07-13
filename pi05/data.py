@@ -34,7 +34,7 @@ import numpy as np
 import torch
 
 from . import utils
-from .embodiment import ARX_L5, EmbodimentSpec, chunk_indices
+from .embodiment import ARX_L5, EMBODIMENTS, EmbodimentSpec, chunk_indices
 
 
 @dataclasses.dataclass(frozen=True)
@@ -79,6 +79,12 @@ class ArxChunkDataset(torch.utils.data.Dataset):
                 if split is not None and f.attrs["split"] != split:
                     continue
                 assert abs(float(f.attrs["sim_timestep"]) - self.sim_dt) < 1e-12, path
+                for camera in spec.image_obs_keys.values():
+                    if f"cameras/{camera}" not in f:
+                        raise ValueError(
+                            f"{path.name} has no camera {camera!r} -- dataset collected "
+                            f"before that view existed? Use the matching embodiment "
+                            f"(e.g. arx_l5 for 2-camera recordings).")
                 meta = EpisodeMeta(
                     path=path,
                     instruction=str(f.attrs["instruction"]),
@@ -221,6 +227,7 @@ def main() -> None:
     parser.add_argument("--tokenizer", default=str(DEFAULT_TOKENIZER))
     parser.add_argument("--norm-stats", default=None,
                         help="norm_stats JSON (default: compute from the train split)")
+    parser.add_argument("--embodiment", default=ARX_L5.name, choices=sorted(EMBODIMENTS))
     parser.add_argument("-n", type=int, default=8, help="samples to dump")
     parser.add_argument("--split", default="train")
     args = parser.parse_args()
@@ -231,8 +238,10 @@ def main() -> None:
         print("computing norm stats from the train split ...")
         norm_stats = compute_norm_stats(args.dataset, split="train")
 
-    dataset = ArxChunkDataset(args.dataset, args.tokenizer, norm_stats, split=args.split)
-    print(f"{len(dataset.episodes)} episodes, {len(dataset)} samples ({args.split} split)")
+    dataset = ArxChunkDataset(args.dataset, args.tokenizer, norm_stats,
+                              spec=EMBODIMENTS[args.embodiment], split=args.split)
+    print(f"{len(dataset.episodes)} episodes, {len(dataset)} samples "
+          f"({args.split} split, {args.embodiment})")
 
     dump = pathlib.Path(args.dump_dir)
     dump.mkdir(parents=True, exist_ok=True)

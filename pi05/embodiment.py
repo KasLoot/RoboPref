@@ -78,4 +78,20 @@ ARX_L5 = EmbodimentSpec(
     chunk_hz=50.0,
 )
 
-EMBODIMENTS = {ARX_L5.name: ARX_L5}
+# Three-camera variant for datasets recorded with the near-top-down top_cam
+# (RoboPref_dataset_v3 onward). The extra view goes in the model's unused
+# right_wrist_0_rgb slot -- pi05 has no camera-identity embeddings, so slot
+# assignment is arbitrary; keeping the first two where arx_l5 had them makes
+# the specs differ by exactly one added view. Same state/action/chunk layout.
+ARX_L5_3CAM = EmbodimentSpec(
+    name="arx_l5_3cam",
+    image_obs_keys={"base_0_rgb": "third_person", "left_wrist_0_rgb": "wrist_cam",
+                    "right_wrist_0_rgb": "top_cam"},
+    state_dim=7,
+    action_dim=7,
+    token_len=96,
+    control_hz=500.0,
+    chunk_hz=50.0,
+)
+
+EMBODIMENTS = {ARX_L5.name: ARX_L5, ARX_L5_3CAM.name: ARX_L5_3CAM}

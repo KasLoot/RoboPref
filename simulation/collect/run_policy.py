@@ -22,6 +22,17 @@ Evaluation seeds: episode ids start at 301. Collected data used ids 1-240 with
 retry seeds offset by 10 000 per attempt, so ids 301-999 collide with nothing
 that was ever recorded (and keep the episode-id-derived task knobs varied).
 
+Rollouts run in one of two timing modes. The default headless mode is
+synchronous: physics pauses while the policy computes, so results are
+hardware-independent and reproducible. With --viewer (or --live) the rollout is
+asynchronous instead: physics runs continuously at wall-clock speed while
+inference happens in a background thread -- what a real deployment does, at the
+cost of latency-dependent numbers. Both modes commit to each chunk for
+--execute-horizon rows before the next takes over (essential: every replan
+resamples the flow noise, and uncommitted replanning dithers between modes on
+multimodal tasks); in live mode the successor is requested early so it arrives
+on schedule and splices in at the row matching its observation's age.
+
 Success is category-aware: B and C use the task's own predicate; category A --
 whose instruction never names a stacking order -- accepts *any* completed stack
 on the cross (the recorded predicate would cap a correct policy near 1/6).
@@ -31,7 +42,9 @@ import argparse
 import itertools
 import json
 import os
+import queue
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -55,7 +68,7 @@ from tasks import CATEGORIES  # noqa: E402
 if str(C.REPO_DIR) not in sys.path:
     sys.path.insert(0, str(C.REPO_DIR))
 
-from pi05.embodiment import ARX_L5, chunk_indices  # noqa: E402
+from pi05.embodiment import ARX_L5, EMBODIMENTS, chunk_indices  # noqa: E402
 
 DATASETS = {"ambiguous": "a", "ordered": "b", "decomposed": "c"}
 STRIDE = ARX_L5.stride  # physics steps per chunk row (500 Hz / 50 Hz)
@@ -63,6 +76,23 @@ HORIZON = ARX_L5.horizon
 EVAL_EPISODE_START = 301
 VIDEO_FPS = 10.0
 VIDEO_CAMERA = ARX_L5.image_obs_keys["base_0_rgb"]
+
+
+def resolve_spec(checkpoint_dir, override=None):
+    """Which embodiment a checkpoint was trained for.
+
+    Fine-tuned checkpoints carry exactly one ``assets/<embodiment>/`` dir among
+    the known specs (train.py writes it), so the camera set is auto-detected;
+    ``--embodiment`` overrides.
+    """
+    if override is not None:
+        return EMBODIMENTS[override]
+    matches = [spec for name, spec in EMBODIMENTS.items()
+               if (Path(checkpoint_dir) / "assets" / name / "norm_stats.json").exists()]
+    if len(matches) != 1:
+        sys.exit(f"cannot auto-detect the embodiment of {checkpoint_dir} "
+                 f"(found {[s.name for s in matches]}); pass --embodiment")
+    return matches[0]
 
 
 def arm_qpos_addresses(model) -> np.ndarray:
@@ -170,8 +200,32 @@ def build_episode(module, task_id, episode_id, seed=None):
     raise RuntimeError(f"no intact scene for task {task_id} episode {episode_id}")
 
 
-def run_policy_episode(category, plan, data, policy_fn, *, execute_horizon, time_limit,
-                       interp, snap_gripper=True, early_stop=True, on_substep=None):
+def _capture_observation(renderer, data, executor, spec):
+    images = {}
+    for model_key, camera in spec.image_obs_keys.items():
+        renderer.update_scene(data, camera=camera)
+        images[model_key] = renderer.render()
+    state = np.concatenate([data.qpos[executor.qadr], [executor.grip]]).astype(np.float32)
+    return images, state
+
+
+def _postprocess_chunk(chunk, snap_gripper):
+    chunk = chunk[:, : ARX_L5.action_dim].copy()  # action layout is shared by all arx specs
+    if snap_gripper:
+        # Demos contain only {closed, open}; anything else is out of
+        # distribution for the plant.
+        half = (C.GRIP_CLOSE + C.GRIP_OPEN) / 2
+        chunk[:, 6] = np.where(chunk[:, 6] > half, C.GRIP_OPEN, C.GRIP_CLOSE)
+    else:
+        chunk[:, 6] = np.clip(chunk[:, 6], *C.GRIPPER_CTRL_RANGE)
+    return chunk
+
+
+def run_policy_episode(category, plan, data, policy_fn, spec, *, execute_horizon,
+                       time_limit, interp, snap_gripper=True, early_stop=True,
+                       on_substep=None):
+    """Synchronous benchmark rollout: physics pauses while the policy computes,
+    so every checkpoint sees zero-latency observations regardless of hardware."""
     scene = plan.scene
     renderer = mujoco.Renderer(scene.model, C.CAM_HEIGHT, C.CAM_WIDTH)
     executor = ChunkExecutor(scene, data, interp=interp, on_substep=on_substep)
@@ -180,21 +234,8 @@ def run_policy_episode(category, plan, data, policy_fn, *, execute_horizon, time
     started = time.time()
     try:
         while data.time < time_limit:
-            images = {}
-            for model_key, camera in ARX_L5.image_obs_keys.items():
-                renderer.update_scene(data, camera=camera)
-                images[model_key] = renderer.render()
-            state = np.concatenate([data.qpos[executor.qadr], [executor.grip]]).astype(np.float32)
-
-            chunk = policy_fn(images, state, plan.instruction)[:, : ARX_L5.action_dim].copy()
-            if snap_gripper:
-                # Demos contain only {closed, open}; anything else is out of
-                # distribution for the plant.
-                half = (C.GRIP_CLOSE + C.GRIP_OPEN) / 2
-                chunk[:, 6] = np.where(chunk[:, 6] > half, C.GRIP_OPEN, C.GRIP_CLOSE)
-            else:
-                chunk[:, 6] = np.clip(chunk[:, 6], *C.GRIPPER_CTRL_RANGE)
-
+            images, state = _capture_observation(renderer, data, executor, spec)
+            chunk = _postprocess_chunk(policy_fn(images, state, plan.instruction), snap_gripper)
             executor.execute(chunk, execute_horizon)
             replans += 1
             if early_stop:
@@ -208,6 +249,139 @@ def run_policy_episode(category, plan, data, policy_fn, *, execute_horizon, time
     ok, reason = verify(scene, data)
     return {"success": bool(ok), "reason": reason, "sim_time": round(data.time, 2),
             "wall_s": round(time.time() - started, 1), "replans": replans}
+
+
+class AsyncPolicy:
+    """Runs the policy in a worker thread so physics never waits for it.
+
+    One request in flight at a time: the main thread captures the observation
+    (rendering must stay on the main thread) and ``submit``\\ s it; ``poll``
+    returns the finished chunk or None. Worker exceptions re-raise on poll.
+    """
+
+    def __init__(self, policy_fn):
+        self._policy_fn = policy_fn
+        self._requests = queue.Queue(maxsize=1)
+        self._results = queue.Queue(maxsize=1)
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def _loop(self):
+        while True:
+            request = self._requests.get()
+            if request is None:
+                return
+            images, state, prompt, t_obs = request
+            try:
+                self._results.put((self._policy_fn(images, state, prompt), t_obs, None))
+            except Exception as exc:  # surfaced on the main thread by poll()
+                self._results.put((None, t_obs, exc))
+                return
+
+    def submit(self, images, state, prompt, t_obs):
+        self._requests.put((images, state, prompt, t_obs))
+
+    def poll(self):
+        """(chunk, t_obs) when a result is ready, else None."""
+        try:
+            chunk, t_obs, exc = self._results.get_nowait()
+        except queue.Empty:
+            return None
+        if exc is not None:
+            raise exc
+        return chunk, t_obs
+
+    def close(self):
+        self._requests.put(None)
+        self._thread.join(timeout=5.0)
+
+
+def run_live_episode(category, plan, data, policy_fn, spec, *, execute_horizon,
+                     time_limit, interp, snap_gripper=True, early_stop=True,
+                     on_substep=None):
+    """Live rollout: physics runs continuously (wall-clock paced via the pacer
+    sink) while inference happens asynchronously, like a real deployment.
+
+    Replanning keeps the synchronous mode's commitment: each chunk executes for
+    ``execute_horizon`` rows before its successor takes over. The next
+    observation is submitted early by the estimated inference latency so the
+    successor arrives on time, and it splices in at the row matching its
+    observation's age. Committing matters beyond realism -- every inference
+    resamples the flow noise, and on multimodal tasks (ambiguous ordering)
+    replanning at raw latency cadence flip-flops between modes and the arm
+    oscillates instead of ever reaching a block.
+
+    The arm holds position only if genuinely starved (latency beyond the
+    remaining chunk). Success rates measured this way depend on inference
+    latency, i.e. on the GPU -- use the synchronous mode for
+    hardware-independent benchmark numbers.
+    """
+    scene = plan.scene
+    renderer = mujoco.Renderer(scene.model, C.CAM_HEIGHT, C.CAM_WIDTH)
+    executor = ChunkExecutor(scene, data, interp=interp, on_substep=on_substep)
+    verify = episode_verifier(category, plan)
+    worker = AsyncPolicy(policy_fn)
+    row_dt = STRIDE * scene.model.opt.timestep
+
+    def submit():
+        images, state = _capture_observation(renderer, data, executor, spec)
+        worker.submit(images, state, plan.instruction, data.time)
+
+    chunk, row = None, 0
+    replans, starved = 0, 0
+    latencies = []
+    est_latency = 0.3  # s; refined from measurements as the episode runs
+    inflight = False
+    next_submit_time = 0.0
+    success_early = False
+    started = time.time()
+    try:
+        while data.time < time_limit:
+            if not inflight and data.time >= next_submit_time:
+                submit()
+                inflight = True
+
+            result = worker.poll() if inflight else None
+            if result is not None:
+                inflight = False
+                new_chunk, t_obs = result
+                latency = data.time - t_obs
+                latencies.append(latency)
+                est_latency = 0.7 * est_latency + 0.3 * latency
+                elapsed_rows = int(round(latency / row_dt))
+                if elapsed_rows < HORIZON:
+                    chunk = _postprocess_chunk(new_chunk, snap_gripper)
+                    row = elapsed_rows
+                    replans += 1
+                    if early_stop:
+                        ok, _ = verify(scene, data)
+                        if ok:
+                            success_early = True
+                            break
+                    # Commit to this chunk for execute_horizon rows: the next
+                    # request leaves just enough lead time to arrive on schedule.
+                    next_submit_time = data.time + max(
+                        execute_horizon * row_dt - est_latency, 0.0)
+                else:
+                    next_submit_time = data.time  # chunk aged out; retry now
+
+            if chunk is not None and row < len(chunk):
+                executor.execute(chunk[row : row + 1], 1)
+                row += 1
+            else:
+                executor.hold(row_dt)  # starved: hold the last command for one row
+                starved += 1
+    finally:
+        worker.close()
+        renderer.close()
+
+    executor.hold(C.SETTLE_TIME)  # the final verdict is always post-settle
+    ok, reason = verify(scene, data)
+    return {"success": bool(ok), "reason": reason, "sim_time": round(data.time, 2),
+            "wall_s": round(time.time() - started, 1), "replans": replans,
+            "starved_rows": starved,
+            "mean_latency_s": round(float(np.mean(latencies)), 3) if latencies else None,
+            "early_stop": success_early}
 
 
 def replay_episode(path, *, execute_horizon, interp, raw_500hz=False, sink_factory=None):
@@ -253,26 +427,59 @@ def replay_episode(path, *, execute_horizon, interp, raw_500hz=False, sink_facto
 # Optional sinks: live viewer, video                                           #
 # --------------------------------------------------------------------------- #
 class LiveViewer:
-    """Passive viewer paced to wall clock. Requires --viewer (GLFW mode)."""
+    """Passive viewer window. Requires --viewer (GLFW mode). Pacing is the
+    WallClockPacer's job, so this sink only syncs and watches for close."""
 
     def __init__(self, model, data):
         import mujoco.viewer
 
         self.viewer = mujoco.viewer.launch_passive(model, data)
-        self.timestep = model.opt.timestep
-        self._last = time.time()
 
     def on_substep(self, data):
         if not self.viewer.is_running():
             raise KeyboardInterrupt("viewer closed")
         self.viewer.sync()
+
+    def close(self):
+        self.viewer.close()
+
+
+class WallClockPacer:
+    """Sleeps each substep so sim time tracks wall time. This is what makes a
+    --live rollout's inference latency show up as the real number of sim
+    seconds, and what makes a viewer play back at real speed."""
+
+    def __init__(self, model):
+        self.timestep = model.opt.timestep
+        self._last = time.time()
+
+    def on_substep(self, data):
         lag = self.timestep - (time.time() - self._last)
         if lag > 0:
             time.sleep(lag)
         self._last = time.time()
 
     def close(self):
-        self.viewer.close()
+        pass
+
+
+class CanvasSink:
+    """collect.py's Tk camera canvas as a rollout sink: live side-by-side tiles
+    of every camera the scene has (including top_cam). Works alongside the EGL
+    offscreen renderer (Tk owns no GL context), and under GLFW with --viewer."""
+
+    def __init__(self, model):
+        from camera import CameraCanvas
+
+        self.canvas = CameraCanvas(model)
+
+    def on_substep(self, data):
+        if self.canvas.closed:
+            raise KeyboardInterrupt("camera canvas closed")
+        self.canvas.update(data)
+
+    def close(self):
+        self.canvas.close()
 
 
 class VideoSink:
@@ -315,8 +522,11 @@ class VideoSink:
                                  duration=int(1000 / VIDEO_FPS), loop=0)
 
 
-def attach_sinks(plan, data, *, video_path=None, viewer=False):
-    """Attach the optional viewer/video sinks to one episode's scene and data.
+def attach_sinks(plan, data, *, video_path=None, viewer=False, canvas=False, pace=False):
+    """Attach the optional viewer/canvas/video/pacing sinks to one episode's
+    scene and data. ``pace`` slows physics to wall clock -- on whenever a
+    viewer is open and for --live rollouts (the pacer runs last, after the
+    render sinks).
 
     Returns ``(on_substep hook or None, close())`` -- the single construction
     path shared by the replay and policy modes.
@@ -324,8 +534,12 @@ def attach_sinks(plan, data, *, video_path=None, viewer=False):
     sinks = []
     if video_path is not None:
         sinks.append(VideoSink(video_path, plan.scene.model))
+    if canvas:
+        sinks.append(CanvasSink(plan.scene.model))
     if viewer:
         sinks.append(LiveViewer(plan.scene.model, data))
+    if pace or viewer:
+        sinks.append(WallClockPacer(plan.scene.model))
 
     def close():
         for sink in sinks:
@@ -343,7 +557,7 @@ def attach_sinks(plan, data, *, video_path=None, viewer=False):
 # --------------------------------------------------------------------------- #
 # CLI                                                                          #
 # --------------------------------------------------------------------------- #
-def make_policy(checkpoint_dir, num_steps):
+def make_policy(checkpoint_dir, num_steps, spec):
     checkpoint_dir = Path(checkpoint_dir)
     if not (checkpoint_dir / "model.pt").exists():
         sys.exit(f"no model.pt under {checkpoint_dir} -- for --use-best, best/ only exists "
@@ -352,11 +566,17 @@ def make_policy(checkpoint_dir, num_steps):
 
     from pi05.inference import Pi05Policy  # imports torch: only in policy mode
 
-    policy = Pi05Policy(str(checkpoint_dir), embodiment=ARX_L5.name,
-                        token_len=ARX_L5.token_len)
+    policy = Pi05Policy(str(checkpoint_dir), embodiment=spec.name,
+                        token_len=spec.token_len)
 
     def policy_fn(images, state, prompt):
         return policy.infer_raw(images, state, prompt, num_steps=num_steps)
+
+    # The first CUDA inference pays kernel-warmup costs (1-2 s); take that hit
+    # here so a --live episode is not starved at its start.
+    dummy = {key: np.zeros((C.CAM_HEIGHT, C.CAM_WIDTH, 3), dtype=np.uint8)
+             for key in spec.image_obs_keys}
+    policy_fn(dummy, np.zeros(spec.state_dim, dtype=np.float32), "warmup")
     return policy_fn
 
 
@@ -395,18 +615,32 @@ def main():
     p.add_argument("--no-early-stop", action="store_true")
     p.add_argument("--no-snap-gripper", action="store_true")
     p.add_argument("--viewer", action="store_true", help="live MuJoCo viewer (wall-clock paced)")
+    p.add_argument("--canvas", action="store_true",
+                   help="live Tk window tiling every camera view (what the policy sees)")
+    p.add_argument("--live", action=argparse.BooleanOptionalAction, default=None,
+                   help="asynchronous inference with wall-clock-paced physics: the sim "
+                        "never waits for the VLA (default: on with --viewer/--canvas, off "
+                        "headless). Chunks still commit for --execute-horizon rows; the "
+                        "next one splices in at the row matching its observation's age. "
+                        "Success rates become GPU-latency-dependent; use --no-live for "
+                        "reproducible benchmark numbers.")
+    p.add_argument("--embodiment", choices=sorted(EMBODIMENTS), default=None,
+                   help="override the camera/state spec (default: auto-detected from the "
+                        "checkpoint's assets/ directory)")
     p.add_argument("--video", action="store_true", help="save per-episode third_person videos")
     p.add_argument("--out", type=Path, default=None, help="results dir (default: <checkpoint>/eval)")
     args = p.parse_args()
+    live = (args.viewer or args.canvas) if args.live is None else args.live
 
     # ---- oracle replay mode ---------------------------------------------- #
     if args.replay is not None:
         def sink_factory_for(path):
-            if not (args.viewer or args.video):
+            if not (args.viewer or args.canvas or args.video):
                 return None
             video_path = Path(path).with_name(Path(path).stem + "_replay") if args.video else None
             return lambda plan, data: attach_sinks(plan, data, video_path=video_path,
-                                                   viewer=args.viewer)
+                                                   viewer=args.viewer, canvas=args.canvas,
+                                                   pace=args.canvas)
 
         rows = []
         for path in args.replay:
@@ -431,8 +665,10 @@ def main():
     time_limit = args.time_limit or (30.0 if category == "c" else 60.0)
     tasks = [args.task] if args.task is not None else sorted(module.BUDGET)
 
-    print(f"loading policy from {checkpoint} ...")
-    policy_fn = make_policy(checkpoint, args.num_steps)
+    spec = resolve_spec(checkpoint, args.embodiment)
+    print(f"loading policy from {checkpoint} (embodiment {spec.name}, "
+          f"{len(spec.image_obs_keys)} cameras) ...")
+    policy_fn = make_policy(checkpoint, args.num_steps, spec)
 
     results_path = out / "eval.jsonl"
     rows = []
@@ -447,10 +683,12 @@ def main():
                     videos_dir.mkdir(exist_ok=True)
                     video_path = videos_dir / f"task_{task_id}_episode_{episode_id}"
                 hook, close_sinks = attach_sinks(plan, data, video_path=video_path,
-                                                 viewer=args.viewer)
+                                                 viewer=args.viewer, canvas=args.canvas,
+                                                 pace=live)
                 try:
-                    row = run_policy_episode(
-                        category, plan, data, policy_fn,
+                    run_episode_fn = run_live_episode if live else run_policy_episode
+                    row = run_episode_fn(
+                        category, plan, data, policy_fn, spec,
                         execute_horizon=args.execute_horizon, time_limit=time_limit,
                         interp=args.interp, snap_gripper=not args.no_snap_gripper,
                         early_stop=not args.no_early_stop, on_substep=hook)
@@ -458,9 +696,10 @@ def main():
                     close_sinks()
                 row.update({"dataset": args.dataset, "task": task_id, "episode": episode_id,
                             "seed": seed, "instruction": plan.instruction,
-                            "checkpoint": str(checkpoint),
-                            "execute_horizon": args.execute_horizon, "interp": args.interp,
-                            "num_steps": args.num_steps,
+                            "checkpoint": str(checkpoint), "live": live,
+                            "embodiment": spec.name,
+                            "execute_horizon": args.execute_horizon,
+                            "interp": args.interp, "num_steps": args.num_steps,
                             "snap_gripper": not args.no_snap_gripper})
                 results_file.write(json.dumps(row) + "\n")
                 results_file.flush()

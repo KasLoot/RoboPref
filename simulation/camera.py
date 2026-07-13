@@ -26,15 +26,19 @@ class CameraCanvas:
 
     ``height``/``width`` must fit the model's offscreen framebuffer, which the
     XML sets via ``<visual><global offwidth offheight/></visual>`` (640x480 by
-    default). Rendering both feeds costs ~0.6 ms, so ``fps`` is what bounds the
+    default). Rendering the feeds costs ~0.6 ms, so ``fps`` is what bounds the
     cost, not the renderer.
     """
 
-    def __init__(self, model, cameras=CAMERAS, height=240, width=320, fps=30.0):
+    def __init__(self, model, cameras=None, height=240, width=320, fps=30.0):
         max_h, max_w = model.vis.global_.offheight, model.vis.global_.offwidth
         if height > max_h or width > max_w:
             raise ValueError(f"{height}x{width} exceeds offscreen framebuffer {max_h}x{max_w}")
 
+        if cameras is None:
+            # Whatever cameras this model actually has -- the raw scene.xml has
+            # two, scenes built by collect/scene_builder.py add top_cam.
+            cameras = [model.camera(i).name for i in range(model.ncam)]
         self.cameras = tuple(cameras)
         self.renderer = mujoco.Renderer(model, height, width)
         self._interval = 1.0 / fps

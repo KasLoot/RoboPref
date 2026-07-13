@@ -148,8 +148,18 @@ ROBOT_RGBA = (0.55, 0.55, 0.55, 1.0)
 #
 # Raising it tilts the view further down, which frames the mats better but walks the
 # arm toward the top edge; past about z = 0.75 with x <= 0.68 the arm starts to clip.
-THIRD_PERSON_POS = (0.75, 0.0, 0.65)
+THIRD_PERSON_POS = (0.7, 0.0, 0.25)
 THIRD_PERSON_AIM = (0.0, 0.0, 0.06)
+
+# Second third-person view: near-top-down over the mats. Its ray is close to
+# orthogonal to third_person's, which is what resolves that view's depth
+# ambiguity for block localization; from above, blocks never occlude each
+# other (SPAWN_MIN_GAP guarantees separation in xy). Offset from straight-down
+# because look_at_xyaxes is singular there. Rendered orientation (measured):
+# robot base at image left, black mat top, white mat bottom. At the default
+# 45 deg fovy the frame covers both mats, the cross region and the robot base.
+TOP_CAM_POS = (0.32, 0.0, 0.6)
+TOP_CAM_AIM = (0.25, 0.0, 0.05)
 CROSS_ARM_HALF = 0.025  # 50 mm arms
 CROSS_ARM_WIDTH = 0.003
 CROSS_THICK = 0.0005  # flush on the mat; visual only (contype=conaffinity=0)
@@ -235,7 +245,7 @@ MAX_ATTEMPTS_PER_EPISODE = 8
 # --------------------------------------------------------------------------
 # Cameras
 # --------------------------------------------------------------------------
-CAMERAS = ("third_person", "wrist_cam")
+CAMERAS = ("third_person", "top_cam", "wrist_cam")
 CAM_HEIGHT = 480
 CAM_WIDTH = 640
 CAM_FPS = 30.0  # nominal; recorded timestamps are authoritative

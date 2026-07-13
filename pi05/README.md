@@ -115,35 +115,40 @@ under `no_grad`. The objective is the pi05 flow-matching loss, byte-compatible
 with `sample_actions` (see `Pi05Model.compute_loss`).
 
 Samples come straight out of the episode HDF5 files (no conversion): one
-sample per camera frame -- both 640×480 views, the instruction + discretized
-7-dim state (6 measured joints + commanded gripper) as the prompt, and the next
-1.0 s of recorded commands as the target chunk (50 rows at 50 Hz, i.e. every
-10th 500 Hz step, zero-padded to the model's 32 action dims).
+sample per camera frame -- the embodiment's 640×480 views, the instruction +
+discretized 7-dim state (6 measured joints + commanded gripper) as the prompt,
+and the next 1.0 s of recorded commands as the target chunk (50 rows at 50 Hz,
+i.e. every 10th 500 Hz step, zero-padded to the model's 32 action dims).
 
 ### Pipeline (per dataset)
 
-```bash
-DS=/data/datasets/RoboPref_dataset/stacking_blocks_ambiguous
+Datasets from `RoboPref_dataset_v3` onward carry three cameras (low front
+`third_person`, near-top-down `top_cam`, `wrist_cam`) -- train those with
+`--embodiment arx_l5_3cam`. The older 2-camera recordings map to `arx_l5`.
 
-# 1. normalization stats (writes <dataset>/norm_stats_arx_l5.json, ~1 min)
+```bash
+DS=/data/datasets/RoboPref_dataset_v3/stacking_blocks_ambiguous
+
+# 1. normalization stats (~1 min; also computed automatically by train)
 uv run python -m pi05.norm_stats --dataset $DS
 
 # 2. optional: eyeball a few samples + pipeline assertions
-uv run python -m pi05.data --dataset $DS --dump-dir /tmp/dump -n 8
+uv run python -m pi05.data --dataset $DS --dump-dir /tmp/dump -n 8 --embodiment arx_l5_3cam
 
-# 3. train (big-GPU recipe; ~2-3 h on an H100)
-uv run python -m pi05.train --dataset $DS \
-    --checkpoint-out /data/models/pi05_arx_ambiguous
+# 3. train (big-GPU recipe; ~3-4 h on an H100 with the 3-camera prefix)
+uv run python -m pi05.train --dataset $DS --embodiment arx_l5_3cam \
+    --checkpoint-out /data/models/pi05_arx_ambiguous_v3
 
-# repeat 1+3 with stacking_blocks_ordered -> pi05_arx_ordered
-#            and stacking_blocks_decomposed -> pi05_arx_decomposed
+# repeat 1+3 with stacking_blocks_ordered -> pi05_arx_ordered_v3
+#            and stacking_blocks_decomposed -> pi05_arx_decomposed_v3
 ```
 
 The output directory is a normal pi05 checkpoint (`model.pt` +
-`assets/arx_l5/norm_stats.json`), loadable by the unchanged `from_pretrained` /
-`Pi05Policy(ckpt, embodiment="arx_l5")`. `best/` holds the checkpoint with the
-lowest validation action-MAE; `train_log.jsonl` has the curves; `--resume`
-continues an interrupted run.
+`assets/<embodiment>/norm_stats.json`), loadable by the unchanged
+`from_pretrained` / `Pi05Policy(ckpt, embodiment=...)`; the sim runner
+auto-detects the embodiment from that assets directory. `best/` holds the
+checkpoint with the lowest validation action-MAE; `train_log.jsonl` has the
+curves; `--resume` continues an interrupted run.
 
 ### Recipes
 
@@ -161,13 +166,14 @@ drive the loss near zero and regurgitate the demo's chunks.
 
 ### Training on a remote GPU box
 
-Copy: this repo (`git clone` + `uv sync`), the three dataset directories
-(~119 GB -- `rsync` the `stacking_blocks_*` dirs, **exclude the `.git/` LFS
-cache**, it doubles the transfer), `/data/models/pi05_base_pytorch/` (6.7 GB),
-and the tokenizer `~/.cache/openpi/big_vision/paligemma_tokenizer.model`
-(4 MB). Every path is a CLI flag, so any layout works. On Blackwell (B200)
-confirm the installed torch wheel supports `sm_100`; use a cu128+ build if not.
-Copy the three checkpoint dirs back for evaluation.
+Copy: this repo (`git clone` + `uv sync`), the three v3 dataset directories
+(~290 GB -- `rsync` the `stacking_blocks_*` dirs; if the dataset dir is a
+git-LFS repo, **exclude the `.git/` cache**, it doubles the transfer),
+`/data/models/pi05_base_pytorch/` (6.7 GB), and the tokenizer
+`~/.cache/openpi/big_vision/paligemma_tokenizer.model` (4 MB). Every path is a
+CLI flag, so any layout works. On Blackwell (B200) confirm the installed torch
+wheel supports `sm_100`; use a cu128+ build if not. Copy the three checkpoint
+dirs back for evaluation.
 
 ### Closed-loop evaluation in the simulation
 
@@ -175,15 +181,30 @@ Copy the three checkpoint dirs back for evaluation.
 # oracle sanity first (no policy): recorded episodes through the exact
 # execution path -- validated 10/10 across all categories and modes
 uv run python simulation/collect/run_policy.py \
-    --replay /data/datasets/RoboPref_dataset/stacking_blocks_ordered/task_1_episode_5.hdf5
+    --replay /data/datasets/RoboPref_dataset_v3/stacking_blocks_ordered/task_1_episode_5.hdf5
 
 # benchmark a fine-tuned model on fresh (provably unseen) seeds
-uv run python simulation/collect/run_policy.py --dataset ordered --episodes 20 --video
+uv run python simulation/collect/run_policy.py --dataset ordered \
+    --checkpoint /data/models/pi05_arx_ordered_v3 --episodes 20 --video
 
-# watch it live
+# watch it live: MuJoCo viewer, plus a Tk canvas tiling every camera the
+# policy sees (the checkpoint's camera set is auto-detected from its assets/)
 uv run python simulation/collect/run_policy.py --dataset ordered --task 2 \
-    --episodes 1 --viewer
+    --checkpoint /data/models/pi05_arx_ordered_v3 --episodes 1 --viewer --canvas
 ```
+
+Two timing modes. Headless benchmarking is **synchronous** by default: physics
+pauses while the VLA computes, so success rates are hardware-independent and
+reproducible. `--viewer` (or `--live` headless) switches to **asynchronous**
+deployment-style timing: physics runs continuously at wall-clock speed while
+inference happens in a background thread. Both modes commit to each chunk for
+`--execute-horizon` rows (0.5 s) before the next takes over -- uncommitted
+replanning resamples the flow noise every ~0.2 s and dithers between modes on
+multimodal tasks -- and in live mode the next observation is submitted early by
+the estimated latency so the successor arrives on schedule, splicing in at the
+row matching its observation's age (~0.2 s / 10 rows on the local 4070 Ti).
+Pass `--no-live` with `--viewer` to watch the paused-physics benchmark
+behavior instead.
 
 The runner mirrors training exactly: same renderer size and cameras, same
 resize, same state convention (measured joints + last commanded gripper), same

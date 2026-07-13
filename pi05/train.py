@@ -44,7 +44,7 @@ import matplotlib.pyplot as plt
 
 from . import utils
 from .data import ArxChunkDataset, collate, make_dataloader
-from .embodiment import ARX_L5
+from .embodiment import EMBODIMENTS
 from .inference import DEFAULT_TOKENIZER
 from .model import Pi05Model, action_expert_parameters
 from .norm_stats import compute_norm_stats, load_norm_stats_file, write_norm_stats
@@ -57,8 +57,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--checkpoint-in", default="/data/models/pi05_base_pytorch")
     p.add_argument("--checkpoint-out", required=True)
     p.add_argument("--norm-stats", default=None,
-                   help="norm_stats JSON (default: <dataset>/norm_stats_arx_l5.json, "
+                   help="norm_stats JSON (default: <dataset>/norm_stats_<embodiment>.json, "
                         "computed if missing)")
+    p.add_argument("--embodiment", default="arx_l5", choices=sorted(EMBODIMENTS),
+                   help="camera/state/action conventions; arx_l5 = 2-camera recordings, "
+                        "arx_l5_3cam = datasets with the top_cam view (v3 onward)")
     p.add_argument("--tokenizer", default=str(DEFAULT_TOKENIZER))
     p.add_argument("--steps", type=int, default=15_000)
     p.add_argument("--micro-batch", type=int, default=32)
@@ -255,7 +258,7 @@ def plot_training_records(log_path: pathlib.Path, output_path: pathlib.Path) -> 
 # --------------------------------------------------------------------------- #
 def main() -> None:
     args = parse_args()
-    spec = ARX_L5
+    spec = EMBODIMENTS[args.embodiment]
     out = pathlib.Path(args.checkpoint_out)
     out.mkdir(parents=True, exist_ok=True)
 

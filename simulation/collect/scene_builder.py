@@ -136,7 +136,8 @@ def look_at_xyaxes(pos, target):
 
 
 def _restyle(spec):
-    """Recolour the robot and re-place the third_person camera on the spec.
+    """Recolour the robot, re-place the third_person camera and add the
+    near-top-down camera on the spec.
 
     Done here rather than in the XML so ``assets/robots/arx_l5`` stays pristine.
     """
@@ -146,6 +147,9 @@ def _restyle(spec):
     cam = next(c for c in spec.cameras if c.name == "third_person")
     cam.pos = list(C.THIRD_PERSON_POS)
     cam.alt.xyaxes = look_at_xyaxes(C.THIRD_PERSON_POS, C.THIRD_PERSON_AIM)
+
+    top = spec.worldbody.add_camera(name="top_cam", pos=list(C.TOP_CAM_POS))
+    top.alt.xyaxes = look_at_xyaxes(C.TOP_CAM_POS, C.TOP_CAM_AIM)
 
 
 def _add_mat(spec, name, centre, rgba):
