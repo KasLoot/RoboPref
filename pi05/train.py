@@ -34,9 +34,13 @@ import time
 from collections import deque
 from contextlib import contextmanager
 
+import matplotlib
 import numpy as np
 import torch
 from tqdm import tqdm
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 from . import utils
 from .data import ArxChunkDataset, collate, make_dataloader
@@ -78,6 +82,10 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--save-every", type=int, default=2_500)
     p.add_argument("--val-samples", type=int, default=512)
     p.add_argument("--action-val-samples", type=int, default=64)
+    p.add_argument("--wandb-project", default="robopref", help="Weights & Biases project")
+    p.add_argument("--wandb-entity", default=None, help="Weights & Biases entity/team")
+    p.add_argument("--wandb-mode", choices=("online", "offline", "disabled"), default="online",
+                   help="Weights & Biases run mode")
     return p.parse_args()
 
 
@@ -206,6 +214,42 @@ def git_revision() -> str:
         return "unknown"
 
 
+def plot_training_records(log_path: pathlib.Path, output_path: pathlib.Path) -> None:
+    """Render logged optimizer and validation metrics into the checkpoint folder."""
+    records = []
+    with log_path.open() as log_file:
+        for line in log_file:
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    figure, (loss_axis, validation_axis) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    loss_records = [record for record in records if "loss" in record]
+    if loss_records:
+        loss_axis.plot([record["step"] for record in loss_records],
+                       [record["loss"] for record in loss_records], label="training loss", alpha=0.35)
+        loss_axis.plot([record["step"] for record in loss_records],
+                       [record["loss_mean50"] for record in loss_records], label="training loss (mean 50)")
+    loss_axis.set_ylabel("Flow MSE")
+    loss_axis.legend()
+    loss_axis.grid(alpha=0.25)
+
+    for metric, label in (("val_flow_mse", "validation flow MSE"),
+                          ("val_action_mae", "validation action MAE")):
+        metric_records = [record for record in records if metric in record]
+        if metric_records:
+            validation_axis.plot([record["step"] for record in metric_records],
+                                 [record[metric] for record in metric_records], marker="o", label=label)
+    validation_axis.set_xlabel("Training step")
+    validation_axis.set_ylabel("Validation metric")
+    validation_axis.legend()
+    validation_axis.grid(alpha=0.25)
+    figure.tight_layout()
+    figure.savefig(output_path, dpi=150)
+    plt.close(figure)
+
+
 # --------------------------------------------------------------------------- #
 # Main                                                                         #
 # --------------------------------------------------------------------------- #
@@ -282,6 +326,13 @@ def main() -> None:
                    "norm_stats": str(norm_stats_json),
                    "train_samples": len(train_ds)}, f, indent=2, default=str)
 
+    import wandb
+    wandb_run = wandb.init(project=args.wandb_project, entity=args.wandb_entity,
+                           mode=args.wandb_mode, config={**vars(args), "embodiment": spec.name,
+                                                         "git": git_revision(),
+                                                         "train_samples": len(train_ds)},
+                           dir=str(out), resume="allow")
+
     # -- loop -------------------------------------------------------------- #
     log_path = out / "train_log.jsonl"
     log_file = log_path.open("a")
@@ -289,6 +340,7 @@ def main() -> None:
     def log(record: dict) -> None:
         log_file.write(json.dumps(record) + "\n")
         log_file.flush()
+        wandb_run.log(record, step=record["step"])
 
     def run_validation(step: int) -> None:
         nonlocal best_action_mae
@@ -352,10 +404,12 @@ def main() -> None:
             with ema_weights(optimizer):
                 save_model(model, out, norm_stats_json, spec.name)
             save_train_state(state_path, done, optimizer, best_action_mae)
+            plot_training_records(log_path, out / "training_curves.png")
             tqdm.write(f"[ckpt @ {done}] saved {out}")
 
     bar.close()
     log_file.close()
+    wandb_run.finish()
     print(f"done: {out} (best val action-MAE {best_action_mae:.4f} -> {out / 'best'})")
 
 
