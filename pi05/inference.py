@@ -1,8 +1,8 @@
 """Run inference with the from-scratch PyTorch Pi-0.5 model.
 
 Example:
-    python -m refactor.inference                      # random DROID-style example
-    python -m refactor.inference --prompt "pick up the cup"
+    python -m pi05.inference                      # random DROID-style example
+    python -m pi05.inference --prompt "pick up the cup"
 
 This mirrors what ``openpi``'s DROID policy does, but is fully self-contained:
 it does not import ``transformers`` or anything from the ``openpi`` package.
@@ -17,6 +17,7 @@ import numpy as np
 import torch
 
 from . import utils
+from .embodiment import EMBODIMENTS
 from .model import Pi05Config, Pi05Model
 
 # The PaliGemma SentencePiece tokenizer shipped/cached by openpi. Override with
@@ -144,14 +145,36 @@ def main():
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 
+    spec = None
+    if args.embodiment != "droid":
+        try:
+            spec = EMBODIMENTS[args.embodiment]
+        except KeyError:
+            parser.error(
+                f"the standalone demo does not know embodiment {args.embodiment!r}; "
+                f"expected 'droid' or one of {sorted(EMBODIMENTS)}"
+            )
+
     print(f"Loading Pi-0.5 from {args.checkpoint} on {args.device} ...")
     policy = Pi05Policy(
-        args.checkpoint, embodiment=args.embodiment, tokenizer_path=args.tokenizer, device=args.device
+        args.checkpoint, embodiment=args.embodiment, tokenizer_path=args.tokenizer,
+        device=args.device, token_len=spec.token_len if spec is not None else None
     )
 
-    example = make_droid_example(prompt=args.prompt)
     print(f"Running inference for prompt: {args.prompt!r}")
-    actions = policy.infer(example, num_steps=args.num_steps)
+    if spec is None:
+        example = make_droid_example(prompt=args.prompt)
+        actions = policy.infer(example, num_steps=args.num_steps)
+    else:
+        rng = np.random.default_rng(0)
+        images = {
+            key: rng.integers(256, size=(480, 640, 3), dtype=np.uint8)
+            for key in spec.image_obs_keys
+        }
+        state = rng.random(spec.state_dim).astype(np.float32)
+        actions = policy.infer_raw(
+            images, state, args.prompt, num_steps=args.num_steps
+        )[:, :spec.action_dim]
 
     print("Actions shape:", actions.shape)
     print("First predicted action:", np.array2string(actions[0], precision=4))
