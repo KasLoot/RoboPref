@@ -8,3 +8,6 @@ wheels/
 
 # Virtual environments
 .venv
+
+# User-specific runtime state
+memory/preferences.json

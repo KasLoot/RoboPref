@@ -5,4 +5,4 @@ uv run python simulation/collect/run_policy.py \
     --task 1 \
     --episodes 1 \
     --viewer \
-    --checkpoint /data/models/pi05_arx_ordered/best/
+    --checkpoint /home/yuxin/workspace/models/pi05_arx_ordered

@@ -27,10 +27,10 @@ You will receive:
 Return exactly one JSON object and nothing else:
 
 {
-  "task_complete": true | false,
   "expected_state": "string",
   "observed_state": "string",
   "discrepancies": ["string"],
+  "task_complete": true | false,
   "validator_confidence": "float",
   "reason": "string"
 }
