@@ -27,22 +27,25 @@ mkdir -p ~/.cache/openpi/big_vision
 curl -o ~/.cache/openpi/big_vision/paligemma_tokenizer.model \
   https://storage.googleapis.com/big_vision/paligemma_tokenizer.model
 
-DS=/workspace/datasets/RoboPref_dataset/stacking_blocks_ambiguous
+DS=/workspace/datasets/RoboPref_dataset_v3/stacking_blocks_ambiguous
 uv run python -m pi05.norm_stats --dataset $DS
 uv run python -m pi05.train --dataset $DS \
     --checkpoint-in /workspace/models/pi05_base_pytorch \
-    --checkpoint-out /workspace/models/pi05_arx_ambiguous
+    --checkpoint-out /workspace/models/pi05_arx_ambiguous_v3d \
+    --embodiment arx_l5_3cam
 
 
-DS=/workspace/datasets/RoboPref_dataset/stacking_blocks_decomposed
+DS=/workspace/datasets/RoboPref_dataset_v3/stacking_blocks_decomposed
 uv run python -m pi05.norm_stats --dataset $DS
 uv run python -m pi05.train --dataset $DS \
     --checkpoint-in /workspace/models/pi05_base_pytorch \
-    --checkpoint-out /workspace/models/pi05_arx_decomposed
+    --checkpoint-out /workspace/models/pi05_arx_decomposed_v3d \
+    --embodiment arx_l5_3cam
 
 
-DS=/workspace/datasets/RoboPref_dataset/stacking_blocks_ordered
+DS=/workspace/datasets/RoboPref_dataset_v3/stacking_blocks_ordered
 uv run python -m pi05.norm_stats --dataset $DS
 uv run python -m pi05.train --dataset $DS \
     --checkpoint-in /workspace/models/pi05_base_pytorch \
-    --checkpoint-out /workspace/models/pi05_arx_ordered
+    --checkpoint-out /workspace/models/pi05_arx_ordered_v3d \
+    --embodiment arx_l5_3cam
