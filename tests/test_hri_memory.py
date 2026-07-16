@@ -2,7 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from agents.hri import HRI_Agent, HRI_Agent_Config
 
@@ -43,6 +43,7 @@ class HRIMemoryIntegrationTests(unittest.TestCase):
         self.planner_agent = planner_class.return_value
         self.validator_agent = validator_class.return_value
         self.agent = HRI_Agent(config)
+        self.agent.prompt_for_dataset_switch = Mock()
 
     def tearDown(self):
         self.memory_patcher.stop()
@@ -87,6 +88,7 @@ class HRIMemoryIntegrationTests(unittest.TestCase):
         self.memory_agent.propose_updates.assert_called_once_with(self.agent.current_interaction, [])
         self.planner_agent.plan.assert_called_once_with(confirmed_intent, self.agent.initial_frame_path)
         self.validator_agent.validate.assert_called_once_with(confirmed_intent, self.agent.final_frame_path)
+        self.agent.prompt_for_dataset_switch.assert_called_once_with()
 
     def test_memory_failure_does_not_block_planning(self):
         self.memory_agent.propose_updates.side_effect = RuntimeError("curator unavailable")
@@ -104,6 +106,36 @@ class HRIMemoryIntegrationTests(unittest.TestCase):
 
         self.planner_agent.plan.assert_called_once_with(confirmed_intent, self.agent.initial_frame_path)
         self.validator_agent.validate.assert_called_once_with(confirmed_intent, self.agent.final_frame_path)
+        self.agent.prompt_for_dataset_switch.assert_called_once_with()
+
+    def test_prompt_switches_dataset_for_next_command(self):
+        with patch("builtins.input", return_value="dataset/v5"):
+            switched = HRI_Agent.prompt_for_dataset_switch(self.agent)
+
+        self.assertTrue(switched)
+        self.assertEqual(Path(self.agent.initial_frame_path).name, "1.jpg")
+        self.assertEqual(Path(self.agent.final_frame_path).name, "3_2.jpg")
+
+        self.agent._append_user_turn("Place the produce into the plates.", new_command=True)
+        self.assertEqual(self.agent.conversation[-1]["images"], [self.agent.initial_frame_path])
+
+    def test_prompt_enter_keeps_current_dataset(self):
+        original_episode = self.agent.dataset_episode
+
+        with patch("builtins.input", return_value=""):
+            switched = HRI_Agent.prompt_for_dataset_switch(self.agent)
+
+        self.assertFalse(switched)
+        self.assertIs(self.agent.dataset_episode, original_episode)
+
+    def test_prompt_invalid_path_keeps_current_dataset(self):
+        original_episode = self.agent.dataset_episode
+
+        with patch("builtins.input", return_value="dataset/missing"):
+            switched = HRI_Agent.prompt_for_dataset_switch(self.agent)
+
+        self.assertFalse(switched)
+        self.assertIs(self.agent.dataset_episode, original_episode)
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ from colorama import Fore, Style
 from agents.memory import Memory_Agent, Memory_Agent_Config
 from agents.planner import Planner_Agent, Planner_Agent_Config
 from agents.vlidator import Validator_Agent, Validator_Agent_Config
+from dataset.episode import DatasetEpisode, DatasetEpisodeError
 from memory.store import PreferenceStore
 
 
@@ -17,9 +18,9 @@ class HRI_Agent_Config:
     base_url: str = ""
     model: str = "gemma4:31b-cloud"
 
+    workspace_root: str = str(Path(__file__).resolve().parents[1])
     system_prompt_path: str = "/home/yuxin/workspace/RoboPref/prompt/hri/prompt-v1.md"
-    initial_frame_path: str = "/home/yuxin/workspace/RoboPref/dataset/v3/1.png"
-    final_frame_path: str = "/home/yuxin/workspace/RoboPref/dataset/v3/12.png"
+    dataset_path: str = str(Path(workspace_root) / "dataset" / "v3")
     memory_store_path: str = str(Path(__file__).resolve().parents[1] / "memory" / "preferences.json")
     user_id: str = "default"
 
@@ -30,8 +31,8 @@ class HRI_Agent:
         self.host = config.host
         self.base_url = config.base_url
         self.model = config.model
-        self.initial_frame_path = config.initial_frame_path
-        self.final_frame_path = config.final_frame_path
+        self.workspace_root = Path(config.workspace_root).resolve()
+        self.dataset_episode = DatasetEpisode.from_path(config.dataset_path, self.workspace_root)
         with open(config.system_prompt_path, "r") as f:
             self.system_prompt = f.read()
         self.conversation = []
@@ -42,6 +43,14 @@ class HRI_Agent:
         self.memory_agent = Memory_Agent(Memory_Agent_Config())
         self.planner_agent = Planner_Agent(Planner_Agent_Config())
         self.validator_agent = Validator_Agent(Validator_Agent_Config())
+
+    @property
+    def initial_frame_path(self) -> str:
+        return str(self.dataset_episode.initial_frame)
+
+    @property
+    def final_frame_path(self) -> str:
+        return str(self.dataset_episode.final_frame)
 
     def get_response(self):
         print("\n--- Start of Conversation ---\n")
@@ -138,7 +147,37 @@ class HRI_Agent:
             # after the (planned) execution, validate full task completeness
             # against the final frame of the episode.
             self.validator_agent.validate(confirmed_intent, self.final_frame_path)
+            self.prompt_for_dataset_switch()
         return mode
+
+    def prompt_for_dataset_switch(self) -> bool:
+        """Offer an episode switch for the next command after validation completes."""
+        current_path = self.dataset_episode.display_path(self.workspace_root)
+        selected_path = input(
+            f"Dataset for next task [{current_path}] (Enter to keep): "
+        ).strip()
+        if not selected_path:
+            print(Fore.CYAN + f"Keeping dataset: {current_path}" + Style.RESET_ALL)
+            return False
+
+        try:
+            episode = DatasetEpisode.from_path(selected_path, self.workspace_root)
+        except DatasetEpisodeError as error:
+            print(Fore.RED + f"[Dataset] {error}" + Style.RESET_ALL)
+            print(Fore.CYAN + f"Keeping dataset: {current_path}" + Style.RESET_ALL)
+            return False
+
+        self.dataset_episode = episode
+        print(Fore.CYAN + f"Switched dataset: {episode.display_path(self.workspace_root)}" + Style.RESET_ALL)
+        print(Fore.CYAN + f"Initial frame: {self._display_path(episode.initial_frame)}" + Style.RESET_ALL)
+        print(Fore.CYAN + f"Final frame: {self._display_path(episode.final_frame)}" + Style.RESET_ALL)
+        return True
+
+    def _display_path(self, path: Path) -> str:
+        try:
+            return str(path.relative_to(self.workspace_root))
+        except ValueError:
+            return str(path)
 
     def update_memory(self) -> None:
         """Curate the resolved interaction without allowing memory failure to block execution."""

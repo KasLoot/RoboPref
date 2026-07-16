@@ -11,3 +11,4 @@ wheels/
 
 # User-specific runtime state
 memory/preferences.json
+experiments/record.txt

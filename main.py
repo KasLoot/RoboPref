@@ -1,5 +1,12 @@
-import openai
+from pathlib import Path
+
 from agents.hri import HRI_Agent, HRI_Agent_Config
+from transcript import TerminalTranscript
+
+
+WORKSPACE_ROOT = Path(__file__).resolve().parent
+TRANSCRIPT_PATH = WORKSPACE_ROOT / "experiments" / "record.txt"
+
 
 class PrefMem:
     def __init__(self):
@@ -13,5 +20,6 @@ class PrefMem:
 
 
 if __name__ == "__main__":
-    pref_mem = PrefMem()
-    pref_mem.start()
+    with TerminalTranscript(TRANSCRIPT_PATH):
+        pref_mem = PrefMem()
+        pref_mem.start()
