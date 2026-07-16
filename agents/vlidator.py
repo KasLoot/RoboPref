@@ -8,7 +8,7 @@ class Validator_Agent_Config:
     base_url: str = ""
     model: str = "gemma4:31b-cloud"
 
-    system_prompt_path: str = "/home/yuxin/workspace/RoboPref/prompt/validator/prompt-v1.md"
+    system_prompt_path: str = "./prompt/validator/prompt-v1.md"
 
 
 class Validator_Agent:

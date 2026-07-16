@@ -19,7 +19,7 @@ class HRI_Agent_Config:
     model: str = "gemma4:31b-cloud"
 
     workspace_root: str = str(Path(__file__).resolve().parents[1])
-    system_prompt_path: str = "/home/yuxin/workspace/RoboPref/prompt/hri/prompt-v1.md"
+    system_prompt_path: str = "./prompt/hri/prompt-v1.md"
     dataset_path: str = str(Path(workspace_root) / "dataset" / "v3")
     memory_store_path: str = str(Path(__file__).resolve().parents[1] / "memory" / "preferences.json")
     user_id: str = "default"

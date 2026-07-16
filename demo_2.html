@@ -1,0 +1,829 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PrefMem — A robot that remembers how you like things done</title>
+<style>
+  :root {
+    --bg: #F2F3F0;
+    --surface: #FFFFFF;
+    --surface-2: #E9ECE7;
+    --ink: #1E2422;
+    --muted: #5C6662;
+    --line: #D5DAD3;
+    --accent: #33707E;        /* celadon-teal — memory */
+    --accent-soft: #E2EDEE;
+    --ask: #B77E1F;           /* clarification */
+    --ask-soft: #F6ECD8;
+    --confirm: #3F6DB3;       /* confirm from memory */
+    --confirm-soft: #E3EAF5;
+    --exec: #35835B;          /* silent execution / pass */
+    --exec-soft: #E1EFE7;
+    --user-bubble: #1E2422;
+    --user-bubble-ink: #F2F3F0;
+    --shadow: 0 1px 2px rgba(30,36,34,.06), 0 4px 14px rgba(30,36,34,.05);
+    --radius: 10px;
+    --font-display: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151A19;
+      --surface: #1D2422;
+      --surface-2: #232B29;
+      --ink: #E6EBE7;
+      --muted: #96A29B;
+      --line: #313B38;
+      --accent: #7FB6BF;
+      --accent-soft: #1E3236;
+      --ask: #D9A64A;
+      --ask-soft: #33290F;
+      --confirm: #7FA3D9;
+      --confirm-soft: #1D2838;
+      --exec: #6DBB8F;
+      --exec-soft: #16291F;
+      --user-bubble: #E6EBE7;
+      --user-bubble-ink: #151A19;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #F2F3F0; --surface: #FFFFFF; --surface-2: #E9ECE7;
+    --ink: #1E2422; --muted: #5C6662; --line: #D5DAD3;
+    --accent: #33707E; --accent-soft: #E2EDEE;
+    --ask: #B77E1F; --ask-soft: #F6ECD8;
+    --confirm: #3F6DB3; --confirm-soft: #E3EAF5;
+    --exec: #35835B; --exec-soft: #E1EFE7;
+    --user-bubble: #1E2422; --user-bubble-ink: #F2F3F0;
+    --shadow: 0 1px 2px rgba(30,36,34,.06), 0 4px 14px rgba(30,36,34,.05);
+  }
+  :root[data-theme="dark"] {
+    --bg: #151A19; --surface: #1D2422; --surface-2: #232B29;
+    --ink: #E6EBE7; --muted: #96A29B; --line: #313B38;
+    --accent: #7FB6BF; --accent-soft: #1E3236;
+    --ask: #D9A64A; --ask-soft: #33290F;
+    --confirm: #7FA3D9; --confirm-soft: #1D2838;
+    --exec: #6DBB8F; --exec-soft: #16291F;
+    --user-bubble: #E6EBE7; --user-bubble-ink: #151A19;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 14px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 1080px; margin: 0 auto; padding: 0 24px 96px; }
+
+  h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+
+  /* ---------- Masthead ---------- */
+  .masthead { padding: 72px 0 40px; border-bottom: 1px solid var(--line); }
+  .masthead h1 {
+    font-size: clamp(30px, 4.6vw, 46px);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+    max-width: 18ch;
+    margin: 14px 0 18px;
+  }
+  .masthead .lede { max-width: 62ch; font-size: 17px; color: var(--muted); }
+  .masthead .fact {
+    margin-top: 22px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .masthead .fact strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Section scaffolding ---------- */
+  section { padding-top: 56px; }
+  .section-head { margin-bottom: 26px; }
+  .section-head h2 { font-size: 24px; font-weight: 700; letter-spacing: -0.01em; margin-top: 8px; }
+  .section-head p { max-width: 64ch; margin-top: 8px; color: var(--muted); }
+
+  /* ---------- Agent loop ---------- */
+  .loop {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .agent {
+    flex: 1 1 170px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .agent .n {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: .08em;
+  }
+  .agent h3 { font-size: 15px; font-weight: 600; margin: 4px 0 6px; }
+  .agent p { font-size: 13px; color: var(--muted); line-height: 1.45; }
+  .agent.mem { border-color: var(--accent); }
+  .agent.mem h3 { color: var(--accent); }
+  .flow-arrow {
+    align-self: center;
+    color: var(--muted);
+    font-size: 18px;
+    flex: 0 0 auto;
+    user-select: none;
+  }
+  .loop-note {
+    margin-top: 14px;
+    font-size: 13.5px;
+    color: var(--muted);
+    border-left: 3px solid var(--accent);
+    padding-left: 12px;
+    max-width: 70ch;
+  }
+
+  /* ---------- Replay ---------- */
+  .episode-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+  .episode-tabs button {
+    font-family: var(--font-body);
+    font-size: 13.5px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .episode-tabs button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+  .episode-tabs button:focus-visible,
+  .controls button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .replay-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .replay-grid { grid-template-columns: 1fr; }
+    .mem-panel { position: static; }
+  }
+
+  .stage {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    min-height: 420px;
+  }
+  .stage-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px;
+    margin-bottom: 6px;
+  }
+  .stage-head .title { font-family: var(--font-display); font-weight: 600; font-size: 16px; }
+  .controls { display: flex; gap: 8px; }
+  .controls button {
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .controls button:hover { border-color: var(--muted); }
+
+  .feed { display: flex; flex-direction: column; gap: 14px; padding-top: 14px; }
+  .evt { opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    .evt { animation: rise .35s ease both; }
+    @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  }
+
+  .bubble { max-width: 84%; padding: 10px 14px; border-radius: 12px; font-size: 14.5px; }
+  .evt.user { display: flex; justify-content: flex-end; }
+  .evt.user .bubble {
+    background: var(--user-bubble);
+    color: var(--user-bubble-ink);
+    border-bottom-right-radius: 3px;
+  }
+  .evt.robot .bubble {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-bottom-left-radius: 3px;
+  }
+  .who {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .evt.user .who { text-align: right; }
+
+  .chip {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .06em;
+    padding: 2px 8px;
+    border-radius: 5px;
+    vertical-align: 1px;
+    margin-right: 6px;
+  }
+  .chip.ask     { background: var(--ask-soft);     color: var(--ask); }
+  .chip.confirm { background: var(--confirm-soft); color: var(--confirm); }
+  .chip.execute { background: var(--exec-soft);    color: var(--exec); }
+  .chip.mem     { background: var(--accent-soft);  color: var(--accent); }
+
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    background: var(--surface);
+    font-size: 13.5px;
+  }
+  .card .who { margin-bottom: 8px; }
+  .card.memcard { border-left: 3px solid var(--accent); }
+  .card.plancard { border-left: 3px solid var(--line); }
+  .card q { color: var(--muted); font-style: italic; }
+
+  .subtasks { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .subtasks li {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    font-size: 13px;
+  }
+  .subtasks .idx {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    flex: 0 0 18px;
+    font-variant-numeric: tabular-nums;
+  }
+  .arm {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 5px;
+    white-space: nowrap;
+  }
+
+  .validate {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    background: var(--exec-soft);
+    border: 1px solid var(--exec);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 13.5px;
+  }
+  .validate .tick {
+    flex: 0 0 auto;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--exec);
+    color: var(--bg);
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    margin-top: 1px;
+  }
+  .validate .vmeta { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+  /* scene viz */
+  .scene {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+  .scene .lbl { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .tabletop {
+    width: 132px; height: 92px;
+    border-bottom: 3px solid var(--muted);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 6px;
+  }
+  .tabletop.stacked { flex-direction: column-reverse; align-items: center; gap: 2px; }
+  .blk { width: 26px; height: 26px; border-radius: 4px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18); }
+  .blk.r { background: #C4453C; }
+  .blk.g { background: #3F8A52; }
+  .blk.b { background: #3A66B0; }
+  .scene .arrow { color: var(--muted); font-size: 20px; }
+  .scene img {
+    max-width: 200px;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    display: block;
+  }
+  .scene figure { margin: 0; }
+
+  /* ---------- Memory panel ---------- */
+  .mem-panel {
+    position: sticky;
+    top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+  }
+  .mem-panel h3 {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .mem-panel h3 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .pref {
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-size: 12.5px;
+    background: var(--accent-soft);
+  }
+  .pref.durable { border-style: solid; }
+  .pref .k { font-family: var(--font-mono); font-size: 11px; color: var(--accent); letter-spacing: .04em; }
+  .pref .v { margin: 4px 0; font-weight: 600; }
+  .pref .status {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+  }
+  .pref.durable .status { color: var(--accent); }
+  .mem-empty { font-size: 13px; color: var(--muted); font-style: italic; }
+  @media (prefers-reduced-motion: no-preference) {
+    .pref.flash { animation: flash 1s ease; }
+    @keyframes flash { 0% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: none; } }
+  }
+
+  /* ---------- Value props ---------- */
+  .props { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .prop {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+  .prop h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .prop p { font-size: 14px; color: var(--muted); }
+  .prop .evidence {
+    margin-top: 12px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--accent);
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+
+  footer {
+    margin-top: 72px;
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    font-size: 13px;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="masthead">
+    <div class="eyebrow">PrefMem · Preference-aware robot autonomy</div>
+    <h1>Tell your robot once. It remembers.</h1>
+    <p class="lede">
+      PrefMem is an agentic layer that sits above any VLA-driven robot. It clarifies ambiguous
+      instructions before acting, distills your answers into durable preferences, plans and executes
+      sub-tasks on the robot, and visually validates its own work — a closed loop that gets quieter
+      and more personal with every task.
+    </p>
+    <p class="fact">
+      Everything below is a <strong>real recorded session</strong> — six tasks on a dual-arm
+      tabletop robot, replayed verbatim from system logs. No outputs were edited.
+    </p>
+  </header>
+
+  <section id="system">
+    <div class="section-head">
+      <div class="eyebrow">Architecture</div>
+      <h2>Five agents, one closed loop</h2>
+      <p>A single conversation with the user drives the whole pipeline. The memory curator runs
+      alongside execution, so learning never adds latency to the task.</p>
+    </div>
+    <div class="loop" role="list">
+      <div class="agent" role="listitem">
+        <div class="n">01 · INTERFACE</div>
+        <h3>Human-Interaction</h3>
+        <p>Grounds your words to objects in view. Asks only when the request is genuinely ambiguous — and never twice for the same thing.</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="agent mem" role="listitem">
+        <div class="n">02 · LEARNS</div>
+        <h3>Memory Curator</h3>
+        <p>Extracts preferences from your answers with evidence quotes. Candidates become durable once confirmed; corrections overwrite instantly.</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="agent" role="listitem">
+        <div class="n">03 · PLANS</div>
+        <h3>Planner</h3>
+        <p>Reads the live scene, decomposes intent into pick-and-place sub-tasks, and assigns each one to the best arm.</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="agent" role="listitem">
+        <div class="n">04 · ACTS</div>
+        <h3>VLA Executor</h3>
+        <p>Runs each sub-task on the robot's vision-language-action policy. Works with any VLA backbone.</p>
+      </div>
+      <div class="flow-arrow" aria-hidden="true">→</div>
+      <div class="agent" role="listitem">
+        <div class="n">05 · CHECKS</div>
+        <h3>Validator</h3>
+        <p>Compares the final camera frame against the expected outcome. On a mismatch, it sends the discrepancy back to the planner — automatically.</p>
+      </div>
+    </div>
+    <p class="loop-note">
+      Failed validation loops back to planning without human intervention. The user only ever sees
+      one of two things: a single clarifying question, or a completed task.
+    </p>
+  </section>
+
+  <section id="replay">
+    <div class="section-head">
+      <div class="eyebrow">Recorded session</div>
+      <h2>Watch it learn, task by task</h2>
+      <p>Step through six consecutive tasks from one session. Watch the memory panel on the right:
+      the robot asks a question exactly once, then acts on the stored preference — including when
+      the user changes their mind.</p>
+    </div>
+
+    <div class="episode-tabs" id="tabs" role="tablist" aria-label="Session episodes"></div>
+
+    <div class="replay-grid">
+      <div class="stage">
+        <div class="stage-head">
+          <span class="title" id="ep-title"></span>
+          <div class="controls">
+            <button type="button" id="btn-replay">↺ Replay</button>
+            <button type="button" id="btn-skip">Show all</button>
+          </div>
+        </div>
+        <div class="feed" id="feed" aria-live="polite"></div>
+      </div>
+
+      <aside class="mem-panel" aria-label="Preference memory store">
+        <h3><span class="dot" aria-hidden="true"></span>Preference memory</h3>
+        <div id="mem-store"><p class="mem-empty">Empty — fresh session.</p></div>
+      </aside>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="section-head">
+      <div class="eyebrow">Why it matters</div>
+      <h2>What you saw, in numbers</h2>
+    </div>
+    <div class="props">
+      <div class="prop">
+        <h3>Asks once, then never again</h3>
+        <p>Clarification questions per task fell from one to zero as soon as a preference was
+        confirmed. Repeat tasks run silently — the robot already knows the answer.</p>
+        <div class="evidence">clarification_turns: 1 → 1 → 0 → 0 → 0</div>
+      </div>
+      <div class="prop">
+        <h3>Corrections stick immediately</h3>
+        <p>"I want the reversed order from now on" overwrote the stored preference in a single
+        turn — with the user's own words kept as evidence. No retraining, no reprogramming.</p>
+        <div class="evidence">pref updated · scope_marker: "correction"</div>
+      </div>
+      <div class="prop">
+        <h3>Every task self-validated</h3>
+        <p>The validator compared the final camera frame against the expected outcome on all six
+        tasks and confirmed completion — closing the loop without a human in it.</p>
+        <div class="evidence">6 / 6 tasks · validator_confidence 1.0</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>PrefMem — graduate thesis project, Robotics &amp; AI · Steven Liu</span>
+    <span>Session recorded 16 July 2026 · outputs unedited</span>
+  </footer>
+
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---- scene fragments ---- */
+  var scatter = '<div class="tabletop"><div class="blk r"></div><div class="blk b"></div><div class="blk g"></div></div>';
+  var stackRGB = '<div class="tabletop stacked"><div class="blk r"></div><div class="blk g"></div><div class="blk b"></div></div>';
+  var stackBGR = '<div class="tabletop stacked"><div class="blk b"></div><div class="blk g"></div><div class="blk r"></div></div>';
+
+  function sceneBlocks(before, after) {
+    return '<div class="scene evt"><figure><div class="lbl">BEFORE</div>' + before +
+           '</figure><span class="arrow" aria-hidden="true">→</span><figure><div class="lbl">AFTER</div>' + after + '</figure></div>';
+  }
+  var scenePhotos =
+    '<div class="scene evt">' +
+    '<figure><div class="lbl">BEFORE</div><img src="dataset/v5/1.jpg" alt="Table with an empty white plate, an empty green plate, a sweet potato and a banana" loading="lazy"></figure>' +
+    '<span class="arrow" aria-hidden="true">→</span>' +
+    '<figure><div class="lbl">AFTER</div><img src="dataset/v5/3_2.jpg" alt="Banana placed in the white plate and sweet potato placed in the green plate" loading="lazy"></figure>' +
+    '</div>';
+
+  /* ---- event renderers ---- */
+  function user(text) {
+    return '<div class="evt user"><div><div class="who">User</div><div class="bubble">' + text + '</div></div></div>';
+  }
+  function robot(mode, text, meta) {
+    var cls = mode.toLowerCase();
+    return '<div class="evt robot"><div><div class="who">Robot</div><div class="bubble">' +
+      '<span class="chip ' + cls + '">' + mode + '</span>' + text +
+      (meta ? '<div class="meta">' + meta + '</div>' : '') + '</div></div></div>';
+  }
+  function memcard(op, quote, reason) {
+    var q = quote ? ' <q>' + quote + '</q>' : '';
+    return '<div class="evt card memcard"><div class="who">Memory Curator</div>' +
+      '<span class="chip mem">' + op + '</span>' + q +
+      '<div class="meta">' + reason + '</div></div>';
+  }
+  function plancard(items, note) {
+    var lis = items.map(function (it, i) {
+      return '<li><span class="idx">' + (i + 1) + '</span><span>' + it.t + '</span><span class="arm">' + it.arm + ' arm</span></li>';
+    }).join('');
+    return '<div class="evt card plancard"><div class="who">Planner → VLA Executor</div>' +
+      '<ul class="subtasks">' + lis + '</ul>' +
+      (note ? '<div class="meta">' + note + '</div>' : '') + '</div>';
+  }
+  function validate(text) {
+    return '<div class="evt validate"><span class="tick" aria-hidden="true">✓</span><div>' +
+      '<strong>Task complete.</strong> ' + text +
+      '<div class="vmeta">validator_confidence: 1.0 · discrepancies: none</div></div></div>';
+  }
+
+  /* ---- memory snapshots ---- */
+  var MEM = {
+    empty: [],
+    rgbCandidate: [{ k: 'stack_blocks · bottom_to_top_color_order', v: 'red → green → blue', s: 'candidate' }],
+    rgbDurable:   [{ k: 'stack_blocks · bottom_to_top_color_order', v: 'red → green → blue', s: 'durable' }],
+    bgrDurable:   [{ k: 'stack_blocks · bottom_to_top_color_order', v: 'blue → green → red', s: 'durable' }],
+    withPlates:   [
+      { k: 'stack_blocks · bottom_to_top_color_order', v: 'blue → green → red', s: 'durable' },
+      { k: 'place_objects · object_plate_assignment', v: 'banana → white plate · sweet potato → green plate', s: 'candidate' }
+    ]
+  };
+
+  /* ---- episodes (verbatim from session logs) ---- */
+  var EPISODES = [
+    {
+      tab: '1 · First ask',
+      title: 'Task 1 — "Stack the blocks." (first time ever)',
+      memStart: 'empty',
+      events: [
+        user('Stack the blocks.'),
+        robot('ASK', 'In what order should I stack the red, blue, and green blocks?',
+          'grounding: "the blocks" → red, blue, green block · memory: empty'),
+        user('RGB from down to top.'),
+        robot('EXECUTE', 'Stacking the blocks with red on the bottom, green in the middle, and blue on top.',
+          'confirmed_intent locked · clarification_turns: 1'),
+        { mem: 'rgbCandidate', html: memcard('ADDED · candidate', 'RGB from down to top.',
+          'User resolved an open choice — stored as a candidate preference.') },
+        plancard([
+          { t: 'Place red block at workspace center (base)', arm: 'left' },
+          { t: 'Place green block on top of red', arm: 'right' },
+          { t: 'Place blue block on top of green', arm: 'left' }
+        ], 'planner_confidence: 1.0'),
+        sceneBlocks(scatter, stackRGB),
+        validate('Final frame shows red (bottom), green (middle), blue (top) — exactly as requested.')
+      ]
+    },
+    {
+      tab: '2 · Confirms',
+      title: 'Task 2 — same request, next run',
+      memStart: 'rgbCandidate',
+      events: [
+        user('Stack the blocks.'),
+        robot('CONFIRM', 'Stack them red, green, then blue from bottom to top, like last time?',
+          'interpretation source: memory · pref-81bb…07 · zero open questions'),
+        user('Yes.'),
+        robot('EXECUTE', 'Stacking the blocks red, green, and blue from bottom to top.', ''),
+        { mem: 'rgbDurable', html: memcard('REINFORCED · durable', 'Yes.',
+          'Confirmation promoted the candidate to a durable preference.') },
+        plancard([
+          { t: 'Place red block at workspace center (base)', arm: 'left' },
+          { t: 'Place green block on top of red', arm: 'left' },
+          { t: 'Place blue block on top of green', arm: 'left' }
+        ], 'planner_confidence: 1.0'),
+        sceneBlocks(scatter, stackRGB),
+        validate('Blocks stacked red, green, blue from bottom to top.')
+      ]
+    },
+    {
+      tab: '3 · Silent',
+      title: 'Task 3 — same request, no questions asked',
+      memStart: 'rgbDurable',
+      events: [
+        user('Stack the blocks.'),
+        robot('EXECUTE', 'Stacking the blocks red, green, and blue from bottom to top, as per your preference.',
+          'clarification_turns: 0 · acting directly on durable memory'),
+        memcard('NOOP', '', 'No new preference evidence — nothing to update.'),
+        plancard([
+          { t: 'Place red block at workspace center (base)', arm: 'left' },
+          { t: 'Place green block on top of red', arm: 'right' },
+          { t: 'Place blue block on top of green', arm: 'left' }
+        ], 'planner_confidence: 1.0'),
+        sceneBlocks(scatter, stackRGB),
+        validate('Blocks stacked red, green, blue from bottom to top.')
+      ]
+    },
+    {
+      tab: '4 · Corrected',
+      title: 'Task 4 — the user changes their mind',
+      memStart: 'rgbDurable',
+      events: [
+        user('I forgot to say I want the reversed order from now on.'),
+        robot('EXECUTE', 'Got it. Stacking them blue, green, then red from bottom to top from now on.',
+          'inverts the stored durable preference · clarification_turns: 0'),
+        { mem: 'bgrDurable', html: memcard('UPDATED · durable', 'I want the reversed order from now on.',
+          '"From now on" is a durability marker — the preference is overwritten, not appended.') },
+        plancard([
+          { t: 'Unstack blue block onto the table', arm: 'right' },
+          { t: 'Unstack green block onto the table', arm: 'right' },
+          { t: 'Move red block aside to clear the base', arm: 'right' },
+          { t: 'Place blue block as the new base', arm: 'right' },
+          { t: 'Place green block on top of blue', arm: 'right' },
+          { t: 'Place red block on top of green', arm: 'right' }
+        ], 'Existing stack is disassembled first, then rebuilt in the corrected order.'),
+        sceneBlocks(stackRGB, stackBGR),
+        validate('Blocks re-stacked blue, green, red from bottom to top.')
+      ]
+    },
+    {
+      tab: '5 · Recalled',
+      title: 'Task 5 — "my preferred order" resolves from memory',
+      memStart: 'bgrDurable',
+      events: [
+        user('I want my prefered order.'),
+        robot('EXECUTE', 'Stacking them blue, green, and red from bottom to top, as you prefer.',
+          '"my preferred order" grounded via memory · pref-81bb…07'),
+        memcard('REINFORCED · durable', 'I want my prefered order.',
+          'User explicitly invoked the stored preference — reinforced.'),
+        plancard([
+          { t: 'Disassemble current stack (3 moves)', arm: 'right' },
+          { t: 'Rebuild: blue base, green middle, red top (3 moves)', arm: 'right' }
+        ], '6 sub-tasks total · planner_confidence: 1.0'),
+        sceneBlocks(stackRGB, stackBGR),
+        validate('Blocks stacked blue, green, red — the user’s preferred order.')
+      ]
+    },
+    {
+      tab: '6 · New task',
+      title: 'Task 6 — a brand-new task, same behaviour',
+      memStart: 'bgrDurable',
+      events: [
+        user('Put the banana and the sweet potato into the plates.'),
+        robot('CONFIRM', 'Should I put the banana in the white plate and the sweet potato in the green one?',
+          'two plausible assignments → one targeted question, not a guess'),
+        user('Yes.'),
+        robot('EXECUTE', 'Putting the banana in the white plate and the sweet potato in the green plate.', ''),
+        { mem: 'withPlates', html: memcard('ADDED · candidate', 'Yes.',
+          'A second, independent preference — object-to-plate assignment — joins the store.') },
+        plancard([
+          { t: 'Pick banana → place into white plate', arm: 'right' },
+          { t: 'Pick sweet potato → place into green plate', arm: 'left' }
+        ], 'Both arms used in parallel, assigned by object proximity.'),
+        scenePhotos,
+        validate('Banana in the white plate, sweet potato in the green plate — real robot camera frames above.')
+      ]
+    }
+  ];
+
+  /* ---- runtime ---- */
+  var tabsEl = document.getElementById('tabs');
+  var feedEl = document.getElementById('feed');
+  var titleEl = document.getElementById('ep-title');
+  var memEl = document.getElementById('mem-store');
+  var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var current = 0, timers = [];
+
+  function renderMem(key, flash) {
+    var prefs = MEM[key];
+    if (!prefs.length) {
+      memEl.innerHTML = '<p class="mem-empty">Empty — fresh session.</p>';
+      return;
+    }
+    memEl.innerHTML = prefs.map(function (p) {
+      return '<div class="pref ' + (p.s === 'durable' ? 'durable' : '') + (flash ? ' flash' : '') + '">' +
+        '<div class="k">' + p.k + '</div><div class="v">' + p.v + '</div>' +
+        '<div class="status">' + p.s + '</div></div>';
+    }).join('');
+  }
+
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function playEpisode(i, instant) {
+    clearTimers();
+    current = i;
+    var ep = EPISODES[i];
+    titleEl.textContent = ep.title;
+    feedEl.innerHTML = '';
+    renderMem(ep.memStart, false);
+    Array.prototype.forEach.call(tabsEl.children, function (b, j) {
+      b.setAttribute('aria-pressed', j === i ? 'true' : 'false');
+    });
+
+    var delay = 0;
+    ep.events.forEach(function (ev) {
+      var html = typeof ev === 'string' ? ev : ev.html;
+      var memKey = typeof ev === 'string' ? null : ev.mem;
+      var step = function () {
+        feedEl.insertAdjacentHTML('beforeend', html);
+        if (memKey) renderMem(memKey, true);
+      };
+      if (instant || reduced) { step(); }
+      else { delay += 650; timers.push(setTimeout(step, delay)); }
+    });
+  }
+
+  EPISODES.forEach(function (ep, i) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = ep.tab;
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', function () { playEpisode(i, false); });
+    tabsEl.appendChild(b);
+  });
+
+  document.getElementById('btn-replay').addEventListener('click', function () { playEpisode(current, false); });
+  document.getElementById('btn-skip').addEventListener('click', function () { playEpisode(current, true); });
+
+  playEpisode(0, false);
+})();
+</script>
+</body>
+</html>
