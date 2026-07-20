@@ -1,0 +1,113 @@
+{
+  "task_scenarios": [
+    {
+      "id": "T01_rgb_success",
+      "dataset": "dataset/v3",
+      "scene_setup": "Red, green, and blue blocks are separate and reachable.",
+      "user_query": "Stack the blocks red, green, and blue from bottom to top.",
+      "planner_output": {"planning_status": "READY", "task_complete": false, "subtasks": [{"task_instruction": "Stack the visible blocks in the confirmed order."}], "planner_confidence": 0.94},
+      "validator_output": {"outcome": "SUCCESS", "task_complete": true, "discrepancies": [], "validator_confidence": 0.95},
+      "expected_outcome": "SUCCESS",
+      "expected_next_action": "NONE"
+    },
+    {
+      "id": "T02_bgr_success",
+      "dataset": "dataset/v4",
+      "scene_setup": "Three coloured blocks are separate and reachable.",
+      "user_query": "Stack blue, green, and red from bottom to top.",
+      "planner_output": {"planning_status": "READY", "task_complete": false, "subtasks": [{"task_instruction": "Stack the visible blocks in BGR order."}], "planner_confidence": 0.92},
+      "validator_output": {"outcome": "SUCCESS", "task_complete": true, "discrepancies": [], "validator_confidence": 0.93},
+      "expected_outcome": "SUCCESS",
+      "expected_next_action": "NONE"
+    },
+    {
+      "id": "T03_already_satisfied",
+      "dataset": "dataset/v3_1",
+      "scene_setup": "The requested stack is already complete in the initial frame.",
+      "user_query": "Stack the blocks in RGB order.",
+      "planner_output": {"planning_status": "ALREADY_SATISFIED", "task_complete": true, "subtasks": [], "planner_confidence": 0.91},
+      "validator_output": null,
+      "expected_outcome": "ALREADY_SATISFIED",
+      "expected_next_action": "NONE"
+    },
+    {
+      "id": "T04_no_blocks",
+      "dataset": "dataset/v1",
+      "scene_setup": "Only fruit and plates are visible; no blocks are present.",
+      "user_query": "Stack the blocks.",
+      "planner_output": {"planning_status": "BLOCKED", "task_complete": false, "subtasks": [], "planner_confidence": 0.97, "failure": {"code": "MISSING_REQUIRED_OBJECT", "expected": "Visible blocks.", "observed": "No blocks are visible.", "recoverability": "USER_ASSIST"}},
+      "validator_output": null,
+      "expected_outcome": "BLOCKED",
+      "expected_next_action": "USER_ASSIST"
+    },
+    {
+      "id": "T05_uncertain_view",
+      "dataset": "dataset/v3",
+      "scene_setup": "The camera is intentionally occluded or defocused.",
+      "user_query": "Stack the blocks.",
+      "planner_output": {"planning_status": "UNKNOWN", "task_complete": false, "subtasks": [], "planner_confidence": 0.25, "failure": {"code": "INSUFFICIENT_VISUAL_EVIDENCE", "recoverability": "REOBSERVE"}},
+      "validator_output": null,
+      "expected_outcome": "UNKNOWN",
+      "expected_next_action": "REOBSERVE"
+    },
+    {
+      "id": "T06_partial_completion",
+      "dataset": "dataset/v3",
+      "scene_setup": "Two blocks are stacked correctly but the top block remains separate.",
+      "user_query": "Stack the blocks in RGB order.",
+      "planner_output": {"planning_status": "READY", "task_complete": false, "subtasks": [{"task_instruction": "Complete the RGB stack."}], "planner_confidence": 0.9},
+      "validator_output": {"outcome": "PARTIAL", "task_complete": false, "expected_state": "RGB stack", "observed_state": "Red and green are stacked; blue is separate.", "discrepancies": ["Blue is not on top."], "recoverability": "REPLAN", "validator_confidence": 0.9},
+      "expected_outcome": "PARTIAL",
+      "expected_next_action": "REPLAN"
+    },
+    {
+      "id": "T07_unreachable_object",
+      "dataset": "dataset/v3",
+      "scene_setup": "A required block has been moved outside the reachable workspace.",
+      "user_query": "Complete the RGB stack.",
+      "planner_output": {"planning_status": "READY", "task_complete": false, "subtasks": [{"task_instruction": "Move the blue block onto the stack."}], "planner_confidence": 0.81},
+      "validator_output": {"outcome": "FAILURE", "task_complete": false, "validator_confidence": 0.92, "failure": {"code": "OBJECT_UNREACHABLE", "recoverability": "USER_ASSIST", "observed": "The blue block is outside reach."}},
+      "expected_outcome": "FAILED",
+      "expected_next_action": "USER_ASSIST"
+    },
+    {
+      "id": "T08_unsafe_workspace",
+      "dataset": "dataset/v3",
+      "scene_setup": "A person has a hand inside the active workspace.",
+      "user_query": "Stack the blocks now.",
+      "planner_output": {"planning_status": "UNSAFE", "task_complete": false, "subtasks": [], "planner_confidence": 0.95, "failure": {"code": "UNSAFE_PLAN", "recoverability": "ABORT_SAFETY"}},
+      "validator_output": null,
+      "expected_outcome": "ABORTED_SAFETY",
+      "expected_next_action": "ABORT_SAFETY"
+    },
+    {
+      "id": "T09_unsupported_skill",
+      "dataset": "dataset/v1",
+      "scene_setup": "Fruit is visible, but the robot exposes only pick-and-place skills.",
+      "user_query": "Cut the banana into slices.",
+      "planner_output": {"planning_status": "UNSUPPORTED", "task_complete": false, "subtasks": [], "planner_confidence": 0.96, "failure": {"code": "SKILL_UNAVAILABLE", "recoverability": "ABORT_UNSUPPORTED"}},
+      "validator_output": null,
+      "expected_outcome": "BLOCKED",
+      "expected_next_action": "ABORT_UNSUPPORTED"
+    },
+    {
+      "id": "T10_unverifiable_final_frame",
+      "dataset": "dataset/v4",
+      "scene_setup": "Execution is attempted, but the final stack is visually occluded.",
+      "user_query": "Stack the blocks in BGR order.",
+      "planner_output": {"planning_status": "READY", "task_complete": false, "subtasks": [{"task_instruction": "Stack the blocks in BGR order."}], "planner_confidence": 0.9},
+      "validator_output": {"outcome": "FAILURE", "task_complete": false, "validator_confidence": 0.3},
+      "expected_outcome": "UNKNOWN",
+      "expected_next_action": "REOBSERVE"
+    }
+  ],
+  "preference_scenarios": [
+    {"id": "M01_action_yes", "dialogue": ["Robot: Stack RGB?", "User: Yes."], "expected_memory": "NONE"},
+    {"id": "M02_current_constraint", "dialogue": ["User: Stack RGB."], "expected_memory": "NONE"},
+    {"id": "M03_open_choice_once", "dialogue": ["Robot: Which order?", "User: RGB."], "expected_memory": "CANDIDATE"},
+    {"id": "M04_open_choice_twice", "dialogue": ["Two independent open choices of RGB."], "expected_memory": "CONFIRM_REQUIRED_NOT_DURABLE"},
+    {"id": "M05_memory_yes", "dialogue": ["Robot: Remember RGB as your default?", "User: Yes."], "expected_memory": "DURABLE"},
+    {"id": "M06_explicit_future", "dialogue": ["User: I want BGR in the future."], "expected_memory": "DURABLE"},
+    {"id": "M07_current_override", "dialogue": ["Saved RGB; user says: No, opposite this time."], "expected_memory": "KEEP_RGB_AND_EXECUTE_BGR_ONE_OFF"}
+  ]
+}

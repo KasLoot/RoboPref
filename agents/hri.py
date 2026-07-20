@@ -5,8 +5,10 @@ from pathlib import Path
 from ollama import chat
 from colorama import Fore, Style
 
+from assurance.task_assurance import TaskAssurance
 from agents.memory import Memory_Agent, Memory_Agent_Config
 from agents.planner import Planner_Agent, Planner_Agent_Config
+from agents.vision import prepare_vision_image
 from agents.vlidator import Validator_Agent, Validator_Agent_Config
 from dataset.episode import DatasetEpisode, DatasetEpisodeError
 from memory.store import PreferenceStore
@@ -23,6 +25,10 @@ class HRI_Agent_Config:
     dataset_path: str = str(Path(workspace_root) / "dataset" / "v3")
     memory_store_path: str = str(Path(__file__).resolve().parents[1] / "memory" / "preferences.json")
     user_id: str = "default"
+    resize_images: bool = True
+    image_width: int = 640
+    image_height: int = 480
+    image_jpeg_quality: int = 85
 
 
 class HRI_Agent:
@@ -41,8 +47,23 @@ class HRI_Agent:
         self.session_id = uuid.uuid4().hex
         self.memory_store = PreferenceStore(config.memory_store_path)
         self.memory_agent = Memory_Agent(Memory_Agent_Config())
-        self.planner_agent = Planner_Agent(Planner_Agent_Config())
-        self.validator_agent = Validator_Agent(Validator_Agent_Config())
+        self.task_assurance = TaskAssurance()
+        self.last_task_result: dict | None = None
+        self.pending_memory_confirmation: dict | None = None
+
+        planner_config = Planner_Agent_Config()
+        planner_config.resize_images = config.resize_images
+        planner_config.image_width = config.image_width
+        planner_config.image_height = config.image_height
+        planner_config.image_jpeg_quality = config.image_jpeg_quality
+        self.planner_agent = Planner_Agent(planner_config)
+
+        validator_config = Validator_Agent_Config()
+        validator_config.resize_images = config.resize_images
+        validator_config.image_width = config.image_width
+        validator_config.image_height = config.image_height
+        validator_config.image_jpeg_quality = config.image_jpeg_quality
+        self.validator_agent = Validator_Agent(validator_config)
 
     @property
     def initial_frame_path(self) -> str:
@@ -58,10 +79,6 @@ class HRI_Agent:
         if not user_query:
             user_query = "Stacked vertically the blocks from the right mat on the left mat. RGB sequence from bottom to top."
             print(f"Using default user query: {user_query}")
-        self.conversation.append({
-            'role': 'system',
-            'content': self.system_prompt
-        })
         self._append_user_turn(user_query, new_command=True)
 
         while True:
@@ -103,11 +120,25 @@ class HRI_Agent:
             # intent to the planner for long-horizon decomposition.
             mode = self.dispatch_to_planner(content)
 
-            user_query = input("User: ")
-            self._append_user_turn(user_query, new_command=mode in {"EXECUTE", "REPORT"})
+            if mode == "EXECUTE":
+                while self.pending_memory_confirmation is not None:
+                    print(Fore.BLUE + self.memory_confirmation_question() + Style.RESET_ALL)
+                    self.answer_memory_confirmation(input("Memory preference: "))
+                self.prompt_for_dataset_switch()
+                user_query = input("User: ")
+                self._append_user_turn(user_query, new_command=True)
+            else:
+                user_query = input("User: ")
+                self._append_user_turn(user_query, new_command=mode == "REPORT")
 
     def _append_user_turn(self, user_query: str, new_command: bool) -> None:
         if new_command:
+            self.conversation = [
+                {
+                    'role': 'system',
+                    'content': self.system_prompt,
+                }
+            ]
             self.current_interaction = []
             self.relevant_memories = self.memory_store.retrieve(user_query, user_id=self.config.user_id)
 
@@ -121,7 +152,15 @@ class HRI_Agent:
             'content': json.dumps(payload),
         }
         if new_command:
-            message['images'] = [self.initial_frame_path]
+            message['images'] = [
+                prepare_vision_image(
+                    self.initial_frame_path,
+                    resize=self.config.resize_images,
+                    width=self.config.image_width,
+                    height=self.config.image_height,
+                    jpeg_quality=self.config.image_jpeg_quality,
+                )
+            ]
         self.conversation.append(message)
 
     def dispatch_to_planner(self, hri_output: str) -> str | None:
@@ -141,13 +180,84 @@ class HRI_Agent:
 
         mode = trace.get("mode")
         confirmed_intent = trace.get("confirmed_intent")
+        if mode == "EXECUTE" and not confirmed_intent:
+            self.last_task_result = {
+                "phase": "HRI",
+                "outcome": "UNKNOWN",
+                "proceed": False,
+                "next_action": "REOBSERVE",
+                "message": "The HRI output did not contain a confirmed task contract.",
+                "failure": {
+                    "stage": "GROUNDING",
+                    "code": "MISSING_CONFIRMED_INTENT",
+                    "memory_effect": "NONE",
+                },
+            }
+            print(Fore.RED + "[HRI] EXECUTE requires a confirmed intent; skipping planner." + Style.RESET_ALL)
+            return None
         if mode == "EXECUTE" and confirmed_intent:
             self.update_memory()
-            self.planner_agent.plan(confirmed_intent, self.initial_frame_path)
-            # after the (planned) execution, validate full task completeness
-            # against the final frame of the episode.
-            self.validator_agent.validate(confirmed_intent, self.final_frame_path)
-            self.prompt_for_dataset_switch()
+            try:
+                planner_output = self.planner_agent.plan(confirmed_intent, self.initial_frame_path)
+            except Exception as error:
+                task_result = self.task_assurance.runtime_failure(
+                    stage="PLANNING",
+                    code="PLANNER_UNAVAILABLE",
+                    message="The planner is unavailable, so no task was dispatched.",
+                    next_action="REPLAN",
+                    observed=str(error),
+                )
+            else:
+                plan_result = self.task_assurance.assess_plan(planner_output)
+                if plan_result.proceed:
+                    # In the recorded-episode prototype, the final frame represents the
+                    # state after the external VLA/robot attempt. The assurance layer only
+                    # evaluates it; it does not claim to execute the physical action.
+                    try:
+                        validator_output = self.validator_agent.validate(
+                            confirmed_intent, self.final_frame_path
+                        )
+                    except Exception as error:
+                        task_result = self.task_assurance.runtime_failure(
+                            stage="VALIDATION",
+                            code="VALIDATOR_UNAVAILABLE",
+                            message="The final state could not be validated, so success is unknown.",
+                            next_action="REOBSERVE",
+                            observed=str(error),
+                        )
+                    else:
+                        task_result = self.task_assurance.assess_validation(validator_output)
+                else:
+                    task_result = plan_result
+            self.last_task_result = task_result.to_dict()
+            print(
+                Fore.YELLOW
+                + "[Task Assurance] "
+                + json.dumps(self.last_task_result, indent=2)
+                + Style.RESET_ALL
+            )
+        elif mode == "REPORT":
+            failure_code = trace.get("failure_code") or "HRI_REPORTED_BLOCKER"
+            if failure_code == "USER_CANCELLED":
+                report_outcome, next_action = "CANCELLED", "NONE"
+            elif failure_code == "UNSAFE_REQUEST":
+                report_outcome, next_action = "ABORTED_SAFETY", "ABORT_SAFETY"
+            elif failure_code == "UNSUPPORTED_TASK":
+                report_outcome, next_action = "BLOCKED", "ABORT_UNSUPPORTED"
+            else:
+                report_outcome, next_action = "BLOCKED", "USER_ASSIST"
+            self.last_task_result = {
+                "phase": "HRI",
+                "outcome": report_outcome,
+                "proceed": False,
+                "next_action": next_action,
+                "message": trace.get("report_reason") or "The HRI agent reported that the task cannot proceed.",
+                "failure": {
+                    "stage": "GROUNDING",
+                    "code": failure_code,
+                    "memory_effect": "NONE",
+                },
+            }
         return mode
 
     def prompt_for_dataset_switch(self) -> bool:
@@ -179,7 +289,7 @@ class HRI_Agent:
         except ValueError:
             return str(path)
 
-    def update_memory(self) -> None:
+    def update_memory(self) -> list[dict]:
         """Curate the resolved interaction without allowing memory failure to block execution."""
         try:
             operations = self.memory_agent.propose_updates(
@@ -193,8 +303,55 @@ class HRI_Agent:
             )
         except Exception as error:
             print(Fore.RED + f"[Memory] update failed; continuing without persistence: {error}" + Style.RESET_ALL)
-            return
+            return []
 
         if applied:
             print(Fore.BLUE + "[Memory] " + json.dumps(applied) + Style.RESET_ALL)
+        confirmation = next(
+            (result for result in applied if result.get("action") == "CONFIRM_REQUIRED"),
+            None,
+        )
+        if confirmation is not None:
+            self.pending_memory_confirmation = confirmation
+        return applied
+
+    def memory_confirmation_question(self) -> str:
+        """Return a dedicated future-memory question for the pending candidate."""
+        pending = self.pending_memory_confirmation
+        if pending is None:
+            return ""
+        value = json.dumps(pending.get("value"), ensure_ascii=False)
+        task = str(pending.get("task_type", "this task")).replace("_", " ")
+        if pending.get("reason") == "conflicts_with_durable":
+            return f"You chose {value}, which differs from your saved default. Should it replace your default for {task}?"
+        return f"You have independently chosen {value} more than once. Should I remember it as your default for {task}?"
+
+    def answer_memory_confirmation(self, answer: str) -> dict | None:
+        """Apply only an answer to the dedicated memory question as durable consent."""
+        pending = self.pending_memory_confirmation
+        if pending is None:
+            return None
+        normalised = " ".join(answer.lower().strip().rstrip(".!?").split())
+        yes_answers = {"yes", "yeah", "yep", "sure", "ok", "okay", "please do", "remember it"}
+        no_answers = {"no", "nope", "do not", "don't", "not now", "this time only"}
+        if normalised in yes_answers:
+            result = self.memory_store.confirm_candidate(
+                pending["preference_id"],
+                user_id=self.config.user_id,
+                session_id=self.session_id,
+                quote=answer,
+            )
+        elif normalised in no_answers:
+            result = self.memory_store.decline_candidate(
+                pending["preference_id"],
+                user_id=self.config.user_id,
+                session_id=self.session_id,
+                quote=answer,
+            )
+        else:
+            print(Fore.BLUE + "Please answer yes or no about remembering the preference." + Style.RESET_ALL)
+            return None
+        self.pending_memory_confirmation = None
+        print(Fore.BLUE + "[Memory] " + json.dumps(result) + Style.RESET_ALL)
+        return result
 

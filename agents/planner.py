@@ -1,5 +1,7 @@
 from ollama import chat
-from colorama import Fore, Back, Style
+from colorama import Fore, Style
+
+from agents.vision import prepare_vision_image
 
 
 
@@ -9,6 +11,10 @@ class Planner_Agent_Config:
     model: str = "gemma4:31b-cloud"
 
     system_prompt_path: str = "./prompt/planner/prompt-v1.md"
+    resize_images: bool = True
+    image_width: int = 640
+    image_height: int = 480
+    image_jpeg_quality: int = 85
 
 
 class Planner_Agent:
@@ -22,6 +28,13 @@ class Planner_Agent:
 
     def plan(self, confirmed_intent: str, image_path: str):
         """Decompose a confirmed long-horizon intent into short-horizon subtasks."""
+        image = prepare_vision_image(
+            image_path,
+            resize=self.config.resize_images,
+            width=self.config.image_width,
+            height=self.config.image_height,
+            jpeg_quality=self.config.image_jpeg_quality,
+        )
         messages = [
             {
                 'role': 'system',
@@ -30,7 +43,7 @@ class Planner_Agent:
             {
                 'role': 'user',
                 'content': f"TASK TO PLAN: {confirmed_intent}",
-                'images': [image_path]
+                'images': [image]
             }
         ]
 

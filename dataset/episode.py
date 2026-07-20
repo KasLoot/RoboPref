@@ -59,7 +59,7 @@ class DatasetEpisode:
     def display_path(self, workspace_root: str | Path) -> str:
         workspace_root = Path(workspace_root).expanduser().resolve()
         try:
-            return str(self.directory.relative_to(workspace_root))
+            return self.directory.relative_to(workspace_root).as_posix()
         except ValueError:
             return str(self.directory)
 
