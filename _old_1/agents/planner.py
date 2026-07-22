@@ -2,23 +2,11 @@ from ollama import chat
 from colorama import Fore, Style
 
 from agents.vision import prepare_vision_image
+from agents.configs import Planner_Agent_Config
 
 
-
-class Validator_Agent_Config:
-    host: str = "ollama"
-    base_url: str = ""
-    model: str = "gemma4:31b-cloud"
-
-    system_prompt_path: str = "./prompt/validator/prompt-v1.md"
-    resize_images: bool = True
-    image_width: int = 640
-    image_height: int = 480
-    image_jpeg_quality: int = 85
-
-
-class Validator_Agent:
-    def __init__(self, config: Validator_Agent_Config):
+class Planner_Agent:
+    def __init__(self, config: Planner_Agent_Config):
         self.config = config
         self.host = config.host
         self.base_url = config.base_url
@@ -26,10 +14,10 @@ class Validator_Agent:
         with open(config.system_prompt_path, "r") as f:
             self.system_prompt = f.read()
 
-    def validate(self, confirmed_intent: str, final_frame_path: str):
-        """Judge whether the full long-horizon task is complete from the final frame."""
+    def plan(self, confirmed_intent: str, image_path: str):
+        """Decompose a confirmed long-horizon intent into short-horizon subtasks."""
         image = prepare_vision_image(
-            final_frame_path,
+            image_path,
             resize=self.config.resize_images,
             width=self.config.image_width,
             height=self.config.image_height,
@@ -42,7 +30,7 @@ class Validator_Agent:
             },
             {
                 'role': 'user',
-                'content': f"CONFIRMED_TASK: {confirmed_intent}",
+                'content': f"TASK TO PLAN: {confirmed_intent}",
                 'images': [image]
             }
         ]
@@ -58,11 +46,11 @@ class Validator_Agent:
             }
         )
 
-        print(Fore.MAGENTA + '\nValidator:\n', end='', flush=True)
+        print(Fore.CYAN + '\nPlanner:\n', end='', flush=True)
         content = ''
         for chunk in stream:
             if chunk.message.content:
-                print(Fore.MAGENTA + chunk.message.content + Style.RESET_ALL, end='', flush=True)
+                print(Fore.CYAN + chunk.message.content + Style.RESET_ALL, end='', flush=True)
                 content += chunk.message.content
         print("\n")
 

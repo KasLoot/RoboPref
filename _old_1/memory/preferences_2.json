@@ -1,0 +1,98 @@
+{
+  "preferences": [
+    {
+      "confidence": 0.8,
+      "confirmation_pending": false,
+      "context": {
+        "objects": [
+          "red block",
+          "blue block",
+          "green block"
+        ]
+      },
+      "created_at": "2026-07-21T13:34:31.331998+00:00",
+      "evidence": [
+        {
+          "created_at": "2026-07-21T13:34:31.331998+00:00",
+          "independent": true,
+          "origin": "open_preference_answer",
+          "quote": "Blue on top, green in the middle, and red at the buttom.",
+          "reason": "The user provided a specific ordering choice in response to an assistant's open-ended confirmation of the task goal.",
+          "scope_marker": "unmarked",
+          "session_id": "9d70b63d2b9143078c662819e91038de"
+        }
+      ],
+      "evidence_count": 1,
+      "id": "pref-d304fa252bf544ac96e89119db0b23d7",
+      "independent_evidence_count": 1,
+      "key": "stack_order",
+      "scope": "contextual",
+      "status": "retracted",
+      "task_type": "stacking",
+      "updated_at": "2026-07-21T14:01:26.364484+00:00",
+      "user_id": "default",
+      "value": [
+        "blue",
+        "green",
+        "red"
+      ]
+    },
+    {
+      "confidence": 0.6,
+      "confirmation_pending": false,
+      "confirmation_prompt_evidence_count": 2,
+      "context": {
+        "objects": [
+          "red block",
+          "blue block",
+          "green block"
+        ]
+      },
+      "created_at": "2026-07-21T13:43:17.493783+00:00",
+      "evidence": [
+        {
+          "created_at": "2026-07-21T13:43:17.493783+00:00",
+          "independent": true,
+          "origin": "user_initiated_override",
+          "quote": "Stack the blocks with red, green, blue from buttom to top.",
+          "reason": "User provided a specific order that differs from the existing candidate preference, constituting a user-initiated override.",
+          "scope_marker": "unmarked",
+          "session_id": "9d70b63d2b9143078c662819e91038de"
+        },
+        {
+          "created_at": "2026-07-21T13:57:06.097939+00:00",
+          "independent": true,
+          "origin": "open_preference_answer",
+          "quote": "Red at the bottom, then green, then blue.",
+          "reason": "The user provided a specific choice in response to an assistant's open-ended proposal of a different order.",
+          "scope_marker": "unmarked",
+          "session_id": "9d70b63d2b9143078c662819e91038de"
+        },
+        {
+          "created_at": "2026-07-21T14:01:26.364484+00:00",
+          "independent": false,
+          "origin": "memory_confirmation",
+          "quote": "Yes.",
+          "reason": "The user affirmed a dedicated future-memory question.",
+          "scope_marker": "explicit_durable",
+          "session_id": "9d70b63d2b9143078c662819e91038de"
+        }
+      ],
+      "evidence_count": 2,
+      "id": "pref-f5650517e35f4eb3b090d5994d8dc50f",
+      "independent_evidence_count": 2,
+      "key": "stack_order",
+      "scope": "contextual",
+      "status": "durable",
+      "task_type": "stacking",
+      "updated_at": "2026-07-21T14:01:26.364484+00:00",
+      "user_id": "default",
+      "value": [
+        "red",
+        "green",
+        "blue"
+      ]
+    }
+  ],
+  "schema_version": 1
+}

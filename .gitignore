@@ -1,13 +1,14 @@
-# Python-generated files
+.venv/
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-.venv
-
-# User-specific runtime state
-experiments/record.txt
+*.py[cod]
+.pytest_cache/
+.idea/
+experiments/*.txt
+memory/history.json
+memory/history_outbox.json
+memory/preferences.json
+memory/*.json.bak
+memory/*.json.audit.jsonl
+memory/*.json.corrupt-*
+memory/*.json.lock
+*.tmp

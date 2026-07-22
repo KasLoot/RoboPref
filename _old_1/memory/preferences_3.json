@@ -1,0 +1,79 @@
+{
+  "preferences": [
+    {
+      "confidence": 0.8,
+      "confirmation_pending": false,
+      "context": {
+        "objects": [
+          "red cube",
+          "green cube",
+          "blue cube"
+        ]
+      },
+      "created_at": "2026-07-21T14:37:01.207677+00:00",
+      "evidence": [
+        {
+          "created_at": "2026-07-21T14:37:01.207677+00:00",
+          "independent": true,
+          "origin": "open_preference_answer",
+          "quote": "Red at buttom, green in the middle, and blue on top.",
+          "reason": "The user provided a specific choice in response to an open preference question about stacking order.",
+          "scope_marker": "unmarked",
+          "session_id": "af9f14dff9f245eab849f106c99f5528"
+        }
+      ],
+      "evidence_count": 1,
+      "id": "pref-3ccd7fd34be548be954c2bcea5e50466",
+      "independent_evidence_count": 1,
+      "key": "stacking_order",
+      "scope": "contextual",
+      "status": "candidate",
+      "task_type": "stacking",
+      "updated_at": "2026-07-21T14:37:01.207677+00:00",
+      "user_id": "default",
+      "value": [
+        "red",
+        "green",
+        "blue"
+      ]
+    },
+    {
+      "confidence": 0.8,
+      "confirmation_pending": false,
+      "context": {
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ]
+      },
+      "created_at": "2026-07-21T15:02:46.987574+00:00",
+      "evidence": [
+        {
+          "created_at": "2026-07-21T15:02:46.987574+00:00",
+          "independent": true,
+          "origin": "open_preference_answer",
+          "quote": "Red at buttom, green in the middle, and blue on top.",
+          "reason": "The user provided a specific order in response to an open preference question from the assistant.",
+          "scope_marker": "unmarked",
+          "session_id": "af9f14dff9f245eab849f106c99f5528"
+        }
+      ],
+      "evidence_count": 1,
+      "id": "pref-f844a7bbbc024ba6975f83d545d71424",
+      "independent_evidence_count": 1,
+      "key": "stacking_order",
+      "scope": "contextual",
+      "status": "candidate",
+      "task_type": "stacking",
+      "updated_at": "2026-07-21T15:02:46.987574+00:00",
+      "user_id": "default",
+      "value": [
+        "red",
+        "green",
+        "blue"
+      ]
+    }
+  ],
+  "schema_version": 1
+}

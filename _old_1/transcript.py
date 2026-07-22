@@ -37,7 +37,7 @@ class _TeeStream:
 
 
 class TerminalTranscript:
-    """Mirror terminal output and typed input to an append-only UTF-8 transcript."""
+    """Mirror terminal output and typed input to an append-only text transcript."""
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
@@ -51,7 +51,10 @@ class TerminalTranscript:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._file = self.path.open("a", encoding="utf-8", buffering=1)
         self._file.write(f"\n=== Session {datetime.now(timezone.utc).isoformat()} ===\n")
-        self._stdout, self._stderr, self._input = sys.stdout, sys.stderr, builtins.input
+
+        self._stdout = sys.stdout
+        self._stderr = sys.stderr
+        self._input = builtins.input
         sys.stdout = _TeeStream(self._stdout, self._file, self._lock)
         sys.stderr = _TeeStream(self._stderr, self._file, self._lock)
         builtins.input = self._recording_input
