@@ -50,13 +50,13 @@ Changing the target or endpoint outcome cannot alter the initial observation.
 The dependency-light renderer uses Pillow and is suitable for fast experiment
 development and CI:
 
-```powershell
-.\.venv\Scripts\python.exe -m simulation.benchmark generate `
-  --output dataset/sim_benchmark `
-  --families block_stack category_sort place_setting `
-  --seeds 1 2 3 `
-  --backend synthetic `
-  --include-controls `
+```bash
+python -m simulation.benchmark generate \
+  --output dataset/sim_benchmark \
+  --families block_stack category_sort place_setting \
+  --seeds 1 2 3 \
+  --backend synthetic \
+  --include-controls \
   --write-memory-protocols
 ```
 
@@ -67,13 +67,11 @@ regenerating packets after a renderer/schema change.
 
 The optional MuJoCo snapshot renderer loads the archived ARX L5 XML and meshes:
 
-```powershell
-uv sync --extra simulation
-
-.\.venv\Scripts\python.exe -m simulation.benchmark generate `
-  --output dataset/sim_benchmark_mujoco `
-  --families block_stack category_sort place_setting `
-  --seeds 1 `
+```bash
+python -m simulation.benchmark generate \
+  --output dataset/sim_benchmark_mujoco \
+  --families block_stack category_sort place_setting \
+  --seeds 1 \
   --backend mujoco
 ```
 
@@ -126,10 +124,10 @@ experiment setup and scoring only.
 
 Use the packet with PrefMem by passing the opaque episode directory:
 
-```powershell
-.\.venv\Scripts\python.exe .\main.py `
-  --dataset dataset/sim_benchmark/episodes/ep-<opaque-id> `
-  --benchmark `
+```bash
+python main.py \
+  --dataset dataset/sim_benchmark/episodes/ep-<opaque-id> \
+  --benchmark \
   --display-all
 ```
 
@@ -142,8 +140,8 @@ target/outcome counterfactual siblings receive the same model-visible ID.
 
 ## Validate
 
-```powershell
-.\.venv\Scripts\python.exe -m simulation.benchmark validate `
+```bash
+python -m simulation.benchmark validate \
   dataset/sim_benchmark
 ```
 
