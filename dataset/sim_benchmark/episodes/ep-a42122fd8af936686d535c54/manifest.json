@@ -41,8 +41,8 @@
   },
   "expected_outcome": "success",
   "frame_sha256": {
-    "1.png": "780f65d2a0fef072ed38d2ac5f8b694bccc7fb07076dfea87c232b389af33827",
-    "2.png": "c95c4c40c46eb65d4ff9b9b8285757df042323918c858713a29e0e380a392b00"
+    "1.png": "193688505c37b65866de2b61228420009be0ebf549f3218069d0da2de19489ca",
+    "2.png": "6efc1ca7aad70738485776f10dd68d4d27c4ef78760246a7ad196729760577b2"
   },
   "frames": {
     "final": "2.png",
@@ -147,7 +147,7 @@
         "orientation_xyzw": [
           0.0,
           0.0,
-          0.7071067811865476,
+          0.7071067811865475,
           0.7071067811865476
         ],
         "position_m": [

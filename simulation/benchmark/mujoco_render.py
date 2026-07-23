@@ -11,6 +11,9 @@ from PIL import Image
 
 WIDTH = 640
 HEIGHT = 480
+THIRD_PERSON_CAMERA_POSITION = (0.97, 0.0, 0.66)
+THIRD_PERSON_CAMERA_TARGET = (0.27, 0.0, 0.035)
+THIRD_PERSON_CAMERA_FOVY = 41.0
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 ARCHIVED_SCENE_XML = (
     REPOSITORY_ROOT
@@ -992,11 +995,14 @@ def _build_model(specification: Any, objects: Iterable[Any]) -> Any:
     camera = next(
         camera for camera in model_spec.cameras if camera.name == "third_person"
     )
-    camera.pos = [0.80, -0.46, 0.66]
-    camera.fovy = 41.0
+    # Mount the observation camera directly across the table from the robot.
+    # Keeping it on y=0 produces a head-on view while the workspace-centred
+    # target keeps both task regions and the robot in frame.
+    camera.pos = list(THIRD_PERSON_CAMERA_POSITION)
+    camera.fovy = THIRD_PERSON_CAMERA_FOVY
     camera.alt.xyaxes = _look_at_xyaxes(
         camera.pos,
-        [0.27, 0.0, 0.035],
+        THIRD_PERSON_CAMERA_TARGET,
     )
     try:
         material = next(

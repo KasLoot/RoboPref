@@ -39,8 +39,8 @@
   },
   "expected_outcome": "success",
   "frame_sha256": {
-    "1.png": "c8d1a97ecbc00f26d7bfc20bebd8471bd7eb8642a33c36f462dd390fcc1fac26",
-    "2.png": "a7035b3767386696f2f11a96d4415b567dca631f86f7eb1b30dbb3fc4fec48cd"
+    "1.png": "e9230778248e21eec269d38998803d63a3fd217bd603af99eb905d5317414fe9",
+    "2.png": "5d389a0f64b83035e914ca0ea8b58ef3f599fe635a78ee642a9090307e5095f4"
   },
   "frames": {
     "final": "2.png",

@@ -40,8 +40,8 @@
   },
   "expected_outcome": "wrong_complete",
   "frame_sha256": {
-    "1.png": "ef8e160507b478484770f46fd7f9d6810c3f32daee3cb5f4cd373ceca6827a7e",
-    "2.png": "2e847bd84c347c822e6cff4a029840f3063fc97224d0f1d45b59795ea7e733b0"
+    "1.png": "82de9d1f907c0c746971bcac8e5fd2b8d1bb75fddcf09bb5b10d0e518c1c47dc",
+    "2.png": "b02e7d16aad4df14153c47c46b100651e8ef3c1eaf504141cd4afc4fc99196ed"
   },
   "frames": {
     "final": "2.png",
@@ -174,7 +174,7 @@
         "orientation_xyzw": [
           0.0,
           0.0,
-          0.7071067811865476,
+          0.7071067811865475,
           0.7071067811865476
         ],
         "position_m": [

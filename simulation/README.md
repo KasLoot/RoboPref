@@ -88,11 +88,11 @@ marks the provenance of non-visual evidence explicitly.
 Both renderers use a warm procedural oak surface and high-contrast task regions:
 category sorting uses mustard-yellow and teal mats, while place setting uses a
 mustard woven placemat. The MuJoCo renderer additionally uses a three-point studio
-light rig, cast/contact shadows, classic-renderer reflective materials, an off-axis
-camera, and multi-part geometry for ceramics, utensils, electronics, books, and
-blocks. The Pillow backend mirrors the colour separation, wood grain, highlights,
-and contact shadows as a deterministic CI fallback; it is intentionally illustrative
-rather than a physics renderer.
+light rig, cast/contact shadows, classic-renderer reflective materials, a head-on
+camera mounted opposite the robot, and multi-part geometry for ceramics, utensils,
+electronics, books, and blocks. The Pillow backend mirrors the colour separation,
+wood grain, highlights, and contact shadows as a deterministic CI fallback; it is
+intentionally illustrative rather than a physics renderer.
 
 Renderer changes alter PNG bytes and therefore their manifest SHA-256 values. After
 updating visual materials, lighting, geometry, or camera settings, regenerate a

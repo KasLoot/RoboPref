@@ -277,6 +277,49 @@ class MujocoVisualQualityTests(unittest.TestCase):
         self.assertTrue(geom_ids, f"no geoms found for {object_id!r}")
         return self.np.isin(segmentation[:, :, 0], geom_ids)
 
+    def test_camera_is_opposite_the_robot_and_looks_through_the_workspace(self) -> None:
+        from simulation.benchmark.mujoco_render import (
+            THIRD_PERSON_CAMERA_POSITION,
+            THIRD_PERSON_CAMERA_TARGET,
+        )
+
+        model = self.blocks[0]
+        camera_id = self.mujoco.mj_name2id(
+            model,
+            self.mujoco.mjtObj.mjOBJ_CAMERA,
+            "third_person",
+        )
+        self.assertGreaterEqual(camera_id, 0)
+        position = model.cam_pos[camera_id]
+        self.np.testing.assert_allclose(
+            position,
+            THIRD_PERSON_CAMERA_POSITION,
+            atol=1e-9,
+        )
+        self.assertAlmostEqual(float(position[1]), 0.0)
+        self.assertGreater(
+            float(position[0]),
+            0.495,
+            "camera must remain beyond the table's +x edge, opposite the robot",
+        )
+
+        expected_forward = (
+            self.np.asarray(THIRD_PERSON_CAMERA_TARGET)
+            - self.np.asarray(THIRD_PERSON_CAMERA_POSITION)
+        )
+        expected_forward /= self.np.linalg.norm(expected_forward)
+        camera_rotation = model.cam_mat0[camera_id].reshape(3, 3)
+        optical_axis = -camera_rotation[:, 2]
+        self.assertGreater(
+            float(self.np.dot(optical_axis, expected_forward)),
+            0.999999,
+        )
+        self.assertLess(
+            float(optical_axis[0]),
+            0.0,
+            "camera must face back toward the robot at the world origin",
+        )
+
     def test_workspace_uses_textured_nonwhite_materials(self) -> None:
         from simulation.benchmark.mujoco_render import MATERIAL
 
