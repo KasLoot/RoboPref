@@ -23,7 +23,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 
 IMAGE_SIZE = (640, 480)
@@ -220,10 +220,17 @@ def _json_scalar(value: Any) -> str | int | float | bool | None:
 
 def _extract_objects(spec: Any, view: str) -> tuple[list[_VisualObject], bool]:
     paths = (
-        ("initial_objects", "initial_state.objects", "states.initial.objects")
+        (
+            "initial_objects",
+            "scene.initial_objects",
+            "ground_truth.initial_objects",
+            "initial_state.objects",
+            "states.initial.objects",
+        )
         if view == "initial"
         else (
             "final_objects",
+            "ground_truth.final_objects",
             "final_state.objects",
             "states.final.objects",
             "result.final_objects",
@@ -537,10 +544,17 @@ def _is_observation_occluded(spec: Any) -> bool:
             "observation_status",
             "observability.status",
             "observation.status",
+            "ground_truth.observability.status",
             default="",
         )
     ).strip().lower().replace("-", "_").replace(" ", "_")
-    occluded_ids = _first_value(spec, "occluded_object_ids", default=())
+    occluded_ids = _first_value(
+        spec,
+        "occluded_object_ids",
+        "observability.occluded_object_ids",
+        "ground_truth.observability.occluded_object_ids",
+        default=(),
+    )
     return status in {
         "occluded",
         "partially_occluded",
@@ -572,59 +586,123 @@ def _observation_occluder() -> _VisualObject:
 
 
 def _draw_background(family: str) -> Image.Image:
-    image = Image.new("RGB", IMAGE_SIZE, (226, 226, 221))
+    image = Image.new("RGB", IMAGE_SIZE, (94, 102, 112))
     draw = ImageDraw.Draw(image)
 
-    # Soft wall and wooden work surface; integer interpolation is deterministic.
+    # Cool studio wall and a warm oak work surface.  The grain is generated
+    # procedurally so the fallback renderer remains asset-free and deterministic.
     for y in range(0, 145):
-        shade = 231 - (y * 10 // 145)
-        draw.line((0, y, 639, y), fill=(shade, shade + 1, min(255, shade + 3)))
+        shade = 112 - (y * 22 // 145)
+        draw.line((0, y, 639, y), fill=(shade - 8, shade - 2, shade + 8))
     for y in range(145, 480):
-        step = (y - 145) * 22 // 335
-        draw.line((0, y, 639, y), fill=(190 + step, 164 + step, 126 + step))
-    draw.line((0, 145, 639, 145), fill=(143, 126, 103), width=3)
+        depth = y - 145
+        step = depth * 30 // 335
+        draw.line(
+            (0, y, 639, y),
+            fill=(145 + step, 85 + step * 3 // 4, 42 + step // 2),
+        )
+    draw.line((0, 145, 639, 145), fill=(61, 48, 38), width=4)
 
-    # Subtle seams provide scale without encoding a task label.
-    draw.line((0, 398, 639, 398), fill=(175, 149, 112), width=2)
-    draw.line((106, 145, 106, 480), fill=(181, 155, 118), width=1)
-    draw.line((532, 145, 532, 480), fill=(181, 155, 118), width=1)
+    # Long, slightly irregular lines read as oak grain without adding any
+    # semantic clue about the task or target.
+    for row, grain_y in enumerate(range(157, 480, 13)):
+        points: list[tuple[int, int]] = []
+        for x in range(-10, 651, 8):
+            wave = 2.4 * math.sin(x * 0.035 + row * 0.71)
+            wave += 1.2 * math.sin(x * 0.093 - row * 0.27)
+            points.append((x, int(round(grain_y + wave))))
+        grain_colour = (104 + row % 9, 57 + row % 7, 28 + row % 4)
+        draw.line(points, fill=grain_colour, width=1)
+        if row % 4 == 1:
+            draw.line(
+                [(x, y + 2) for x, y in points],
+                fill=(183, 119, 61),
+                width=1,
+            )
+
+    # Plank seams and a broad, soft key-light reflection add scale and depth.
+    draw.line((0, 306, 639, 306), fill=(91, 49, 27), width=2)
+    draw.line((0, 309, 639, 309), fill=(190, 125, 67), width=1)
+    draw.line((112, 145, 112, 480), fill=(102, 56, 30), width=2)
+    draw.line((525, 145, 525, 480), fill=(102, 56, 30), width=2)
+    reflection = Image.new("RGBA", IMAGE_SIZE, (0, 0, 0, 0))
+    reflection_draw = ImageDraw.Draw(reflection)
+    reflection_draw.ellipse(
+        (-210, 118, 430, 570),
+        fill=(255, 214, 158, 29),
+    )
+    reflection = reflection.filter(ImageFilter.GaussianBlur(radius=34))
+    image.paste(reflection, (0, 0), reflection)
+    draw = ImageDraw.Draw(image)
 
     if family == "category_sort":
         _draw_sorting_mats(draw)
     elif family == "place_setting":
         draw.rounded_rectangle(
+            (98, 174, 554, 446),
+            radius=20,
+            fill=(64, 40, 23),
+        )
+        draw.rounded_rectangle(
             (92, 166, 548, 438),
             radius=18,
-            fill=(201, 189, 167),
-            outline=(151, 137, 113),
-            width=3,
+            fill=(211, 160, 43),
+            outline=(91, 58, 25),
+            width=4,
         )
-        draw.line((112, 417, 528, 417), fill=(181, 167, 143), width=2)
+        for x in range(108, 535, 8):
+            draw.line((x, 179, x, 425), fill=(224, 181, 67), width=1)
+        for y in range(181, 426, 8):
+            draw.line((106, y, 534, y), fill=(181, 127, 29), width=1)
+        draw.arc(
+            (105, 174, 535, 425),
+            204,
+            320,
+            fill=(225, 181, 69),
+            width=1,
+        )
     elif family == "block_stack":
-        draw.ellipse((170, 402, 470, 427), fill=(164, 139, 105))
+        draw.ellipse((170, 402, 470, 427), fill=(91, 51, 28))
     return image
 
 
 def _draw_sorting_mats(draw: ImageDraw.ImageDraw) -> None:
     draw.rounded_rectangle(
+        (58, 194, 302, 434),
+        radius=18,
+        fill=(62, 39, 23),
+    )
+    draw.rounded_rectangle(
         (52, 186, 296, 426),
         radius=18,
-        fill=(182, 194, 199),
-        outline=(104, 119, 125),
-        width=3,
+        fill=(214, 162, 43),
+        outline=(88, 56, 26),
+        width=4,
+    )
+    draw.rounded_rectangle(
+        (350, 194, 594, 434),
+        radius=18,
+        fill=(62, 39, 23),
     )
     draw.rounded_rectangle(
         (344, 186, 588, 426),
         radius=18,
-        fill=(197, 188, 174),
-        outline=(126, 111, 94),
-        width=3,
+        fill=(35, 100, 105),
+        outline=(17, 51, 55),
+        width=4,
     )
-    # Identical neutral corner marks distinguish the physical bins without
-    # implying which semantic category belongs in either one.
-    for x0 in (68, 360):
-        draw.line((x0, 208, x0 + 18, 208), fill=(124, 128, 126), width=3)
-        draw.line((x0, 208, x0, 226), fill=(124, 128, 126), width=3)
+    # Woven lines make the two physical sorting areas visibly distinct from
+    # the glossy table while remaining semantically unlabelled.
+    for x in range(68, 284, 8):
+        draw.line((x, 202, x, 410), fill=(226, 182, 69), width=1)
+    for y in range(204, 411, 8):
+        draw.line((67, y, 281, y), fill=(182, 126, 27), width=1)
+    for x in range(360, 576, 8):
+        draw.line((x, 202, x, 410), fill=(47, 119, 123), width=1)
+    for y in range(204, 411, 8):
+        draw.line((359, y, 573, y), fill=(24, 78, 83), width=1)
+    draw.arc((61, 197, 287, 416), 205, 315, fill=(226, 183, 72), width=1)
+    draw.arc((353, 197, 579, 416), 205, 315, fill=(55, 123, 127), width=1)
 
 
 def _position_space(obj: _VisualObject) -> str:
@@ -1382,6 +1460,16 @@ def _paste_rotated(
         )
     left = int(round(x - sprite.width / 2))
     top = int(round(y - sprite.height / 2))
+
+    # A blurred, directional contact shadow gives flat fallback sprites a
+    # stable relationship to the work surface.  It is derived solely from the
+    # sprite silhouette, so it cannot leak target/outcome metadata.
+    alpha = sprite.getchannel("A")
+    shadow_alpha = alpha.point(lambda value: value * 82 // 255)
+    shadow_alpha = shadow_alpha.filter(ImageFilter.GaussianBlur(radius=5))
+    shadow = Image.new("RGBA", sprite.size, (27, 18, 12, 0))
+    shadow.putalpha(shadow_alpha)
+    image.paste(shadow, (left + 7, top + 9), shadow)
     image.paste(sprite, (left, top), sprite)
 
 

@@ -85,6 +85,24 @@ scripted counterfactual fixtures, not measured MuJoCo telemetry. Spatial predica
 are recomputed deterministically from terminal object state, while every manifest
 marks the provenance of non-visual evidence explicitly.
 
+Both renderers use a warm procedural oak surface and high-contrast task regions:
+category sorting uses mustard-yellow and teal mats, while place setting uses a
+mustard woven placemat. The MuJoCo renderer additionally uses a three-point studio
+light rig, cast/contact shadows, classic-renderer reflective materials, an off-axis
+camera, and multi-part geometry for ceramics, utensils, electronics, books, and
+blocks. The Pillow backend mirrors the colour separation, wood grain, highlights,
+and contact shadows as a deterministic CI fallback; it is intentionally illustrative
+rather than a physics renderer.
+
+Renderer changes alter PNG bytes and therefore their manifest SHA-256 values. After
+updating visual materials, lighting, geometry, or camera settings, regenerate a
+benchmark output with `--overwrite` rather than mixing old and new packets.
+Pillow output is byte-deterministic for a fixed environment. MuJoCo rasterisation can
+vary by a few least-significant channel values across OpenGL drivers or fresh render
+contexts, so SHA-256 remains an integrity check rather than a perceptual metric.
+Success/near-miss validation ignores those tiny quantisation differences and requires
+a material number of changed pixels.
+
 ## Packet and oracle boundary
 
 Each generated episode is directly compatible with `DatasetEpisode`:
@@ -138,7 +156,8 @@ Validation checks:
 - declared families, scenes, targets, and outcomes;
 - success/failure/unknown predicate consistency;
 - byte-identical initial frames across counterfactual siblings;
-- visually distinct success and near-miss terminal evidence;
+- materially distinct success and near-miss terminal evidence (not just a different
+  image hash);
 - canonical optional memory protocols bound to the declared matrix;
 - index-to-filesystem agreement; and
 - completeness of the declared family/seed Cartesian matrix.

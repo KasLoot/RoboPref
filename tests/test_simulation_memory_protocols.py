@@ -10,6 +10,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable, Mapping
 
+from PIL import Image
+
 from agents.contracts import ExecutionResult
 from simulation.benchmark.catalog import build_catalog, build_control_catalog
 from simulation.benchmark.generator import _scenario_manifest, generate_benchmark
@@ -660,7 +662,7 @@ class BenchmarkVisualOracleRegressionTests(unittest.TestCase):
                 report.errors,
             )
 
-    def test_validator_rejects_pixel_identical_success_and_near_miss_with_new_hash(
+    def test_validator_rejects_render_noise_as_visual_distinction_with_new_hash(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -696,6 +698,24 @@ class BenchmarkVisualOracleRegressionTests(unittest.TestCase):
             near_miss_manifest_path = siblings["near_miss"]
             near_miss_final = near_miss_manifest_path.parent / "2.png"
             near_miss_final.write_bytes(success_final.read_bytes())
+            with Image.open(near_miss_final) as source:
+                noisy = source.convert("RGB")
+            pixels = noisy.load()
+            for index in range(200):
+                x = index * 37 % noisy.width
+                y = index * 53 % noisy.height
+                red, green, blue = pixels[x, y]
+                pixels[x, y] = (
+                    red + 1 if red < 255 else red - 1,
+                    green,
+                    blue,
+                )
+            noisy.save(near_miss_final, format="PNG", optimize=False)
+            self.assertNotEqual(
+                success_final.read_bytes(),
+                near_miss_final.read_bytes(),
+                "the regression must use different encoded frames",
+            )
             near_miss_manifest = json.loads(
                 near_miss_manifest_path.read_text(encoding="utf-8")
             )

@@ -38,8 +38,8 @@
   },
   "expected_outcome": "unsafe",
   "frame_sha256": {
-    "1.png": "5f0f35350f195ce54b73bc57ad919bfa6922bc32c3f5611e3ed383ae22b53830",
-    "2.png": "b0ed22bac06280a7f5621111b78226c3dbf4fe3ad4d602411a8ac8695e093e94"
+    "1.png": "56449e90b4453756fe3ae499133de01a45bf32f5d57e7950df8e5ec482e6baa1",
+    "2.png": "cd40d4316b738e023dae53b0c80874bec64ad43ef725b84a244df9fb25c1c232"
   },
   "frames": {
     "final": "2.png",

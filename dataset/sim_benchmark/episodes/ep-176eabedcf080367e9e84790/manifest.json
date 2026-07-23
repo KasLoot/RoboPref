@@ -38,8 +38,8 @@
   },
   "expected_outcome": "near_miss",
   "frame_sha256": {
-    "1.png": "9601797ad6dff3965bff552848d81922bdb492492b54cdaea5b2f968e0265996",
-    "2.png": "2c5c0308ab3f7c47399869a754b599c04d4471c9e3f49fe7944ce840133e1339"
+    "1.png": "52f7eec007b5830839d9d51d215732da50a794bb626a0d4422157717a571d662",
+    "2.png": "40151b293704abdc4b81bf212e784ec026925c4e669b765c464b923dc8844164"
   },
   "frames": {
     "final": "2.png",

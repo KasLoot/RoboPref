@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageChops, UnidentifiedImageError
 
 from .catalog import FAMILY_DEFINITIONS, build_catalog, build_control_catalog
 from .generator import SCHEMA_VERSION, _scenario_manifest
@@ -28,6 +28,8 @@ REQUIRED_MANIFEST_FIELDS = {
     "generation",
     "frame_sha256",
 }
+VISUAL_CHANNEL_DELTA = 5
+MIN_MATERIALLY_CHANGED_PIXELS = 64
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +59,29 @@ def _frame_names(value: Any) -> set[str]:
     return {str(item) for item in values}
 
 
+def _materially_changed_pixel_count(left_path: Path, right_path: Path) -> int | None:
+    """Count visual changes while ignoring small renderer/driver quantisation noise."""
+
+    try:
+        with Image.open(left_path) as left_source, Image.open(
+            right_path
+        ) as right_source:
+            left = left_source.convert("RGB")
+            right = right_source.convert("RGB")
+            if left.size != right.size:
+                return MIN_MATERIALLY_CHANGED_PIXELS
+            difference = ImageChops.difference(left, right)
+    except (OSError, UnidentifiedImageError):
+        # Invalid frames are reported by the packet checks above.
+        return None
+
+    significant_channels = difference.point(
+        lambda value: 255 if value > VISUAL_CHANNEL_DELTA else 0
+    )
+    changed_pixels = significant_channels.convert("L").histogram()
+    return sum(changed_pixels[1:])
+
+
 def validate_benchmark(root: str | Path) -> ValidationReport:
     root = Path(root).expanduser().resolve()
     errors: list[str] = []
@@ -80,8 +105,8 @@ def validate_benchmark(root: str | Path) -> ValidationReport:
 
     seen_ids: set[str] = set()
     initial_digests: dict[tuple[str, str, int, str], set[str]] = defaultdict(set)
-    final_digests: dict[
-        tuple[str, str, int, str, str | None], dict[str, str]
+    final_frames: dict[
+        tuple[str, str, int, str, str | None], dict[str, Path]
     ] = defaultdict(dict)
     manifests: dict[str, dict[str, Any]] = {}
     canonical_cache: dict[
@@ -276,7 +301,7 @@ def validate_benchmark(root: str | Path) -> ValidationReport:
                 )
             final_path = episode_directory / "2.png"
             if final_path.is_file():
-                final_digests[
+                final_frames[
                     (
                         family,
                         variant,
@@ -284,7 +309,7 @@ def validate_benchmark(root: str | Path) -> ValidationReport:
                         target_id,
                         control_kind,
                     )
-                ][outcome] = hashlib.sha256(final_path.read_bytes()).hexdigest()
+                ][outcome] = final_path
         except (KeyError, TypeError, ValueError):
             errors.append(f"{label}: scene seed must be an integer")
 
@@ -293,15 +318,22 @@ def validate_benchmark(root: str | Path) -> ValidationReport:
             errors.append(
                 f"{group_key}: initial pixels differ across target/outcome siblings"
             )
-    for group_key, by_outcome in final_digests.items():
+    for group_key, by_outcome in final_frames.items():
+        if "success" not in by_outcome or "near_miss" not in by_outcome:
+            continue
+        changed_pixels = _materially_changed_pixel_count(
+            by_outcome["success"],
+            by_outcome["near_miss"],
+        )
         if (
-            "success" in by_outcome
-            and "near_miss" in by_outcome
-            and by_outcome["success"] == by_outcome["near_miss"]
+            changed_pixels is not None
+            and changed_pixels < MIN_MATERIALLY_CHANGED_PIXELS
         ):
             errors.append(
                 f"{group_key}: success and near-miss final observations are "
-                "pixel-identical"
+                "pixel-identical or not materially visually distinct "
+                f"({changed_pixels} significant pixels; expected at least "
+                f"{MIN_MATERIALLY_CHANGED_PIXELS})"
             )
 
     index_path = root / "index.json"
