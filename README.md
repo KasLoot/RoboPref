@@ -28,6 +28,10 @@ The implementation deliberately separates semantic and deterministic responsibil
 
 See [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) for the complete design and contracts.
 
+For the deterministic counterfactual task/outcome generator (block stacking,
+semantic category sorting, place settings, failures, unsafe endpoints, and occluded
+observations), see [simulation/README.md](simulation/README.md).
+
 ## Run the recorded-episode prototype
 
 ```powershell
@@ -72,7 +76,7 @@ read-only inputs and remain unchanged.
 .\.venv\Scripts\python.exe -m unittest discover -s tests -q
 ```
 
-The current suite contains 41 offline tests. It uses injected scripted models and never
-calls Ollama. It covers semantic retrieval/compaction, consent and defer behavior,
+The offline suite uses injected scripted models and never calls Ollama. It covers
+semantic retrieval/compaction, consent and defer behavior,
 post-task memory proposals, persistence rollback/idempotency/revisions, frozen schemas,
 unsafe execution, history sanitization, dataset ordering, and lossless image handling.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -128,6 +129,20 @@ class HRIOrchestrator:
     def final_frame_path(self) -> str:
         return str(self.dataset_episode.final_frame)
 
+    def _model_scene_context(self) -> dict[str, Any]:
+        provider = getattr(self.executor, "model_scene_context", None)
+        if callable(provider):
+            context = provider()
+            if isinstance(context, dict):
+                return copy.deepcopy(context)
+        observation_id = "obs-" + hashlib.sha256(
+            str(self.dataset_episode.directory).encode("utf-8")
+        ).hexdigest()[:24]
+        return {
+            "observation_id": observation_id,
+            "available_modalities": ["initial_rgb"],
+        }
+
     @property
     def command_active(self) -> bool:
         return self._command_active
@@ -172,8 +187,7 @@ class HRIOrchestrator:
             if self.pending_question
             else None,
             "scene": {
-                "dataset": self.dataset_episode.display_path(self.workspace_root),
-                "initial_frame": self._display_path(self.dataset_episode.initial_frame),
+                **self._model_scene_context(),
             },
         }
         try:
@@ -272,11 +286,21 @@ class HRIOrchestrator:
                     "latched_at": self._now(),
                 }
             result["task"] = task_result
+            # Keep deterministic task provenance in the returned command
+            # envelope even though the final user-facing HRI mode is REPORT or
+            # MEMORY_CONFIRM (both correctly require task_contract=null).
+            result["resolved_task"] = copy.deepcopy(task_contract)
             episode_source = self._build_episode_source(response, task_contract, task_result)
             proposal = self._maybe_propose_preference(episode_source, task_result)
-            if proposal is not None and not self._checkpoint_terminal_episode(episode_source):
-                proposal = None
+            history_checkpointed = False
             if proposal is not None:
+                history_checkpointed = self._checkpoint_terminal_episode(
+                    episode_source
+                )
+                if not history_checkpointed:
+                    proposal = None
+            if proposal is not None:
+                result["history_checkpointed"] = True
                 prompt_id = f"prompt-{uuid.uuid4().hex}"
                 payload = {
                     "preference_request": copy.deepcopy(proposal["preference_request"]),
@@ -290,6 +314,11 @@ class HRIOrchestrator:
                     prompt_id=prompt_id,
                 )
                 final_message = f"{task_result['message']} {proposal['question']}".strip()
+                decision_trace = (
+                    copy.deepcopy(response.get("trace"))
+                    if isinstance(response.get("trace"), dict)
+                    else {}
+                )
                 boundary_response = {
                     "mode": "MEMORY_CONFIRM",
                     "user_message": final_message,
@@ -298,9 +327,22 @@ class HRIOrchestrator:
                     "memory_action": {"action": "NONE"},
                     "report": None,
                     "trace": {
-                        "history_refs": list(proposal["source_episode_ids"]),
-                        "memory_refs": [],
-                        "assumptions": [],
+                        "grounding": list(decision_trace.get("grounding", [])),
+                        "history_refs": list(
+                            decision_trace.get("history_refs", [])
+                        ),
+                        "memory_refs": list(
+                            decision_trace.get("memory_refs", [])
+                        ),
+                        "assumptions": list(
+                            decision_trace.get("assumptions", [])
+                        ),
+                        # These IDs support the optional preference proposal;
+                        # they are deliberately distinct from the history records
+                        # the HRI cited while resolving the task.
+                        "proposal_history_refs": list(
+                            proposal["source_episode_ids"]
+                        ),
                     },
                 }
                 self._dialogue.append(
@@ -316,7 +358,10 @@ class HRIOrchestrator:
                 result["hri"] = boundary_response
                 result["awaiting_user"] = True
             else:
-                final_response = self._task_report_response(task_result)
+                final_response = self._task_report_response(
+                    task_result,
+                    trace=response.get("trace"),
+                )
                 if final_response["user_message"] != response["user_message"]:
                     self._dialogue.append(
                         AgentTurn(
@@ -427,8 +472,7 @@ class HRIOrchestrator:
             user_id=self.config.user_id,
             request=message,
             scene={
-                "dataset": self.dataset_episode.display_path(self.workspace_root),
-                "visible_frame": self._display_path(self.dataset_episode.initial_frame),
+                **self._model_scene_context(),
             },
             limit=max(self.config.semantic_history_limit, self.config.semantic_preference_limit),
         )
@@ -682,7 +726,7 @@ class HRIOrchestrator:
                     final_observation=observation_path,
                     evidence={"attempt": attempt, "source": "planner_already_satisfied_claim"},
                 )
-                attempt_record["execution"] = execution.to_dict()
+                attempt_record["execution"] = execution.to_model_dict()
                 validation, validation_gate = self._validate_execution(
                     frozen_validation_spec, execution, attempt
                 )
@@ -723,7 +767,7 @@ class HRIOrchestrator:
                     }
                     continue
                 break
-            attempt_record["execution"] = execution.to_dict()
+            attempt_record["execution"] = execution.to_model_dict()
             self._display_agent_output(
                 "VLA Agent",
                 f"attempt {attempt} output",
@@ -1057,8 +1101,22 @@ class HRIOrchestrator:
         return copy.deepcopy(proposal) if isinstance(proposal, dict) else None
 
     @staticmethod
-    def _task_report_response(task_result: dict[str, Any]) -> dict[str, Any]:
+    def _task_report_response(
+        task_result: dict[str, Any],
+        *,
+        trace: Any = None,
+    ) -> dict[str, Any]:
         message = str(task_result.get("message") or "The task has ended.")
+        safe_trace = (
+            copy.deepcopy(trace)
+            if isinstance(trace, dict)
+            else {
+                "grounding": [],
+                "memory_refs": [],
+                "history_refs": [],
+                "assumptions": [],
+            }
+        )
         return {
             "mode": "REPORT",
             "user_message": message,
@@ -1069,7 +1127,7 @@ class HRIOrchestrator:
                 "outcome": str(task_result.get("outcome", "UNKNOWN")),
                 "next_action": str(task_result.get("next_action", "NONE")),
             },
-            "trace": {"grounding": [], "memory_refs": [], "history_refs": [], "assumptions": []},
+            "trace": safe_trace,
         }
 
     def _reset_command_state(self, *, keep_history_context: bool = True) -> None:
@@ -1139,9 +1197,9 @@ class HRIOrchestrator:
         if not selected:
             return False
         episode = DatasetEpisode.from_path(selected, self.workspace_root)
-        self.dataset_episode = episode
         if hasattr(self.executor, "set_episode"):
             self.executor.set_episode(episode)  # type: ignore[attr-defined]
+        self.dataset_episode = episode
         return True
 
     def get_response(self, *, display_all: bool = False) -> None:

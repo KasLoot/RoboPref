@@ -1,0 +1,567 @@
+{
+  "benchmark_expectations": {
+    "execution": {
+      "expected_status": "OBSERVED_RECORDED_ATTEMPT"
+    },
+    "history": {
+      "expected_terminal_record_delta": 1
+    },
+    "hri": {
+      "accepted_response_modes": [
+        "REPORT"
+      ],
+      "preference_store_delta_without_consent": 0,
+      "response_mode": "REPORT",
+      "terminal_outcome": "FAILED"
+    },
+    "planner": {
+      "expected_status": "READY",
+      "goal_predicates": [
+        "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+        "INSIDE_SORT_ZONE(obj-002,zone:left)=true",
+        "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+        "INSIDE_SORT_ZONE(obj-004,zone:right)=true",
+        "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+        "SAFE_EXECUTION(robot)=true"
+      ],
+      "must_preserve_confirmed_intent": true
+    },
+    "preference": {
+      "expected_record_delta_without_explicit_consent": 0
+    },
+    "recovery": "REPLAN",
+    "validator": {
+      "called": true,
+      "outcome": "FAILURE",
+      "task_complete": false
+    }
+  },
+  "expected_outcome": "near_miss",
+  "frame_sha256": {
+    "1.png": "3429a969bf03ff115a7876bd995a5f82f45b040d618a44b7d8bfcbffb3c355ef",
+    "2.png": "ca539195cac2ad62b381e1f85e86d99de8e8f7180452394beeaabac6bddbb311"
+  },
+  "frames": {
+    "final": "2.png",
+    "initial": "1.png"
+  },
+  "generation": {
+    "archived_robot_asset_reference": "_old_1/simulation/assets/robots/arx_l5/scene.xml",
+    "backend": "mujoco",
+    "physics_telemetry_measured": false,
+    "renderer_truth_is_not_model_context": true,
+    "robot_trajectory_executed": false,
+    "transition_kind": "privileged_endpoint_snapshot"
+  },
+  "ground_truth": {
+    "actual_predicates": [
+      "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+      "INSIDE_SORT_ZONE(obj-002,zone:left)=true",
+      "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+      "INSIDE_SORT_ZONE(obj-004,zone:right)=false",
+      "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=false",
+      "SAFE_EXECUTION(robot)=true"
+    ],
+    "evidence": {
+      "boundary_tolerance_violation_m": 0.005,
+      "edge_support_fraction": 1.0,
+      "near_object_id": "obj-004",
+      "physical_goal_satisfied": false,
+      "primary_observation_visible": true
+    },
+    "evidence_provenance": {
+      "measured_physics_telemetry": false,
+      "safety_and_contact_values": "scripted_counterfactual_fixture",
+      "spatial_predicates": "derived_from_terminal_object_state"
+    },
+    "failure_mode": "zone_tolerance_exceeded",
+    "final_objects": [
+      {
+        "attributes": {
+          "material": "aluminium",
+          "role": "laptop",
+          "semantic_category": "electronic"
+        },
+        "object_id": "obj-001",
+        "object_type": "laptop",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.23,
+          0.11,
+          0.006
+        ],
+        "size_m": [
+          0.08,
+          0.055,
+          0.012
+        ],
+        "state": {
+          "zone": "right"
+        }
+      },
+      {
+        "attributes": {
+          "material": "hardback",
+          "role": "book",
+          "semantic_category": "printed"
+        },
+        "object_id": "obj-002",
+        "object_type": "book",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.23,
+          -0.11,
+          0.006
+        ],
+        "size_m": [
+          0.07,
+          0.05,
+          0.012
+        ],
+        "state": {
+          "zone": "left"
+        }
+      },
+      {
+        "attributes": {
+          "material": "paper",
+          "role": "magazine",
+          "semantic_category": "printed"
+        },
+        "object_id": "obj-003",
+        "object_type": "magazine",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.31,
+          -0.11,
+          0.003
+        ],
+        "size_m": [
+          0.075,
+          0.055,
+          0.006
+        ],
+        "state": {
+          "zone": "left"
+        }
+      },
+      {
+        "attributes": {
+          "material": "glass",
+          "role": "tablet",
+          "semantic_category": "electronic"
+        },
+        "object_id": "obj-004",
+        "object_type": "tablet",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.27,
+          0.035,
+          0.003
+        ],
+        "size_m": [
+          0.06,
+          0.04,
+          0.006
+        ],
+        "state": {
+          "zone": "boundary"
+        }
+      }
+    ],
+    "goal_checks": [
+      {
+        "predicate": "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "INSIDE_SORT_ZONE(obj-002,zone:left)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "INSIDE_SORT_ZONE(obj-004,zone:right)=true",
+        "satisfied": false
+      },
+      {
+        "predicate": "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+        "satisfied": false
+      },
+      {
+        "predicate": "SAFE_EXECUTION(robot)=true",
+        "satisfied": true
+      }
+    ],
+    "initial_objects": [
+      {
+        "attributes": {
+          "material": "aluminium",
+          "role": "laptop",
+          "semantic_category": "electronic"
+        },
+        "object_id": "obj-001",
+        "object_type": "laptop",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.011523957194921608,
+          0.9999335970006057
+        ],
+        "position_m": [
+          0.1845970865621871,
+          0.03476529163053442,
+          0.006
+        ],
+        "size_m": [
+          0.08,
+          0.055,
+          0.012
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      },
+      {
+        "attributes": {
+          "material": "hardback",
+          "role": "book",
+          "semantic_category": "printed"
+        },
+        "object_id": "obj-002",
+        "object_type": "book",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.05454256151048746,
+          0.9985114465963195
+        ],
+        "position_m": [
+          0.23216463705498858,
+          -0.012196385171832195,
+          0.006
+        ],
+        "size_m": [
+          0.07,
+          0.05,
+          0.012
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      },
+      {
+        "attributes": {
+          "material": "paper",
+          "role": "magazine",
+          "semantic_category": "printed"
+        },
+        "object_id": "obj-003",
+        "object_type": "magazine",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.08856044030929333,
+          0.9960708049191203
+        ],
+        "position_m": [
+          0.29246188439400045,
+          0.01990053020961683,
+          0.003
+        ],
+        "size_m": [
+          0.075,
+          0.055,
+          0.006
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      },
+      {
+        "attributes": {
+          "material": "glass",
+          "role": "tablet",
+          "semantic_category": "electronic"
+        },
+        "object_id": "obj-004",
+        "object_type": "tablet",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.05366768444957597,
+          0.998558851368221
+        ],
+        "position_m": [
+          0.3257448539181683,
+          -0.03675427346744054,
+          0.003
+        ],
+        "size_m": [
+          0.06,
+          0.04,
+          0.006
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      }
+    ],
+    "observability": {
+      "occluded_object_ids": [],
+      "status": "observable"
+    },
+    "outcome_description": "One item stops 5 mm short of its zone boundary; all other items are correct.",
+    "physical_success": false,
+    "predicate_measurements": [
+      {
+        "arguments": [
+          "obj-001",
+          "zone:right"
+        ],
+        "details": {
+          "category": "electronic",
+          "evidence_source": "derived_object_geometry_and_state",
+          "minimum_abs_y_m": 0.04
+        },
+        "margin": 0.07,
+        "name": "inside_sort_zone",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-002",
+          "zone:left"
+        ],
+        "details": {
+          "category": "printed",
+          "evidence_source": "derived_object_geometry_and_state",
+          "minimum_abs_y_m": 0.04
+        },
+        "margin": 0.07,
+        "name": "inside_sort_zone",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-003",
+          "zone:left"
+        ],
+        "details": {
+          "category": "printed",
+          "evidence_source": "derived_object_geometry_and_state",
+          "minimum_abs_y_m": 0.04
+        },
+        "margin": 0.07,
+        "name": "inside_sort_zone",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-004",
+          "zone:right"
+        ],
+        "details": {
+          "category": "electronic",
+          "evidence_source": "derived_object_geometry_and_state",
+          "minimum_abs_y_m": 0.04
+        },
+        "margin": -0.0049999999999999975,
+        "name": "inside_sort_zone",
+        "observable": true,
+        "value": false
+      },
+      {
+        "arguments": [
+          "obj-001",
+          "obj-002",
+          "obj-003",
+          "obj-004"
+        ],
+        "details": {
+          "evidence_source": "derived_object_state"
+        },
+        "margin": -1.0,
+        "name": "all_items_assigned",
+        "observable": true,
+        "value": false
+      },
+      {
+        "arguments": [
+          "robot"
+        ],
+        "details": {
+          "evidence_source": "scripted_execution_fixture",
+          "minimum_edge_support_fraction": 0.6
+        },
+        "margin": 0.4,
+        "name": "safe_execution",
+        "observable": false,
+        "value": true
+      }
+    ],
+    "safety_events": [],
+    "task_goal_satisfied": false
+  },
+  "scenario_id": "ep-384cc7409a58edc2ebb8d5b7",
+  "scene": {
+    "control_kind": null,
+    "counterfactual_group_id": "cfg-13a1142a1b5dd8f5c70ae8b0",
+    "family": "category_sort",
+    "initial_objects": [
+      {
+        "attributes": {
+          "material": "aluminium",
+          "role": "laptop",
+          "semantic_category": "electronic"
+        },
+        "object_id": "obj-001",
+        "object_type": "laptop",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.011523957194921608,
+          0.9999335970006057
+        ],
+        "position_m": [
+          0.1845970865621871,
+          0.03476529163053442,
+          0.006
+        ],
+        "size_m": [
+          0.08,
+          0.055,
+          0.012
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      },
+      {
+        "attributes": {
+          "material": "hardback",
+          "role": "book",
+          "semantic_category": "printed"
+        },
+        "object_id": "obj-002",
+        "object_type": "book",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.05454256151048746,
+          0.9985114465963195
+        ],
+        "position_m": [
+          0.23216463705498858,
+          -0.012196385171832195,
+          0.006
+        ],
+        "size_m": [
+          0.07,
+          0.05,
+          0.012
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      },
+      {
+        "attributes": {
+          "material": "paper",
+          "role": "magazine",
+          "semantic_category": "printed"
+        },
+        "object_id": "obj-003",
+        "object_type": "magazine",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.08856044030929333,
+          0.9960708049191203
+        ],
+        "position_m": [
+          0.29246188439400045,
+          0.01990053020961683,
+          0.003
+        ],
+        "size_m": [
+          0.075,
+          0.055,
+          0.006
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      },
+      {
+        "attributes": {
+          "material": "glass",
+          "role": "tablet",
+          "semantic_category": "electronic"
+        },
+        "object_id": "obj-004",
+        "object_type": "tablet",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.05366768444957597,
+          0.998558851368221
+        ],
+        "position_m": [
+          0.3257448539181683,
+          -0.03675427346744054,
+          0.003
+        ],
+        "size_m": [
+          0.06,
+          0.04,
+          0.006
+        ],
+        "state": {
+          "zone": "neutral"
+        }
+      }
+    ],
+    "seed": 1,
+    "variant": "interleaved_scatter"
+  },
+  "schema_version": "robopref.counterfactual.v1",
+  "target": {
+    "description": "Both printed items are in the left zone and both electronic devices are in the right zone.",
+    "goal_predicates": [
+      "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+      "INSIDE_SORT_ZONE(obj-002,zone:left)=true",
+      "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+      "INSIDE_SORT_ZONE(obj-004,zone:right)=true",
+      "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+      "SAFE_EXECUTION(robot)=true"
+    ],
+    "instruction": "Place printed items on the left and electronic devices on the right.",
+    "target_id": "printed_left"
+  }
+}

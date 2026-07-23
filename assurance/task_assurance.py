@@ -195,7 +195,7 @@ class TaskAssurance:
                 "VLA_UNSAFE",
                 "ABORT_SAFETY",
                 "Execution stopped because the VLA reported an unsafe state.",
-                observed=execution.to_dict(),
+                observed=execution.to_model_dict(),
             )
         if status in {"ABORTED", "CANCELLED"}:
             return self._failure(
@@ -204,7 +204,7 @@ class TaskAssurance:
                 f"VLA_{status}",
                 "USER_ASSIST",
                 "Execution stopped before the requested state was reached.",
-                observed=execution.to_dict(),
+                observed=execution.to_model_dict(),
             )
         return self._failure(
             "EXECUTION",
@@ -212,7 +212,7 @@ class TaskAssurance:
             "VLA_EXECUTION_FAILED",
             "USER_ASSIST",
             execution.error or "The VLA did not complete the requested actions.",
-            observed=execution.to_dict(),
+            observed=execution.to_model_dict(),
         )
 
     def runtime_failure(

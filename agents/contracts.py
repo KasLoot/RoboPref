@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import uuid
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any
 
 
@@ -120,6 +122,28 @@ class ExecutionResult:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+    def to_model_dict(self) -> dict[str, Any]:
+        """Return execution evidence without a model-visible filesystem path."""
+
+        try:
+            observation_bytes = Path(self.final_observation).read_bytes()
+        except (OSError, ValueError):
+            # Do not hash a path/URI: benchmark packet paths are correlated with
+            # hidden scenario labels. The status-only fallback remains opaque.
+            observation_bytes = (
+                f"unavailable-observation:{self.status}".encode("utf-8")
+            )
+        observation_id = (
+            "obs-" + hashlib.sha256(observation_bytes).hexdigest()[:24]
+        )
+        return {
+            "status": self.status,
+            "final_observation_id": observation_id,
+            "subtask_results": copy.deepcopy(self.subtask_results),
+            "evidence": copy.deepcopy(self.evidence),
+            "error": self.error,
+        }
 
 
 @dataclass(slots=True)

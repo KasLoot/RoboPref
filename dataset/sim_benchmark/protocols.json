@@ -1,0 +1,326 @@
+{
+  "fixtures": {
+    "approved-rgb-stack-preference": {
+      "consent": {
+        "authorized_action": "UPSERT",
+        "kind": "explicit_future_language",
+        "proposal": {
+          "instruction": "Use red, green, blue from bottom to top when stacking coloured blocks in future.",
+          "preference": {
+            "applicability": {
+              "objects": [
+                "red block",
+                "green block",
+                "blue block"
+              ],
+              "task_family": "stack_blocks"
+            },
+            "scope": "contextual",
+            "statement": "When stacking the red, green, and blue blocks, use red at the bottom, green in the middle, and blue at the top.",
+            "structured_value": {
+              "order_bottom_to_top": [
+                "red",
+                "green",
+                "blue"
+              ]
+            }
+          },
+          "requested_action": "UPSERT",
+          "user_id": "participant-a"
+        },
+        "quote": "Remember that order from now on.",
+        "turn_id": "fixture-approved-rgb-stack-preference"
+      },
+      "fixture_kind": "approved_preference_request",
+      "preference_request": {
+        "instruction": "Use red, green, blue from bottom to top when stacking coloured blocks in future.",
+        "preference": {
+          "applicability": {
+            "objects": [
+              "red block",
+              "green block",
+              "blue block"
+            ],
+            "task_family": "stack_blocks"
+          },
+          "scope": "contextual",
+          "statement": "When stacking the red, green, and blue blocks, use red at the bottom, green in the middle, and blue at the top.",
+          "structured_value": {
+            "order_bottom_to_top": [
+              "red",
+              "green",
+              "blue"
+            ]
+          }
+        },
+        "requested_action": "UPSERT",
+        "user_id": "participant-a"
+      },
+      "user_id": "participant-a"
+    },
+    "participant-a-approved-rgb-only": {
+      "consent": {
+        "authorized_action": "UPSERT",
+        "kind": "explicit_future_language",
+        "proposal": {
+          "instruction": "Use red, green, blue from bottom to top when stacking coloured blocks in future.",
+          "preference": {
+            "applicability": {
+              "objects": [
+                "red block",
+                "green block",
+                "blue block"
+              ],
+              "task_family": "stack_blocks"
+            },
+            "scope": "contextual",
+            "statement": "When stacking the red, green, and blue blocks, use red at the bottom, green in the middle, and blue at the top.",
+            "structured_value": {
+              "order_bottom_to_top": [
+                "red",
+                "green",
+                "blue"
+              ]
+            }
+          },
+          "requested_action": "UPSERT",
+          "user_id": "participant-a"
+        },
+        "quote": "Remember that order from now on.",
+        "turn_id": "fixture-approved-rgb-stack-preference"
+      },
+      "fixture_kind": "approved_preference_request",
+      "preference_request": {
+        "instruction": "Use red, green, blue from bottom to top when stacking coloured blocks in future.",
+        "preference": {
+          "applicability": {
+            "objects": [
+              "red block",
+              "green block",
+              "blue block"
+            ],
+            "task_family": "stack_blocks"
+          },
+          "scope": "contextual",
+          "statement": "When stacking the red, green, and blue blocks, use red at the bottom, green in the middle, and blue at the top.",
+          "structured_value": {
+            "order_bottom_to_top": [
+              "red",
+              "green",
+              "blue"
+            ]
+          }
+        },
+        "requested_action": "UPSERT",
+        "user_id": "participant-a"
+      },
+      "user_id": "participant-a"
+    }
+  },
+  "protocols": [
+    {
+      "description": "A first one-off choice becomes history, never preference.",
+      "protocol_id": "memory-first-choice-history-only",
+      "requires_fresh_memory": true,
+      "steps": [
+        {
+          "expected": {
+            "clarification_required": true,
+            "history_delta": 0,
+            "preference_delta": 0
+          },
+          "query": "Stack the blocks.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        },
+        {
+          "expected": {
+            "history_delta": 1,
+            "min_dispatches": 1,
+            "preference_delta": 0,
+            "validator_outcome": "SUCCESS"
+          },
+          "reply": "Red, green, then blue from bottom to top."
+        }
+      ],
+      "user_id": "participant-a"
+    },
+    {
+      "description": "A repeated choice can trigger a post-task save question; defer is not consent, while a later explicit yes creates one compact record.",
+      "protocol_id": "memory-repeat-defer-then-consent",
+      "requires_fresh_memory": true,
+      "steps": [
+        {
+          "expected": {
+            "clarification_required": true,
+            "history_delta": 0,
+            "preference_delta": 0
+          },
+          "query": "Stack the blocks.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        },
+        {
+          "expected": {
+            "history_delta": 1,
+            "min_dispatches": 1,
+            "post_task_preference_question": false,
+            "preference_delta": 0,
+            "validator_outcome": "SUCCESS"
+          },
+          "reply": "Red, green, then blue from bottom to top."
+        },
+        {
+          "expected": {
+            "clarification_required": true,
+            "history_delta": 0,
+            "preference_delta": 0
+          },
+          "query": "Stack the blocks.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        },
+        {
+          "expected": {
+            "history_delta": 0,
+            "min_dispatches": 1,
+            "post_task_preference_question": true,
+            "preference_delta": 0,
+            "validator_outcome": "SUCCESS"
+          },
+          "reply": "RGB again."
+        },
+        {
+          "expected": {
+            "history_delta": 1,
+            "pending_question_cleared": true,
+            "preference_delta": 0
+          },
+          "reply": "I want to decide later."
+        },
+        {
+          "expected": {
+            "history_delta": 0,
+            "history_retrieval_required": true,
+            "min_dispatches": 1,
+            "post_task_preference_question": true,
+            "preference_delta": 0,
+            "validator_outcome": "SUCCESS"
+          },
+          "query": "Please stack those cubes the same way as before.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        },
+        {
+          "expected": {
+            "active_equivalent_preferences": 1,
+            "history_delta": 1,
+            "preference_delta": 1
+          },
+          "reply": "Yes, remember that order from now on."
+        }
+      ],
+      "user_id": "participant-a"
+    },
+    {
+      "description": "A semantic paraphrase retrieves the approved RGB preference. A one-off BGR instruction overrides execution but does not replace it.",
+      "initial_memory_fixture": "approved-rgb-stack-preference",
+      "protocol_id": "memory-retrieval-and-one-off-override",
+      "requires_fresh_memory": true,
+      "steps": [
+        {
+          "expected": {
+            "clarification_required": false,
+            "history_delta": 1,
+            "min_dispatches": 1,
+            "preference_delta": 0,
+            "preference_retrieval_required": true,
+            "validator_outcome": "SUCCESS"
+          },
+          "query": "Build a tower with the coloured cubes.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        },
+        {
+          "expected": {
+            "active_rgb_preference_preserved": true,
+            "history_delta": 1,
+            "min_dispatches": 1,
+            "post_task_preference_question": false,
+            "preference_delta": 0,
+            "uses_one_off_override": true,
+            "validator_outcome": "SUCCESS"
+          },
+          "query": "This time only, stack blue, green, red from bottom to top.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "bgr_bottom_to_top"
+          }
+        }
+      ],
+      "user_id": "participant-a"
+    },
+    {
+      "description": "Preferences never cross participant boundaries.",
+      "initial_memory_fixture": "participant-a-approved-rgb-only",
+      "protocol_id": "memory-user-isolation",
+      "requires_fresh_memory": true,
+      "steps": [
+        {
+          "expected": {
+            "clarification_required": true,
+            "foreign_preference_refs": 0
+          },
+          "query": "Stack the blocks.",
+          "scenario_selector": {
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        }
+      ],
+      "user_id": "participant-b"
+    },
+    {
+      "description": "The requested RGB stack already exists; validate it without dispatching a VLA subtask.",
+      "protocol_id": "control-already-satisfied",
+      "requires_fresh_memory": true,
+      "steps": [
+        {
+          "expected": {
+            "dispatches": 0,
+            "history_delta": 1,
+            "planner_status": "ALREADY_SATISFIED",
+            "preference_delta": 0,
+            "validator_outcome": "SUCCESS"
+          },
+          "query": "Stack the blocks in RGB order from bottom to top.",
+          "scenario_selector": {
+            "control_kind": "already_satisfied",
+            "family": "block_stack",
+            "outcome": "success",
+            "target_id": "rgb_bottom_to_top"
+          }
+        }
+      ],
+      "user_id": "participant-a"
+    }
+  ],
+  "schema_version": "robopref.memory-protocols.v1"
+}

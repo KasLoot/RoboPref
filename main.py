@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 from agents.configs import PrefMemConfig
 from agents.hri import HRIOrchestrator
@@ -12,8 +13,16 @@ WORKSPACE_ROOT = Path(__file__).resolve().parent
 
 
 class PrefMem:
-    def __init__(self, config: PrefMemConfig | None = None):
-        self.hri_agent = HRIOrchestrator(config or PrefMemConfig())
+    def __init__(
+        self,
+        config: PrefMemConfig | None = None,
+        *,
+        executor: Any = None,
+    ):
+        self.hri_agent = HRIOrchestrator(
+            config or PrefMemConfig(),
+            executor=executor,
+        )
 
     def start(self, *, display_all: bool = False) -> None:
         print("Starting PrefMem...")
@@ -23,6 +32,14 @@ class PrefMem:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run the redesigned PrefMem prototype.")
     parser.add_argument("--dataset", help="Episode directory containing numbered frames.")
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help=(
+            "Treat --dataset as a generated benchmark packet. This enables the "
+            "manifest-aware safety-stop adapter without exposing oracle labels to models."
+        ),
+    )
     parser.add_argument("--history-store", help="Participant episodic-history JSON path.")
     parser.add_argument("--history-outbox", help="Durable failed-history retry queue path.")
     parser.add_argument("--preference-store", help="Approved semantic-preference JSON path.")
@@ -79,8 +96,20 @@ def main() -> None:
         if args.transcript
         else WORKSPACE_ROOT / "experiments" / "record.txt"
     )
+    executor = None
+    if args.benchmark:
+        if not args.dataset:
+            raise SystemExit("--benchmark requires --dataset.")
+        from dataset.benchmark import BenchmarkEpisode
+        from simulation.benchmark.executor import BenchmarkEpisodeExecutor
+
+        benchmark_episode = BenchmarkEpisode.from_path(
+            config.dataset_path,
+            config.workspace_root,
+        )
+        executor = BenchmarkEpisodeExecutor(benchmark_episode)
     with TerminalTranscript(transcript_path):
-        PrefMem(config).start(display_all=args.display_all)
+        PrefMem(config, executor=executor).start(display_all=args.display_all)
 
 
 if __name__ == "__main__":

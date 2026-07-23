@@ -57,7 +57,7 @@ class ValidatorAgent:
             system_prompt=self.system_prompt,
             payload={
                 "validation_spec": spec_payload,
-                "execution_evidence": execution.to_dict(),
+                "execution_evidence": execution.to_model_dict(),
             },
             images=[image],
         )
