@@ -1,0 +1,24 @@
+uv venv -p 3.12
+
+uv pip install vllm==0.25.1 --extra-index-url https://wheels.vllm.ai/0.25.1/cu129 --extra-index-url https://download.pytorch.org/whl/cu129 --index-strategy unsafe-best-match
+
+VLLM_USE_FLASHINFER_SAMPLER=0 \
+vllm serve /workspace/models/gemma-4-26B-A4B-it \
+  --max-model-len 32768 \
+  --gpu-memory-utilization 0.90 \
+  --moe-backend triton
+
+
+
+
+curl http://localhost:8000/v1/chat/completions   -H "Content-Type: application/json"   -d '{
+    "model": "/workspace/models/gemma-4-26B-A4B-it",
+    "messages": [
+      {"role": "user", "content": "Explain quantum entanglement in simple terms."}
+    ],
+    "max_tokens": 512,
+    "temperature": 0.7
+  }'
+
+
+{"id":"chatcmpl-989b2e7bb3b02cb6","object":"chat.completion","created":1785011930,"model":"/workspace/models/gemma-4-26B-A4B-it","choices":[{"index":0,"message":{"role":"assistant","content":"To understand quantum entanglement, forget everything you know about how objects normally behave. In our everyday world, if you want to affect something, you have to touch it, push it, or send a signal to it. \n\nIn the quantum world, things work differently.\n\n### 1. The Basic Idea\nImagine you have two magical coins. You give one to a friend and keep one for yourself. \n\nIn the normal world, if you flip your coin, it has no effect on your friend's coin. But if these coins were **entangled**, something strange would happen: \n\nThe moment you flip your coin and see it landed on **Heads**, your friend’s coin would instantly land on **Tails**. It doesn't matter if your friend is in the next room, in another city, or on the other side of the galaxy. The connection is instantaneous.\n\n### 2. The \"Spooky\" Part\nBefore you look at your coin, it isn't actually Heads or Tails. In quantum physics, it exists in a blurry state of being **both at the same time** (this is called *superposition*). \n\nThe \"magic\" happens when you observe the coin. The act of looking at it forces it to \"choose\" a state. Because the two coins are entangled, the second coin is forced to \"choose\" the opposite state at the exact same moment.\n\nAlbert Einstein was so unsettled by this that he famously called it **\"spooky action at a distance.\"** He didn't like the idea that information could seemingly travel faster than the speed of light.\n\n### 3. A Helpful Analogy: The Pair of Socks\nImagine you have a pair of socks: one is Red and one is Blue. You put them in two separate boxes and shuffle them so you don't know which is which. You ship one box to Mars and keep one on Earth.\n\nWhen you open your box on Earth and see a **Red** sock, you instantly know the sock on Mars is **Blue**. \n\n**However, there is a massive catch:** In the \"Sock Analogy,\" the socks were always Red or Blue; you just didn't know which. In **Quantum Entanglement**, the \"socks\" don't actually have a color until you open the box. They are colorless until the moment of observation, at which point they both decide their colors simultaneously.\n\n### 4. Why does this matter?\nThis isn","refusal":null,"annotations":null,"audio":null,"function_call":null,"reasoning":null},"logprobs":null,"finish_reason":"length","stop_reason":null,"token_ids":null,"routed_experts":null}],"service_tier":null,"system_fingerprint":"vllm-0.25.1-1711601e","usage":{"prompt_tokens":20,"total_tokens":532,"completion_tokens":512,"prompt_tokens_details":null},"prompt_logprobs":null,"prompt_token_ids":null,"prompt_text":null,"kv_transfer_params":null,"metrics":null}
