@@ -9,7 +9,7 @@ from typing import Any
 
 from agents.configs import AgentModelConfig, Memory_Agent_Config
 from agents.diagnostics import AgentOutputDisplay, DisplayingJsonModel
-from agents.model import JsonModel, OllamaJsonModel
+from agents.model import JsonModel, build_json_model
 from memory.models import ConsentEvidence, MemoryContext, MemoryQuery
 from memory.repositories import HistoryRepository, PreferenceRepository
 
@@ -78,13 +78,7 @@ class MemoryAgent:
         self.config = config
         self.history_repository = history_repository
         self.preference_repository = preference_repository
-        base_model = model or OllamaJsonModel(
-            config.model,
-            config.temperature,
-            host=config.host,
-            timeout_seconds=config.timeout_seconds,
-            seed=config.seed,
-        )
+        base_model = model or build_json_model(config)
         self.model = (
             DisplayingJsonModel(base_model, output_display, "Memory Agent")
             if output_display is not None

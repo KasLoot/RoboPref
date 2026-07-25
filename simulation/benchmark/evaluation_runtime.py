@@ -11,7 +11,7 @@ from agents.configs import PrefMemConfig
 from agents.diagnostics import AgentOutputDisplay
 from agents.hri import HRIOrchestrator
 from agents.memory import MemoryAgent
-from agents.model import OllamaJsonModel
+from agents.model import JsonModel, build_json_model
 from agents.planner import PlannerAgent
 from agents.validator import ValidatorAgent
 from memory.repositories import HistoryRepository, PreferenceRepository
@@ -108,13 +108,9 @@ def _model(
     *,
     agent_name: str,
     telemetry_observer: Callable[[dict[str, Any]], None],
-) -> OllamaJsonModel:
-    return OllamaJsonModel(
-        config.model,
-        config.temperature,
-        host=config.host,
-        timeout_seconds=config.timeout_seconds,
-        seed=config.seed,
+) -> JsonModel:
+    return build_json_model(
+        config,
         agent_name=agent_name,
         telemetry_observer=telemetry_observer,
     )

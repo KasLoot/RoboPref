@@ -2,9 +2,52 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-
+from urllib.parse import urlsplit
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[1]
+
+
+def normalize_model_base_url(value: str) -> str:
+    """Validate an HTTP(S) API root without persisting embedded credentials."""
+
+    normalized = str(value).strip().rstrip("/")
+    if not normalized:
+        raise ValueError("Agent model base URL cannot be empty.")
+    if any(character.isspace() for character in normalized):
+        raise ValueError("Agent model base URL cannot contain whitespace.")
+    try:
+        parsed = urlsplit(normalized)
+    except ValueError:
+        raise ValueError(
+            "Agent model base URL must contain a valid host and port."
+        ) from None
+    try:
+        hostname = parsed.hostname
+        _ = parsed.port
+    except ValueError:
+        raise ValueError(
+            "Agent model base URL must contain a valid host and port."
+        ) from None
+    if hostname is None:
+        raise ValueError(
+            "Agent model base URL must contain a valid host and port."
+        )
+    if parsed.scheme.casefold() not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("Agent model base URL must be an absolute HTTP(S) URL.")
+    if (
+        parsed.username is not None
+        or parsed.password is not None
+        or "?" in normalized
+        or "#" in normalized
+    ):
+        raise ValueError(
+            "Agent model base URL must not contain credentials, query parameters, or a fragment."
+        )
+    if not parsed.path.endswith("/v1"):
+        raise ValueError(
+            "Agent model base URL must be the API root ending in '/v1'."
+        )
+    return normalized
 
 
 @dataclass(slots=True)
@@ -15,10 +58,23 @@ class AgentModelConfig:
     host: str | None = None
     timeout_seconds: float = 120.0
     seed: int | None = None
+    provider: str = "ollama"
+    base_url: str | None = None
 
     def __post_init__(self) -> None:
+        self.provider = str(self.provider).strip().casefold()
+        if self.provider not in {"ollama", "vllm"}:
+            raise ValueError("Agent model provider must be 'ollama' or 'vllm'.")
         if not self.model.strip():
             raise ValueError("Agent model name cannot be empty.")
+        if self.base_url is not None:
+            if self.provider != "vllm":
+                raise ValueError(
+                    "Agent model base URL requires provider='vllm'."
+                )
+            self.base_url = normalize_model_base_url(self.base_url)
+        if self.host is not None and self.provider != "ollama":
+            raise ValueError("Agent Ollama host requires provider='ollama'.")
         if self.temperature < 0:
             raise ValueError("Agent temperature cannot be negative.")
         if self.timeout_seconds <= 0:

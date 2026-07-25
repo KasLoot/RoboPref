@@ -27,11 +27,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
-from agents.configs import PrefMemConfig
+from tqdm.auto import tqdm
+
+from agents.configs import PrefMemConfig, normalize_model_base_url
 from agents.hri import HRIOrchestrator
+from agents.model import effective_model_base_url
 from dataset.benchmark import BenchmarkEpisode
 
 from .executor import BenchmarkEpisodeExecutor
+from .model_defaults import (
+    DEFAULT_EVALUATION_MODEL,
+    DEFAULT_EVALUATION_PROVIDER,
+)
 from .provenance import (
     benchmark_content_sha256,
     callable_provenance,
@@ -134,6 +141,8 @@ class EvaluationConfig:
     fail_fast: bool = False
     memory_mode: str = "full"
     model: str | None = None
+    model_provider: str | None = DEFAULT_EVALUATION_PROVIDER
+    model_base_url: str | None = None
     ollama_host: str | None = None
     temperature: float | None = None
     model_seed: int | None = None
@@ -148,6 +157,24 @@ class EvaluationConfig:
         self.condition = str(self.condition).strip()
         if not self.condition:
             raise ValueError("condition must be a non-empty string")
+        self.model_provider = str(
+            self.model_provider or DEFAULT_EVALUATION_PROVIDER
+        ).strip().casefold()
+        if self.model_provider not in {"ollama", "vllm"}:
+            raise ValueError("model_provider must be 'ollama' or 'vllm'")
+        if self.model is not None:
+            self.model = str(self.model).strip()
+            if not self.model:
+                raise ValueError("model must be a non-empty string when provided")
+        elif self.model_provider == DEFAULT_EVALUATION_PROVIDER:
+            self.model = DEFAULT_EVALUATION_MODEL
+        if self.model_base_url is not None:
+            self.model_base_url = normalize_model_base_url(self.model_base_url)
+        effective_provider = self.model_provider
+        if self.model_base_url is not None and effective_provider != "vllm":
+            raise ValueError("model_base_url requires model_provider='vllm'")
+        if self.ollama_host is not None and effective_provider == "vllm":
+            raise ValueError("ollama_host cannot be used with model_provider='vllm'")
         if self.repetitions <= 0:
             raise ValueError("repetitions must be positive")
         if self.max_scenarios is not None and self.max_scenarios <= 0:
@@ -1193,6 +1220,10 @@ def _build_prefmem_config(
     ):
         if evaluation.model:
             model_config.model = evaluation.model
+        if evaluation.model_provider:
+            model_config.provider = evaluation.model_provider
+        if evaluation.model_base_url:
+            model_config.base_url = evaluation.model_base_url
         if evaluation.ollama_host:
             model_config.host = evaluation.ollama_host
         if evaluation.temperature is not None:
@@ -1268,6 +1299,14 @@ def _config_payload(
         "agent": {
             "models": {
                 name: getattr(probe, name).model
+                for name in ("hri", "memory", "planner", "validator")
+            },
+            "providers": {
+                name: getattr(probe, name).provider
+                for name in ("hri", "memory", "planner", "validator")
+            },
+            "base_urls": {
+                name: effective_model_base_url(getattr(probe, name))
                 for name in ("hri", "memory", "planner", "validator")
             },
             "hosts": {
@@ -1506,6 +1545,11 @@ def _exception_failure_category(error: Exception, phase: str) -> str:
             "connection",
             "connecterror",
             "ollama",
+            "openai",
+            "vllm",
+            "apierror",
+            "apistatus",
+            "ratelimit",
             "http",
             "model unavailable",
         )
@@ -2403,6 +2447,7 @@ def run_cold_memory_evaluation(
     config: EvaluationConfig,
     *,
     orchestrator_factory: OrchestratorFactory = default_orchestrator_factory,
+    show_progress: bool = False,
 ) -> EvaluationReport:
     """Run or resume a randomized, repeated cold-memory endpoint study.
 
@@ -2463,6 +2508,14 @@ def run_cold_memory_evaluation(
     planned = len(trials)
     skipped = 0
     executed = 0
+    progress = tqdm(
+        total=planned,
+        initial=len(completed_keys),
+        desc="Cold evaluation",
+        unit="trial",
+        dynamic_ncols=True,
+        disable=not show_progress,
+    )
     current_records = list(existing_records)
     try:
         for repetition, item in trials:
@@ -2484,12 +2537,14 @@ def run_cold_memory_evaluation(
             current_records.append(record)
             completed_keys.add(key)
             executed += 1
+            progress.update(1)
             if config.fail_fast and record["status"] == "ERROR":
                 raise EvaluationError(
                     "Evaluation stopped after a trial error because fail_fast "
                     "is enabled."
                 )
     finally:
+        progress.close()
         summary = _write_derived_artifacts(output_dir, current_records)
 
     relevant_records = [

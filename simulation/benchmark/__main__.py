@@ -7,11 +7,15 @@ import json
 from pathlib import Path
 from typing import Any
 
-from agents.configs import PrefMemConfig
+from agents.configs import PrefMemConfig, normalize_model_base_url
 
 from .ablations import MEMORY_MODES
 from .catalog import FAMILY_DEFINITIONS, build_catalog, build_control_catalog
 from .generator import _json_bytes, _write_if_changed, generate_benchmark
+from .model_defaults import (
+    DEFAULT_EVALUATION_PROVIDER,
+    apply_evaluation_model_defaults,
+)
 from .protocols import build_memory_protocols, memory_protocol_fixtures
 from .validator import validate_benchmark
 
@@ -19,7 +23,19 @@ from .validator import validate_benchmark
 def _add_model_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--model",
-        help="Override the Ollama model for all four VLM agents.",
+        help="Override the model for all four VLM agents.",
+    )
+    parser.add_argument(
+        "--model-provider",
+        choices=("ollama", "vllm"),
+        default=DEFAULT_EVALUATION_PROVIDER,
+        help="Model backend for all four VLM agents (default: vllm).",
+    )
+    parser.add_argument(
+        "--model-base-url",
+        help=(
+            "OpenAI-compatible API base URL for vLLM (default: http://localhost:8000/v1)."
+        ),
     )
     parser.add_argument("--ollama-host", help="Ollama service URL override.")
     parser.add_argument(
@@ -31,7 +47,7 @@ def _add_model_options(parser: argparse.ArgumentParser) -> None:
         "--model-seed",
         type=int,
         help=(
-            "Base Ollama seed. Repetition N uses base + N - 1 so repeated "
+            "Base model seed. Repetition N uses base + N - 1 so repeated "
             "runs are reproducible but not identical."
         ),
     )
@@ -59,6 +75,11 @@ def _add_model_options(parser: argparse.ArgumentParser) -> None:
         dest="display_all",
         action="store_true",
         help="Also print structured background-agent diagnostics.",
+    )
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable the evaluation progress bar.",
     )
 
 
@@ -179,6 +200,21 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _validate_model_options(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    if args.model_base_url:
+        if args.model_provider != "vllm":
+            parser.error("--model-base-url requires --model-provider vllm.")
+        try:
+            normalize_model_base_url(args.model_base_url)
+        except ValueError as error:
+            parser.error(str(error))
+    if args.ollama_host and args.model_provider == "vllm":
+        parser.error("--ollama-host cannot be used with --model-provider vllm.")
+
+
 def _cold_config(args: argparse.Namespace) -> Any:
     from .evaluation import EvaluationConfig
 
@@ -200,6 +236,8 @@ def _cold_config(args: argparse.Namespace) -> Any:
         fail_fast=args.fail_fast,
         memory_mode=args.memory_mode,
         model=args.model,
+        model_provider=args.model_provider,
+        model_base_url=args.model_base_url,
         ollama_host=args.ollama_host,
         temperature=args.temperature,
         model_seed=args.model_seed,
@@ -268,6 +306,8 @@ def _base_config(args: argparse.Namespace) -> PrefMemConfig:
         max_reobservations=args.max_reobservations,
     )
     config.vision.resize_images = bool(args.resize_images)
+    if args.model_provider == DEFAULT_EVALUATION_PROVIDER and not args.model:
+        apply_evaluation_model_defaults(config)
     for model_config in (
         config.hri,
         config.memory,
@@ -276,6 +316,10 @@ def _base_config(args: argparse.Namespace) -> PrefMemConfig:
     ):
         if args.model:
             model_config.model = args.model
+        if args.model_provider:
+            model_config.provider = args.model_provider
+        if args.model_base_url:
+            model_config.base_url = normalize_model_base_url(args.model_base_url)
         if args.ollama_host:
             model_config.host = args.ollama_host
         if args.temperature is not None:
@@ -388,7 +432,10 @@ def _dry_run_memory(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    args = _parser().parse_args()
+    parser = _parser()
+    args = parser.parse_args()
+    if args.command in {"evaluate", "evaluate-memory"}:
+        _validate_model_options(parser, args)
     if args.command == "generate":
         report = generate_benchmark(
             args.output,
@@ -478,6 +525,7 @@ def main() -> int:
                 memory_mode="full",
                 display_all=args.display_all,
             ),
+            show_progress=not args.no_progress,
         )
         print(
             json.dumps(
@@ -529,6 +577,7 @@ def main() -> int:
         memory_mode=args.memory_mode,
         model_seed=args.model_seed,
         resume=not args.no_resume,
+        show_progress=not args.no_progress,
     )
     print(json.dumps(result.summary, indent=2, sort_keys=True))
     return 0

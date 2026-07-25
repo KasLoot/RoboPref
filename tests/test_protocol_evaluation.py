@@ -7,11 +7,15 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from agents.configs import PrefMemConfig
 from memory.models import ConsentEvidence, MemoryContext, MemoryQuery
 from simulation.benchmark.ablations import MemoryAblationAgent
+from simulation.benchmark.model_defaults import (
+    DEFAULT_EVALUATION_MODEL,
+    DEFAULT_EVALUATION_PROVIDER,
+)
 from simulation.benchmark.protocol_evaluation import (
     _build_summary,
     _protocol_cluster_bootstrap_ci95,
@@ -622,24 +626,68 @@ class ProtocolEvaluationTests(unittest.TestCase):
             benchmark.mkdir()
             _write_benchmark(benchmark)
             _write_protocols(benchmark, [_protocol("once")])
-            factory = lambda context: _Orchestrator(context.config)
+            contexts = []
 
-            first = self._evaluate(
-                benchmark,
-                output,
-                orchestrator_factory=factory,
-                base_config=PrefMemConfig(workspace_root=str(root)),
-            )
-            resumed = self._evaluate(
-                benchmark,
-                output,
-                orchestrator_factory=factory,
-                base_config=PrefMemConfig(workspace_root=str(root)),
-            )
+            def factory(context):
+                contexts.append(context)
+                return _Orchestrator(context.config)
+
+            first_bar = Mock()
+            with patch(
+                "simulation.benchmark.protocol_evaluation.tqdm",
+                return_value=first_bar,
+            ) as progress_factory:
+                first = self._evaluate(
+                    benchmark,
+                    output,
+                    orchestrator_factory=factory,
+                    show_progress=True,
+                )
+
+            resumed_bar = Mock()
+            with patch(
+                "simulation.benchmark.protocol_evaluation.tqdm",
+                return_value=resumed_bar,
+            ) as resumed_factory:
+                resumed = self._evaluate(
+                    benchmark,
+                    output,
+                    orchestrator_factory=factory,
+                    show_progress=True,
+                )
 
             self.assertEqual(first.executed_runs, 1)
             self.assertEqual(resumed.executed_runs, 0)
             self.assertEqual(resumed.skipped_runs, 1)
+            progress_factory.assert_called_once_with(
+                total=1,
+                initial=0,
+                desc="Memory protocol evaluation",
+                unit="run",
+                dynamic_ncols=True,
+                disable=False,
+            )
+            self.assertEqual(first_bar.update.call_count, 1)
+            first_bar.update.assert_called_once_with(1)
+            first_bar.close.assert_called_once_with()
+            resumed_factory.assert_called_once_with(
+                total=1,
+                initial=1,
+                desc="Memory protocol evaluation",
+                unit="run",
+                dynamic_ncols=True,
+                disable=False,
+            )
+            resumed_bar.update.assert_not_called()
+            resumed_bar.close.assert_called_once_with()
+            self.assertEqual(len(contexts), 1)
+            for name in ("hri", "memory", "planner", "validator"):
+                agent_config = getattr(contexts[0].config, name)
+                self.assertEqual(
+                    agent_config.provider, DEFAULT_EVALUATION_PROVIDER
+                )
+                self.assertEqual(agent_config.model, DEFAULT_EVALUATION_MODEL)
+
             self.assertEqual(
                 len(
                     resumed.results_path.read_text(
@@ -656,7 +704,6 @@ class ProtocolEvaluationTests(unittest.TestCase):
                     benchmark,
                     output,
                     orchestrator_factory=factory,
-                    base_config=PrefMemConfig(workspace_root=str(root)),
                     resume=False,
                 )
 

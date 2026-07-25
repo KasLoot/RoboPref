@@ -28,13 +28,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Sequence
 
+from tqdm.auto import tqdm
+
 from agents.configs import PrefMemConfig
+from agents.model import effective_model_base_url
 from dataset.benchmark import BenchmarkEpisode
 from memory.models import ConsentEvidence
 
 from .ablations import MEMORY_MODES, MemoryAblationAgent
 from .evaluation import _agent_failure_evidence
 from .executor import BenchmarkEpisodeExecutor
+from .model_defaults import default_evaluation_prefmem_config
 from .provenance import (
     benchmark_content_sha256,
     callable_provenance,
@@ -1495,9 +1499,11 @@ def _config_metadata(config: PrefMemConfig) -> dict[str, Any]:
         prompt = Path(agent.system_prompt_path)
         agents[name] = {
             "model": agent.model,
+            "provider": agent.provider,
             "temperature": agent.temperature,
             "seed": agent.seed,
             "host": agent.host,
+            "base_url": effective_model_base_url(agent),
             "timeout_seconds": agent.timeout_seconds,
             "prompt_path": str(prompt),
             "prompt_sha256": _sha256(prompt) if prompt.is_file() else None,
@@ -2193,6 +2199,7 @@ def evaluate_memory_protocols(
     memory_mode: str = "full",
     model_seed: int | None = None,
     resume: bool = True,
+    show_progress: bool = False,
 ) -> ProtocolBatchResult:
     """Execute generated memory protocols with fresh state per repetition.
 
@@ -2300,7 +2307,11 @@ def evaluate_memory_protocols(
         ).encode("utf-8")
     ).hexdigest()
 
-    config_template = copy.deepcopy(base_config or PrefMemConfig())
+    config_template = copy.deepcopy(
+        base_config
+        if base_config is not None
+        else default_evaluation_prefmem_config()
+    )
     factory = orchestrator_factory or default_orchestrator_factory
     apply_fixture = fixture_applier or apply_consent_fixture
     protocol_digest = _sha256(protocol_path)
@@ -2376,6 +2387,14 @@ def evaluate_memory_protocols(
     records: list[dict[str, Any]] = list(existing_records)
     executed_runs = 0
     skipped_runs = 0
+    progress = tqdm(
+        total=len(planned_keys),
+        initial=len(completed_keys),
+        desc="Memory protocol evaluation",
+        unit="run",
+        dynamic_ncols=True,
+        disable=not show_progress,
+    )
 
     for protocol in protocols:
         protocol_id = str(protocol["protocol_id"])
@@ -2488,7 +2507,9 @@ def evaluate_memory_protocols(
                 _append_jsonl(results_path, record)
                 completed_keys.add(key)
                 executed_runs += 1
+                progress.update(1)
 
+    progress.close()
     summary = _build_summary(
         records=records,
         benchmark_root=benchmark,

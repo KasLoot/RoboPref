@@ -8,6 +8,7 @@ from collections import Counter
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import Mock, patch
 
 from simulation.benchmark.evaluation import (
     EvaluationConfig,
@@ -188,6 +189,69 @@ class BenchmarkEvaluationTests(unittest.TestCase):
                     config,
                     orchestrator_factory=factory,
                 )
+
+    def test_progress_tracks_durable_trials_and_resume(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "run"
+
+            def factory(config, episode, executor, trial_dir, user_id):
+                del config, episode, executor, trial_dir, user_id
+                raise RuntimeError("intentional durable progress fixture")
+
+            config = EvaluationConfig(
+                benchmark_root=self.dataset_root,
+                output_dir=output,
+                repetitions=2,
+                outcomes=("success",),
+                max_scenarios=1,
+            )
+            first_bar = Mock()
+            with patch(
+                "simulation.benchmark.evaluation.tqdm",
+                return_value=first_bar,
+            ) as progress_factory:
+                first = run_cold_memory_evaluation(
+                    config,
+                    orchestrator_factory=factory,
+                    show_progress=True,
+                )
+
+            self.assertEqual(first.executed_trials, 2)
+            progress_factory.assert_called_once_with(
+                total=2,
+                initial=0,
+                desc="Cold evaluation",
+                unit="trial",
+                dynamic_ncols=True,
+                disable=False,
+            )
+            self.assertEqual(first_bar.update.call_count, 2)
+            first_bar.update.assert_called_with(1)
+            first_bar.close.assert_called_once_with()
+
+            resumed_bar = Mock()
+            with patch(
+                "simulation.benchmark.evaluation.tqdm",
+                return_value=resumed_bar,
+            ) as resumed_factory:
+                resumed = run_cold_memory_evaluation(
+                    config,
+                    orchestrator_factory=factory,
+                    show_progress=True,
+                )
+
+            self.assertEqual(resumed.executed_trials, 0)
+            self.assertEqual(resumed.skipped_trials, 2)
+            resumed_factory.assert_called_once_with(
+                total=2,
+                initial=2,
+                desc="Cold evaluation",
+                unit="trial",
+                dynamic_ncols=True,
+                disable=False,
+            )
+            resumed_bar.update.assert_not_called()
+            resumed_bar.close.assert_called_once_with()
 
     def test_cold_repetitions_persist_and_resume_without_rerunning(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

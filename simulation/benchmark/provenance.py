@@ -81,7 +81,7 @@ def runtime_provenance(repository_root: str | Path) -> dict[str, Any]:
         pass
 
     packages: dict[str, str | None] = {}
-    for distribution in ("ollama", "Pillow"):
+    for distribution in ("ollama", "openai", "Pillow"):
         try:
             packages[distribution] = importlib.metadata.version(distribution)
         except importlib.metadata.PackageNotFoundError:

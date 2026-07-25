@@ -1,0 +1,15 @@
+condition,repetition,scenario_id,family,scene_variant,target_id,outcome,seed,control_kind,trial_status,trial_passed,failure_category,check_name,expected,actual,evaluated,check_passed,hard_gate
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,hri_resolved_target,"""left_handed""",null,True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,planner_confirmed_intent,null,null,True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,planner_goal_predicates,"[""ALL_PLACE_SETTING_ITEMS_PLACED(obj-001,obj-002,obj-003,obj-004,obj-005)=true"", ""AT_ANCHOR(obj-002,anchor:place_centre)=true"", ""AT_RELATIVE_CORNER(obj-003,obj-002,upper_left)=true"", ""BLADE_FACES(obj-004,obj-002)=true"", ""ON_OUTER_SIDE(obj-005,obj-001,right)=true"", ""ON_RELATIVE_SIDE(obj-001,obj-002,right)=true"", ""ON_RELATIVE_SIDE(obj-004,obj-002,left)=true"", ""SAFE_EXECUTION(robot)=true""]",[],True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,hri_response_mode,"[""REPORT""]","""ASK""",True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,hri_terminal_outcome,"""FAILED""",null,False,,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,validator_called,true,false,True,False,True
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,validator_outcome,"""FAILURE""",null,True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,task_complete,false,null,True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,planner_status,"""READY""",null,False,,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,execution_status,"""OBSERVED_RECORDED_ATTEMPT""",null,False,,True
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,recovery,"""REPLAN""",null,False,,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,history_delta,1,0,True,False,False
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,preference_delta_without_consent,0,0,True,True,True
+full,2,ep-368368e71b42e9258ee4d7bf,place_setting,radial_scatter,left_handed,near_miss,2,,COMPLETED,False,STRICT_CHECK_FAILURE,evaluation_artifacts_complete,true,true,True,True,True

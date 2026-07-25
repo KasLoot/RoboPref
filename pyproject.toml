@@ -5,8 +5,10 @@ description = "Consent-aware semantic preference memory and HRI orchestration fo
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "openai>=2.0.0",
     "ollama>=0.6.2",
     "pillow>=12.3.0",
+    "tqdm>=4.69.0",
 ]
 
 [project.optional-dependencies]

@@ -167,6 +167,13 @@ preference, and outbox stores for every trial, runs the canonical instruction
 through the real HRI orchestrator, and scores the returned structured result only
 afterward:
 
+Both batch commands default to vLLM model
+`/workspace/models/gemma-4-26B-A4B-it` through `http://localhost:8000/v1`; start
+that server before a non-dry run or supply explicit model options.
+
+They show a resume-aware progress bar on standard error. Pass `--no-progress` to
+disable it without changing result artifacts or the JSON summary on standard output.
+
 ```bash
 python -m simulation.benchmark evaluate dataset/sim_datasets \
   --output experiments/prefmem-evaluation/cold-full \
@@ -220,10 +227,10 @@ These stateful cases currently cover block stacking only; compaction threshold,
 conflict/delete behaviour, category-sort preferences, and place-setting preferences
 remain explicit follow-up coverage.
 
-Protocol generation and benchmark validation are offline and never call Ollama.
+Protocol generation and benchmark validation are offline and never call a model service.
 Executing a protocol calls the injected `HRIOrchestrator`, so it uses whichever
-models that orchestrator is configured with (real Ollama models or scripted test
-models). The checks inspect structured outputs and repository state, never hidden
+models that orchestrator is configured with (Ollama, vLLM, or scripted test models).
+The checks inspect structured outputs and repository state, never hidden
 model reasoning. Their exact RGB/BGR comparison is an out-of-band test oracle only;
 runtime preference retrieval, paraphrase matching, and compaction remain VLM-reasoned.
 

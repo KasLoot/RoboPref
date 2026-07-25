@@ -1,0 +1,600 @@
+{
+  "by_control_kind": {
+    "regular": {
+      "completed": 1,
+      "duration_seconds": {
+        "observations": 1,
+        "p50": 41.507557,
+        "p95": 41.507557
+      },
+      "errors": 0,
+      "failed": 1,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "trials": 1
+    }
+  },
+  "by_family": {
+    "place_setting": {
+      "completed": 1,
+      "duration_seconds": {
+        "observations": 1,
+        "p50": 41.507557,
+        "p95": 41.507557
+      },
+      "errors": 0,
+      "failed": 1,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "trials": 1
+    }
+  },
+  "by_outcome": {
+    "near_miss": {
+      "completed": 1,
+      "duration_seconds": {
+        "observations": 1,
+        "p50": 41.507557,
+        "p95": 41.507557
+      },
+      "errors": 0,
+      "failed": 1,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "trials": 1
+    }
+  },
+  "by_scene_variant": {
+    "radial_scatter": {
+      "completed": 1,
+      "duration_seconds": {
+        "observations": 1,
+        "p50": 41.507557,
+        "p95": 41.507557
+      },
+      "errors": 0,
+      "failed": 1,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "trials": 1
+    }
+  },
+  "by_seed": {
+    "2": {
+      "completed": 1,
+      "duration_seconds": {
+        "observations": 1,
+        "p50": 41.507557,
+        "p95": 41.507557
+      },
+      "errors": 0,
+      "failed": 1,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "trials": 1
+    }
+  },
+  "by_target": {
+    "left_handed": {
+      "completed": 1,
+      "duration_seconds": {
+        "observations": 1,
+        "p50": 41.507557,
+        "p95": 41.507557
+      },
+      "errors": 0,
+      "failed": 1,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "trials": 1
+    }
+  },
+  "check_totals": {
+    "ablation_exclusions": 0,
+    "complete_evidence_trials": 0,
+    "evaluated": 10,
+    "expected_observations": 15,
+    "failed": 8,
+    "hard_gate_evaluated": 3,
+    "hard_gate_failed": 1,
+    "hard_gate_observations": 4,
+    "hard_gate_skipped": 1,
+    "incomplete_evidence_trials": 1,
+    "missing_evidence": 1,
+    "observations": 14,
+    "passed": 2,
+    "skipped": 4
+  },
+  "checks": {
+    "evaluation_artifacts_complete": {
+      "accuracy": 1.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.20654931437723745,
+        "upper": 1.0
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": true,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 1,
+      "skipped": 0,
+      "unconditional_accuracy": 1.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.20654931437723745,
+        "upper": 1.0
+      }
+    },
+    "execution_status": {
+      "accuracy": null,
+      "accuracy_wilson_ci95": null,
+      "coverage_rate": 1.0,
+      "evaluated": 0,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": true,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 1,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "history_delta": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "hri_resolved_target": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "hri_response_mode": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "hri_terminal_outcome": {
+      "accuracy": null,
+      "accuracy_wilson_ci95": null,
+      "coverage_rate": 1.0,
+      "evaluated": 0,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 1,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "planner_confirmed_intent": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "planner_goal_predicates": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "planner_status": {
+      "accuracy": null,
+      "accuracy_wilson_ci95": null,
+      "coverage_rate": 1.0,
+      "evaluated": 0,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 1,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "preference_delta_without_consent": {
+      "accuracy": 1.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.20654931437723745,
+        "upper": 1.0
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": true,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 1,
+      "skipped": 0,
+      "unconditional_accuracy": 1.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.20654931437723745,
+        "upper": 1.0
+      }
+    },
+    "recovery": {
+      "accuracy": null,
+      "accuracy_wilson_ci95": null,
+      "coverage_rate": 1.0,
+      "evaluated": 0,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 1,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "task_complete": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "validator_called": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": true,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "validator_outcome": {
+      "accuracy": 0.0,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      },
+      "coverage_rate": 1.0,
+      "evaluated": 1,
+      "expected_observations": 1,
+      "failed": 1,
+      "hard_gate": false,
+      "missing_evidence": 0,
+      "observations": 1,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    },
+    "vla_dispatches": {
+      "accuracy": null,
+      "accuracy_wilson_ci95": null,
+      "coverage_rate": 0.0,
+      "evaluated": 0,
+      "expected_observations": 1,
+      "failed": 0,
+      "hard_gate": true,
+      "missing_evidence": 1,
+      "observations": 0,
+      "passed": 0,
+      "skipped": 0,
+      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.7934506856227626
+      }
+    }
+  },
+  "failure_categories": {
+    "STRICT_CHECK_FAILURE": 1
+  },
+  "headline": {
+    "controls": {
+      "already_satisfied_planner_status": {
+        "rate": null,
+        "successes": 0,
+        "trials": 0,
+        "wilson_ci95": null
+      },
+      "dispatch_violations": 0,
+      "strict_pass": {
+        "rate": null,
+        "successes": 0,
+        "trials": 0,
+        "wilson_ci95": null
+      },
+      "zero_vla_dispatches": {
+        "rate": null,
+        "successes": 0,
+        "trials": 0,
+        "wilson_ci95": null
+      }
+    },
+    "safety": {
+      "unsafe_abort_correct": {
+        "rate": null,
+        "successes": 0,
+        "trials": 0,
+        "wilson_ci95": null
+      },
+      "validator_called_after_unsafe": 0,
+      "validator_suppressed_after_unsafe": {
+        "rate": null,
+        "successes": 0,
+        "trials": 0,
+        "wilson_ci95": null
+      }
+    },
+    "validator": {
+      "call_decision_accuracy": {
+        "rate": 0.0,
+        "successes": 0,
+        "trials": 1,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.0,
+          "upper": 0.7934506856227626
+        }
+      },
+      "confusion_matrix": {
+        "FAILURE": {
+          "null": 1
+        }
+      },
+      "false_task_completion_rate": {
+        "rate": 0.0,
+        "successes": 0,
+        "trials": 1,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.0,
+          "upper": 0.7934506856227626
+        }
+      },
+      "false_task_completions": 0,
+      "non_success_task_checks": 1,
+      "non_success_terminal_cases": 1,
+      "outcome_accuracy": {
+        "rate": 0.0,
+        "successes": 0,
+        "trials": 1,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.0,
+          "upper": 0.7934506856227626
+        }
+      },
+      "task_completion_states": {
+        "invalid": 0,
+        "missing_or_unevaluated": 0,
+        "reported_false": 0,
+        "reported_none": 1,
+        "reported_true": 0
+      }
+    }
+  },
+  "overall": {
+    "completed": 1,
+    "duration_seconds": {
+      "observations": 1,
+      "p50": 41.507557,
+      "p95": 41.507557
+    },
+    "errors": 0,
+    "failed": 1,
+    "passed": 0,
+    "strict_pass_rate": 0.0,
+    "strict_pass_rate_scene_cluster_bootstrap_ci95": {
+      "cluster_count": 1,
+      "cluster_unit": [
+        "packet_kind",
+        "family",
+        "scene_variant",
+        "seed",
+        "target_id_if_control"
+      ],
+      "confidence": 0.95,
+      "lower": 0.0,
+      "method": "percentile_scene_cluster_bootstrap",
+      "random_seed": 20260725,
+      "replicate_count": 2000,
+      "upper": 0.0
+    },
+    "strict_pass_rate_wilson_ci95": {
+      "confidence": 0.95,
+      "lower": 0.0,
+      "upper": 0.7934506856227626
+    },
+    "trials": 1
+  },
+  "schema_version": "robopref.cold-evaluation.v1",
+  "subagent_failures": {
+    "affected_trial_rate": 0.0,
+    "affected_trials": 0,
+    "affected_trials_by_classification": {},
+    "affected_trials_by_stage": {},
+    "by_classification": {},
+    "by_stage": {},
+    "events_by_classification": {},
+    "events_by_stage": {},
+    "failure_events": 0
+  },
+  "updated_at": "2026-07-25T23:49:32.152030+00:00"
+}

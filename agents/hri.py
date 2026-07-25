@@ -11,7 +11,7 @@ from agents.configs import HRI_Agent_Config, PrefMemConfig
 from agents.contracts import ExecutionResult, PlanResult, ValidationResult
 from agents.diagnostics import AgentOutputDisplay, DisplayingJsonModel
 from agents.memory import MemoryAgent
-from agents.model import JsonModel, OllamaJsonModel
+from agents.model import JsonModel, build_json_model
 from agents.planner import PlannerAgent
 from agents.validator import ValidatorAgent
 from agents.vision import prepare_vision_image
@@ -50,7 +50,17 @@ def _agent_failure_evidence(
         classification = "INFRASTRUCTURE_TIMEOUT"
     elif any(
         marker in lowered
-        for marker in ("connection", "connecterror", "ollama", "http")
+        for marker in (
+            "connection",
+            "connecterror",
+            "ollama",
+            "openai",
+            "vllm",
+            "apierror",
+            "apistatus",
+            "ratelimit",
+            "http",
+        )
     ):
         classification = "MODEL_OR_CONNECTION"
     else:
@@ -91,13 +101,7 @@ class HRIOrchestrator:
         self.output_display = output_display or AgentOutputDisplay()
         self.workspace_root = Path(config.workspace_root).resolve()
         self.dataset_episode = DatasetEpisode.from_path(config.dataset_path, self.workspace_root)
-        base_hri_model = hri_model or OllamaJsonModel(
-            config.hri.model,
-            config.hri.temperature,
-            host=config.hri.host,
-            timeout_seconds=config.hri.timeout_seconds,
-            seed=config.hri.seed,
-        )
+        base_hri_model = hri_model or build_json_model(config.hri)
         self.hri_model = DisplayingJsonModel(
             base_hri_model,
             self.output_display,

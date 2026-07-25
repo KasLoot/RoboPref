@@ -44,12 +44,45 @@ observations), see [simulation/README.md](simulation/README.md).
   --max-reobservations 1
 ```
 
+### Use the localhost vLLM model
+
+Install the locked dependencies once, including the official OpenAI Python SDK:
+
+```bash
+uv sync
+```
+
+Then select the `vllm` backend and the exact model ID advertised by the server:
+
+```bash
+uv run python ./main.py \
+  --model-provider vllm \
+  --model /workspace/models/gemma-4-26B-A4B-it \
+  --model-base-url http://localhost:8000/v1 \
+  --dataset dataset/v3 \
+  --history-store memory/history.json \
+  --preference-store memory/preferences.json \
+  --user-id participant-01
+```
+
+`--model-base-url` defaults to `http://localhost:8000/v1`; it must point to the
+API root ending in `/v1`, not to `/v1/chat/completions`. Unauthenticated vLLM
+servers use the SDK's non-secret `EMPTY` placeholder. If the server was started
+with `--api-key`, set that value in `VLLM_API_KEY`; it is never written to model
+telemetry or benchmark run configuration. Text and prepared scene images are sent
+through OpenAI-compatible Chat Completions, with JSON-object output requested.
+
 The default executor is a recorded-dataset adapter: it dispatches no physical commands
 and uses the episode's final frame as external execution evidence. Integrate a real VLA
 through `agents.vla.CallableVLAExecutor` or the `VLAExecutor` protocol.
 
-All model, prompt, memory, vision, semantic threshold, and recovery defaults are in
-`agents/configs.py`. Use `--model` and `--ollama-host` for common runtime overrides.
+Interactive model, prompt, memory, vision, semantic threshold, and recovery defaults
+are in `agents/configs.py`; interactive PrefMem remains Ollama-backed by default.
+The `evaluate` and `evaluate-memory` batch commands instead default to vLLM model
+`/workspace/models/gemma-4-26B-A4B-it` at `http://localhost:8000/v1`. Use
+`--model-provider`, `--model`, and `--model-base-url` to override those evaluation
+settings. To evaluate with Ollama, pass `--model-provider ollama` and optionally
+`--ollama-host`.
 Add `--display_all` to print the complete structured outputs from HRI, Memory, Planner,
 VLA, Validator, and Task Assurance. This diagnostic output is also captured by the
 configured terminal transcript; raw image bytes and hidden reasoning fields are omitted.
@@ -76,7 +109,7 @@ read-only inputs and remain unchanged.
 ./.venv/bin/python -m unittest discover -s tests -q
 ```
 
-The offline suite uses injected scripted models and never calls Ollama. It covers
+The offline suite uses injected scripted models and never calls an external model. It covers
 semantic retrieval/compaction, consent and defer behavior,
 post-task memory proposals, persistence rollback/idempotency/revisions, frozen schemas,
 unsafe execution, history sanitization, dataset ordering, and lossless image handling.

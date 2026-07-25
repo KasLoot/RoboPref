@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-from agents.configs import PrefMemConfig
+from agents.configs import PrefMemConfig, normalize_model_base_url
 from agents.hri import HRIOrchestrator
 from transcript import TerminalTranscript
 
@@ -62,16 +62,44 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-reobservations", type=int, default=1)
     parser.add_argument("--model", help="Override the model for all four VLM agents.")
     parser.add_argument(
+        "--model-provider",
+        choices=("ollama", "vllm"),
+        help="Model backend for all four VLM agents (default: ollama).",
+    )
+    parser.add_argument(
+        "--model-base-url",
+        help=(
+            "OpenAI-compatible API base URL for vLLM (default: http://localhost:8000/v1)."
+        ),
+    )
+    parser.add_argument(
         "--model-seed",
         type=int,
-        help="Set the Ollama sampling seed for all four VLM agents.",
+        help="Set the sampling seed for all four VLM agents.",
     )
     parser.add_argument("--ollama-host", help="Ollama service URL override.")
     return parser
 
 
+def _validate_model_options(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+) -> None:
+    if args.model_base_url:
+        if args.model_provider != "vllm":
+            parser.error("--model-base-url requires --model-provider vllm.")
+        try:
+            normalize_model_base_url(args.model_base_url)
+        except ValueError as error:
+            parser.error(str(error))
+    if args.ollama_host and args.model_provider == "vllm":
+        parser.error("--ollama-host cannot be used with --model-provider vllm.")
+
+
 def main() -> None:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+    _validate_model_options(parser, args)
     config = PrefMemConfig(
         user_id=args.user_id,
         max_replans=max(0, args.max_replans),
@@ -94,6 +122,10 @@ def main() -> None:
     ):
         if args.model:
             agent_config.model = args.model
+        if args.model_provider:
+            agent_config.provider = args.model_provider
+        if args.model_base_url:
+            agent_config.base_url = normalize_model_base_url(args.model_base_url)
         if args.model_seed is not None:
             agent_config.seed = args.model_seed
         if args.ollama_host:

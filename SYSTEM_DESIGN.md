@@ -1120,5 +1120,5 @@ choices as history only. Possible durable legacy evidence remains a review item;
 never promoted to an active preference automatically.
 
 The offline conformance suite uses injected scripted models and therefore requires no
-Ollama service. Live-model visual accuracy and physical VLA behavior remain evaluation
+external model service. Live-model visual accuracy and physical VLA behavior remain evaluation
 concerns rather than deterministic unit-test claims.

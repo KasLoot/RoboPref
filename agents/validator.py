@@ -7,7 +7,7 @@ from typing import Any
 from agents.configs import AgentModelConfig, Validator_Agent_Config, VisionConfig
 from agents.contracts import ExecutionResult, ValidationResult, ValidationSpec
 from agents.diagnostics import AgentOutputDisplay, DisplayingJsonModel
-from agents.model import JsonModel, OllamaJsonModel
+from agents.model import JsonModel, build_json_model
 from agents.vision import prepare_vision_image
 
 
@@ -26,13 +26,7 @@ class ValidatorAgent:
     ):
         self.config = config
         self.vision = vision or VisionConfig()
-        base_model = model or OllamaJsonModel(
-            config.model,
-            config.temperature,
-            host=config.host,
-            timeout_seconds=config.timeout_seconds,
-            seed=config.seed,
-        )
+        base_model = model or build_json_model(config)
         self.model = (
             DisplayingJsonModel(base_model, output_display, "Validator Agent")
             if output_display is not None

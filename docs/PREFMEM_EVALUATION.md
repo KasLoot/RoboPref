@@ -28,9 +28,32 @@ not measure continuous VLA action quality, real trajectory dynamics, contact
 forces, or recovery policies on a physical robot. Unsafe trajectory evidence is a
 declared simulator fixture used to test PrefMem's safety gate.
 
+## Evaluation backend
+
+Both batch commands default to the locally served vLLM model
+`/workspace/models/gemma-4-26B-A4B-it` through the OpenAI-compatible API root
+at `http://localhost:8000/v1`. Requests are sent with the OpenAI Python SDK.
+
+To override the evaluation backend with Ollama:
+
+```bash
+python -m simulation.benchmark evaluate dataset/sim_datasets \
+  --output experiments/prefmem-evaluation/cold-ollama \
+  --model-provider ollama
+```
+
+Non-dry evaluations show a progress bar on standard error. It starts from the
+number of valid durable records when a run is resumed; pass `--no-progress` to
+disable it.
+
+The frozen run configuration includes the effective provider, model, and endpoint.
+Changing a backend requires a new output directory. For an older Ollama-backed
+output, resume with `--model-provider ollama` and the original model settings, or
+choose a new output directory for the vLLM run.
+
 ## Preflight
 
-Run both dry runs before calling Ollama:
+Run both dry runs before calling the configured model service:
 
 ```bash
 python -m simulation.benchmark validate dataset/sim_datasets
@@ -239,6 +262,6 @@ a separate compaction protocol before they can be claimed as validated.
 Default runners preserve the oracle boundary. An injected Python orchestrator
 factory is trusted experiment code and can access richer runner objects, so custom
 factories must not add manifest truth or protocol expectations to model prompts.
-Run configuration records source and callable hashes, but a mutable Ollama model
-tag, server build, and hardware stack are not yet independently attested; record
+Run configuration records source and callable hashes, but a mutable model identifier,
+server build, and hardware stack are not yet independently attested; record
 those externally for thesis-grade reproducibility.
