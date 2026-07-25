@@ -114,6 +114,12 @@ class DisplayAllRuntimeTests(unittest.TestCase):
                             {
                                 "id": "display-goal",
                                 "description": "The stack is RGB bottom-to-top.",
+                                "predicate": "STABLE_STACK",
+                                "arguments": [
+                                    "red block",
+                                    "green block",
+                                    "blue block",
+                                ],
                             }
                         ],
                     },

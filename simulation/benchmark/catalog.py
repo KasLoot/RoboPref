@@ -16,6 +16,7 @@ import random
 from types import MappingProxyType
 from typing import Callable, Iterable, Mapping, Sequence
 
+from .canonical import stable_float
 from .models import (
     COMMON_OUTCOMES,
     SCHEMA_VERSION,
@@ -128,7 +129,12 @@ def _scene_rng(family: str, scene_variant: str, seed: int) -> random.Random:
 
 def _yaw_quaternion(yaw_rad: float) -> tuple[float, float, float, float]:
     half = yaw_rad / 2.0
-    return (0.0, 0.0, math.sin(half), math.cos(half))
+    return (
+        0.0,
+        0.0,
+        stable_float(math.sin(half)),
+        stable_float(math.cos(half)),
+    )
 
 
 def _move(

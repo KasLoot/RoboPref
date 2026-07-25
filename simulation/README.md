@@ -160,6 +160,50 @@ Validation checks:
 - index-to-filesystem agreement; and
 - completeness of the declared family/seed Cartesian matrix.
 
+## Evaluate PrefMem
+
+The batch evaluator validates the dataset first, creates fresh history,
+preference, and outbox stores for every trial, runs the canonical instruction
+through the real HRI orchestrator, and scores the returned structured result only
+afterward:
+
+```bash
+python -m simulation.benchmark evaluate dataset/sim_datasets \
+  --output experiments/prefmem-evaluation/cold-full \
+  --repetitions 3 \
+  --shuffle-seed 7301 \
+  --model-seed 3000
+```
+
+Use `--dry-run` first to verify the selected matrix without creating artifacts or
+calling a model. Runs are durable and resumable. Each output includes a frozen run
+configuration, JSONL trial results, check-level CSV, aggregate summary, isolated
+memory stores, sanitized structured agent events, and hashed model-call telemetry.
+The frozen digest covers the selected manifests and numbered frame bytes, and
+completed resume rows are oracle-re-scored before they are trusted.
+
+Stateful memory behaviour is evaluated separately:
+
+```bash
+python -m simulation.benchmark evaluate-memory dataset/sim_datasets \
+  --output experiments/prefmem-evaluation/memory-full \
+  --repetitions 3 \
+  --model-seed 4000
+```
+
+Task-producing protocol turns receive the same strict oracle-side semantic score
+as cold trials. Memory retrieval evidence comes from the context actually returned
+to HRI and is ownership-checked against the active user. Production runs also fail
+closed if either structured agent events or hashed model-call telemetry cannot be
+persisted. Protocol preflight resolves the full repetition schedule before any
+fixture or model call and rejects selectors that drift across physical scenes.
+
+Both commands support `--memory-mode full|no-memory|history-only|preference-only`.
+Use a separate output directory and stable `--condition` label for each cold
+ablation. The full methodology, filters, artifacts, metrics, held-out split, and
+interpretation limits are documented in
+[`docs/PREFMEM_EVALUATION.md`](../docs/PREFMEM_EVALUATION.md).
+
 ## Memory protocols
 
 `--write-memory-protocols` adds semantic, multi-conversation fixtures without exact
@@ -167,10 +211,14 @@ wording assertions. They cover:
 
 - first one-off choice becoming history but not preference;
 - repeat followed by “decide later” (no consent);
-- later explicit consent producing one compact preference;
+- later explicit consent producing one approved preference without duplicates;
 - paraphrase-based retrieval;
 - a one-off BGR override that preserves the RGB default; and
 - cross-user isolation.
+
+These stateful cases currently cover block stacking only; compaction threshold,
+conflict/delete behaviour, category-sort preferences, and place-setting preferences
+remain explicit follow-up coverage.
 
 Protocol generation and benchmark validation are offline and never call Ollama.
 Executing a protocol calls the injected `HRIOrchestrator`, so it uses whichever
@@ -192,9 +240,12 @@ fixture owner so results do not depend on protocol order.
 
 ```python
 from simulation.benchmark import (
+    EvaluationConfig,
     FAMILY_DEFINITIONS,
     build_catalog,
+    evaluate_memory_protocols,
     generate_benchmark,
+    run_cold_memory_evaluation,
     score_agent_result,
     validate_benchmark,
 )

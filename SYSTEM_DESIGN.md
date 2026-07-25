@@ -371,14 +371,26 @@ All inter-agent payloads must include `schema_version`, `request_id`, `episode_i
     }
   ],
   "validation_spec": {
-    "task_id": "task_...",
+    "spec_id": "spec_...",
+    "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
     "goal_conditions": [
       {
         "id": "goal_1",
         "description": "red block supports green block",
-        "predicate": "ABOVE(green_block, red_block) AND CONTACT(green_block, red_block)",
-        "observable_evidence": ["relative vertical position", "visible boundary/contact"],
+        "predicate": "SUPPORTED_BY",
+        "arguments": ["green block", "red block"],
+        "observable": true,
+        "evidence_modalities": ["final_image"],
         "required": true
+      },
+      {
+        "id": "goal_safety",
+        "description": "execution stayed within safety limits",
+        "predicate": "SAFE_EXECUTION",
+        "arguments": ["robot"],
+        "observable": false,
+        "evidence_modalities": ["execution_evidence"],
+        "required": false
       }
     ]
   },
@@ -387,6 +399,10 @@ All inter-agent payloads must include `schema_version`, `request_id`, `episode_i
 ```
 
 Planning statuses are `READY`, `ALREADY_SATISFIED`, `BLOCKED`, `UNSUPPORTED`, `UNSAFE`, and `UNKNOWN`. A non-ready result contains no executable subtasks.
+Every validation goal in an executable plan has one machine-readable predicate name
+and a non-empty semantic argument list. Predicate arguments use scene labels rather
+than simulator-private object IDs. Description-only goals and compound prose
+predicates are rejected by the Planner contract.
 
 ### 7.3 Execution result
 
@@ -1095,7 +1111,7 @@ history outbox and are retried idempotently before a later command.
 
 The legacy migrator is dry-run by default. For example:
 
-```powershell
+```bash
 python -m memory.migration --legacy _old_1/memory/preferences_3.json --user-id default
 ```
 

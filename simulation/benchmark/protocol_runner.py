@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import copy
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
+
+from .ablations import (
+    MemoryContextDelivery,
+    MemoryContextRecordingAgent,
+    record_memory_context,
+)
+
+from .scorer import ScoreReport, score_agent_result
 
 
 SUPPORTED_EXPECTATIONS = frozenset(
@@ -13,19 +22,28 @@ SUPPORTED_EXPECTATIONS = frozenset(
         "active_rgb_preference_preserved",
         "clarification_required",
         "dispatches",
+        "foreign_history_refs",
         "foreign_preference_refs",
         "history_delta",
         "history_retrieval_required",
         "min_dispatches",
+        "memory_context_ownership_verified",
         "pending_question_cleared",
         "planner_status",
         "post_task_preference_question",
         "preference_delta",
         "preference_retrieval_required",
+        "task_semantic_score",
         "uses_one_off_override",
         "validator_outcome",
     }
 )
+
+MANDATORY_MEMORY_CONTEXT_EXPECTATIONS = {
+    "memory_context_ownership_verified": True,
+    "foreign_history_refs": 0,
+    "foreign_preference_refs": 0,
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,12 +54,23 @@ class ProtocolStepReport:
     history_delta: int | None
     preference_delta: int | None
     checks: tuple[dict[str, Any], ...]
+    delivered_memory_context: dict[str, Any] | None = None
+    task_score_required: bool = False
+    task_score: dict[str, Any] | None = None
 
     @property
     def passed(self) -> bool:
-        return bool(self.checks) and all(
+        protocol_checks_pass = bool(self.checks) and all(
             check["evaluated"] and check["passed"] for check in self.checks
         )
+        task_score_pass = (
+            not self.task_score_required
+            or (
+                isinstance(self.task_score, dict)
+                and self.task_score.get("passed") is True
+            )
+        )
+        return protocol_checks_pass and task_score_pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +88,94 @@ class _MemorySnapshot:
     histories: tuple[dict[str, Any], ...]
     preferences: tuple[dict[str, Any], ...]
     outbox_sources: tuple[dict[str, Any], ...]
+
+
+ManifestLoader = Callable[[str | Path], Mapping[str, Any]]
+_TASK_SEMANTIC_EXCLUDED_CHECKS = frozenset(
+    {
+        "history_delta",
+        "preference_delta_without_consent",
+    }
+)
+
+
+def _load_manifest(episode_path: str | Path) -> Mapping[str, Any]:
+    path = Path(episode_path) / "manifest.json"
+    try:
+        with path.open(encoding="utf-8") as stream:
+            manifest = json.load(stream)
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError(
+            f"Could not load protocol scoring manifest {path}: {error}"
+        ) from error
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Protocol scoring manifest must be an object: {path}")
+    return manifest
+
+
+def _score_dict(report: ScoreReport) -> dict[str, Any]:
+    semantic_checks = [
+        check
+        for check in report.checks
+        if str(check.get("name", "")) not in _TASK_SEMANTIC_EXCLUDED_CHECKS
+    ]
+    semantic_passed = bool(semantic_checks) and all(
+        check.get("evaluated") is True and check.get("passed") is True
+        for check in semantic_checks
+    )
+    return {
+        "scenario_id": report.scenario_id,
+        # The mandatory task-semantic gate excludes memory deltas because the
+        # protocol layer scores those explicitly and memory ablations suppress
+        # them by design. The unmodified strict scorer result remains available
+        # as full_passed with every raw check below.
+        "passed": semantic_passed,
+        "semantic_passed": semantic_passed,
+        "full_passed": report.passed,
+        "correct": report.correct,
+        "total": report.total,
+        "skipped": report.skipped,
+        "semantic_excluded_checks": sorted(_TASK_SEMANTIC_EXCLUDED_CHECKS),
+        "semantic_checks": [copy.deepcopy(check) for check in semantic_checks],
+        "checks": [copy.deepcopy(check) for check in report.checks],
+    }
+
+
+def _has_task_evidence(result: Mapping[str, Any]) -> bool:
+    if _attempts(result):
+        return True
+    for key in ("validator", "validation", "execution"):
+        if isinstance(result.get(key), Mapping):
+            return True
+    return False
+
+
+def _score_task_result(
+    manifest: Mapping[str, Any],
+    result: Mapping[str, Any],
+    *,
+    history_delta: int | None,
+    preference_delta: int | None,
+) -> dict[str, Any]:
+    """Score a completed turn after HRI returns, without mutating its result."""
+
+    scoring_result = copy.deepcopy(dict(result))
+    raw_memory = scoring_result.get("memory")
+    memory = (
+        copy.deepcopy(dict(raw_memory))
+        if isinstance(raw_memory, Mapping)
+        else {}
+    )
+    memory["history_delta"] = history_delta
+    memory["preference_delta"] = preference_delta
+    scoring_result["memory"] = memory
+    return _score_dict(
+        score_agent_result(
+            manifest,
+            scoring_result,
+            allow_partial=False,
+        )
+    )
 
 
 def _memory_snapshot(orchestrator: Any, user_id: str) -> _MemorySnapshot | None:
@@ -137,34 +254,6 @@ def _new_episode_source(
         if str(source.get("episode_id", "")) not in before_outbox_ids:
             return source
     return {}
-
-
-def _references(result: Mapping[str, Any], source: Mapping[str, Any]) -> tuple[set[str], set[str]]:
-    hri = result.get("hri") if isinstance(result.get("hri"), Mapping) else {}
-    trace = hri.get("trace") if isinstance(hri.get("trace"), Mapping) else {}
-    history_refs = {
-        str(item)
-        for item in trace.get("history_refs", [])
-        if str(item).strip()
-    }
-    preference_refs = {
-        str(item)
-        for item in trace.get("memory_refs", [])
-        if str(item).strip()
-    }
-    resolved_task = (
-        result.get("resolved_task")
-        if isinstance(result.get("resolved_task"), Mapping)
-        else source.get("resolved_task")
-        if isinstance(source.get("resolved_task"), Mapping)
-        else {}
-    )
-    preference_refs.update(
-        str(item)
-        for item in resolved_task.get("preference_refs", [])
-        if str(item).strip()
-    )
-    return history_refs, preference_refs
 
 
 _COLOUR = re.compile(r"\b(red|green|blue)\b", re.IGNORECASE)
@@ -247,6 +336,7 @@ def _actual_values(
     *,
     before: _MemorySnapshot | None,
     after: _MemorySnapshot | None,
+    delivery: MemoryContextDelivery | None,
 ) -> dict[str, Any]:
     attempts = _attempts(result)
     first_plan = next(
@@ -274,7 +364,6 @@ def _actual_values(
     hri = result.get("hri") if isinstance(result.get("hri"), Mapping) else {}
     mode = str(hri.get("mode", ""))
     source = _new_episode_source(before, after)
-    history_refs, preference_refs = _references(result, source)
     resolved_task = (
         result.get("resolved_task")
         if isinstance(result.get("resolved_task"), Mapping)
@@ -284,11 +373,6 @@ def _actual_values(
     )
     resolved_order = _colour_order(resolved_task.get("parameters", {}))
     rgb_preserved = _rgb_preserved(before, after)
-    current_ids = (
-        {str(item.get("id", "")) for item in after.preferences}
-        if after is not None
-        else None
-    )
     history_delta = (
         len(after.histories) - len(before.histories)
         if before is not None and after is not None
@@ -306,13 +390,28 @@ def _actual_values(
         "active_rgb_preference_preserved": rgb_preserved,
         "clarification_required": mode in {"ASK", "CONFIRM"},
         "dispatches": dispatches,
+        "foreign_history_refs": (
+            len(delivery.foreign_history_ids)
+            if delivery is not None
+            else None
+        ),
         "foreign_preference_refs": (
-            len(preference_refs - current_ids)
-            if current_ids is not None
+            len(delivery.foreign_preference_ids)
+            if delivery is not None
             else None
         ),
         "history_delta": history_delta,
-        "history_retrieval_required": bool(history_refs),
+        "history_retrieval_required": (
+            bool(delivery.owned_history_ids)
+            if delivery is not None
+            else None
+        ),
+        "memory_context_ownership_verified": (
+            delivery.history_ownership_verified
+            and delivery.preference_ownership_verified
+            if delivery is not None
+            else None
+        ),
         "min_dispatches": dispatches,
         "pending_question_cleared": getattr(
             orchestrator, "pending_question", None
@@ -325,7 +424,11 @@ def _actual_values(
         ),
         "post_task_preference_question": mode == "MEMORY_CONFIRM",
         "preference_delta": preference_delta,
-        "preference_retrieval_required": bool(preference_refs),
+        "preference_retrieval_required": (
+            bool(delivery.owned_preference_ids)
+            if delivery is not None
+            else None
+        ),
         "uses_one_off_override": (
             resolved_order == ("blue", "green", "red")
             and rgb_preserved is True
@@ -390,6 +493,7 @@ def run_memory_protocol(
     resolve_scenario: Callable[[Mapping[str, Any]], str | Path],
     apply_fixture: Callable[[str, Mapping[str, Any], Any], None] | None = None,
     fixtures: Mapping[str, Mapping[str, Any]] | None = None,
+    load_manifest: ManifestLoader | None = None,
 ) -> ProtocolReport:
     """Execute a semantic protocol through the real HRI state machine.
 
@@ -440,11 +544,20 @@ def run_memory_protocol(
             orchestrator,
         )
 
+    # Install the transparent observer only after consent fixtures have seeded
+    # the underlying real Memory Agent. This preserves an identical starting
+    # repository state across full and memory-ablation conditions.
+    memory_recorder: MemoryContextRecordingAgent = record_memory_context(
+        getattr(orchestrator, "memory_agent", None)
+    )
+    orchestrator.memory_agent = memory_recorder
     raw_steps = protocol.get("steps")
     if not isinstance(raw_steps, list) or not raw_steps:
         raise ValueError("Protocol requires at least one step.")
 
+    manifest_loader = load_manifest or _load_manifest
     reports: list[ProtocolStepReport] = []
+    active_episode_path: str | Path | None = None
     for index, step in enumerate(raw_steps, start=1):
         if not isinstance(step, Mapping):
             raise ValueError(f"Protocol step {index} must be an object.")
@@ -456,6 +569,7 @@ def run_memory_protocol(
         if isinstance(selector, Mapping):
             episode_path = resolve_scenario(selector)
             orchestrator.switch_dataset(str(episode_path))
+            active_episode_path = episode_path
 
         query = str(step.get("query", "")).strip()
         reply = str(step.get("reply", "")).strip()
@@ -475,9 +589,24 @@ def run_memory_protocol(
                 f"Protocol step {index} has unsupported expectations: "
                 f"{sorted(unknown)}"
             )
+        expected_task_score = expected.get("task_semantic_score")
+        if expected_task_score is not None and not isinstance(
+            expected_task_score, bool
+        ):
+            raise ValueError("task_semantic_score must be a bool.")
 
         before = _memory_snapshot(orchestrator, user_id)
+        attached_context = copy.deepcopy(
+            getattr(orchestrator, "history_context", None)
+        )
+        memory_recorder.begin_evaluation_turn()
+        # No oracle manifest is loaded before this call. The orchestrator sees
+        # only the selected packet through its normal opaque dataset boundary.
         result = orchestrator.handle_user_message(message)
+        delivery = memory_recorder.delivery_for_current_turn(
+            attached_context=attached_context,
+            user_id=user_id,
+        )
         after = _memory_snapshot(orchestrator, user_id)
         history_delta = (
             len(after.histories) - len(before.histories)
@@ -494,7 +623,49 @@ def run_memory_protocol(
             orchestrator,
             before=before,
             after=after,
+            delivery=delivery,
         )
+        task_score_required = (
+            expected_task_score is True or _has_task_evidence(result)
+        )
+        task_score: dict[str, Any] | None = None
+        if task_score_required:
+            if active_episode_path is None:
+                raise ValueError(
+                    f"Protocol step {index} requires task semantic scoring but "
+                    "has no active scenario."
+                )
+            # This is intentionally the first oracle access in the turn. It is
+            # out-of-band and occurs only after HRI has returned and memory
+            # deltas have been measured.
+            manifest = manifest_loader(active_episode_path)
+            task_score = _score_task_result(
+                manifest,
+                result,
+                history_delta=history_delta,
+                preference_delta=preference_delta,
+            )
+            actual["task_semantic_score"] = task_score["passed"]
+        elif "task_semantic_score" in expected:
+            actual["task_semantic_score"] = False
+
+        effective_expected = copy.deepcopy(dict(expected))
+        for name, required_value in (
+            MANDATORY_MEMORY_CONTEXT_EXPECTATIONS.items()
+        ):
+            if (
+                name in effective_expected
+                and effective_expected[name] != required_value
+            ):
+                raise ValueError(
+                    f"Protocol step {index} cannot weaken mandatory memory "
+                    f"context expectation {name!r}={required_value!r}."
+                )
+            effective_expected[name] = required_value
+        if task_score_required:
+            # Even a hand-authored protocol that omitted the expectation cannot
+            # allow an executed task to bypass the strict semantic scorer.
+            effective_expected["task_semantic_score"] = True
         reports.append(
             ProtocolStepReport(
                 index=index,
@@ -502,7 +673,12 @@ def run_memory_protocol(
                 result=copy.deepcopy(dict(result)),
                 history_delta=history_delta,
                 preference_delta=preference_delta,
-                checks=_checks(expected, actual),
+                checks=_checks(effective_expected, actual),
+                delivered_memory_context=(
+                    delivery.to_dict() if delivery is not None else None
+                ),
+                task_score_required=task_score_required,
+                task_score=copy.deepcopy(task_score),
             )
         )
     return ProtocolReport(protocol_id=protocol_id, steps=tuple(reports))

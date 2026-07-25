@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
+
+
+STRUCTURED_PREDICATE = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,8 +39,11 @@ class ValidationSpec:
                 "goal_conditions": plan.get("goal_conditions", []),
             }
         spec_id = str(raw.get("spec_id") or f"spec-{uuid.uuid4().hex}")
+        raw_conditions = raw.get("goal_conditions", [])
+        if not isinstance(raw_conditions, list):
+            raise ValueError("Validation goal_conditions must be a list.")
         conditions: list[GoalCondition] = []
-        for index, item in enumerate(raw.get("goal_conditions", [])):
+        for index, item in enumerate(raw_conditions):
             if isinstance(item, str):
                 description = item.strip()
                 if description:
@@ -54,6 +61,20 @@ class ValidationSpec:
                         raise ValueError(
                             "Validation arguments and evidence_modalities must be lists."
                         )
+                    if any(
+                        not isinstance(argument, str) or not argument.strip()
+                        for argument in raw_arguments
+                    ):
+                        raise ValueError(
+                            "Validation predicate arguments must be non-empty strings."
+                        )
+                    if any(
+                        not isinstance(modality, str) or not modality.strip()
+                        for modality in raw_modalities
+                    ):
+                        raise ValueError(
+                            "Validation evidence modalities must be non-empty strings."
+                        )
                     conditions.append(
                         GoalCondition(
                             id=str(item.get("id") or f"goal-{index + 1}"),
@@ -65,8 +86,12 @@ class ValidationSpec:
                                 if item.get("predicate") is not None
                                 else None
                             ),
-                            arguments=tuple(map(str, raw_arguments)),
-                            evidence_modalities=tuple(map(str, raw_modalities)),
+                            arguments=tuple(
+                                argument.strip() for argument in raw_arguments
+                            ),
+                            evidence_modalities=tuple(
+                                modality.strip() for modality in raw_modalities
+                            ),
                         )
                     )
         if not conditions:
@@ -78,6 +103,18 @@ class ValidationSpec:
             raise ValueError("Every required validation goal must be observable.")
         if not any(condition.required for condition in conditions):
             raise ValueError("A validation specification requires at least one required goal.")
+        for condition in conditions:
+            if (
+                condition.predicate is None
+                or not STRUCTURED_PREDICATE.fullmatch(condition.predicate)
+            ):
+                raise ValueError(
+                    "Every validation goal requires a structured predicate name."
+                )
+            if not condition.arguments:
+                raise ValueError(
+                    "Every validation goal requires at least one semantic predicate argument."
+                )
         spec_intent = str(raw.get("confirmed_intent") or confirmed_intent).strip()
         if spec_intent != confirmed_intent.strip():
             raise ValueError("Validation spec intent must exactly match the confirmed task intent.")

@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import asdict, is_dataclass, replace
 from pathlib import Path
 from typing import Any
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from PIL import Image
 
@@ -29,6 +29,7 @@ from simulation.benchmark import (
     score_agent_result,
     validate_benchmark,
 )
+from simulation.benchmark.catalog import _yaw_quaternion
 from simulation.benchmark.evaluators import evaluate_goal_predicates
 from tests.fakes import RecordingMemoryAgent, ScriptedJsonModel
 
@@ -93,6 +94,36 @@ def _frame_names(frames: Any) -> set[str]:
 
 
 class BenchmarkCatalogTests(unittest.TestCase):
+    def test_yaw_quaternion_is_stable_across_one_ulp_libm_difference(self) -> None:
+        with (
+            patch(
+                "simulation.benchmark.catalog.math.sin",
+                return_value=0.7071067811865475,
+            ),
+            patch(
+                "simulation.benchmark.catalog.math.cos",
+                return_value=0.7071067811865475,
+            ),
+        ):
+            linux_result = _yaw_quaternion(1.0)
+        with (
+            patch(
+                "simulation.benchmark.catalog.math.sin",
+                return_value=0.7071067811865476,
+            ),
+            patch(
+                "simulation.benchmark.catalog.math.cos",
+                return_value=0.7071067811865476,
+            ),
+        ):
+            windows_result = _yaw_quaternion(1.0)
+
+        self.assertEqual(linux_result, windows_result)
+        self.assertEqual(
+            linux_result,
+            (0.0, 0.0, 0.707106781187, 0.707106781187),
+        )
+
     def test_declared_family_domains_form_the_complete_scenario_matrix(self) -> None:
         seeds = (3, 17)
         catalog = build_catalog(families=list(FAMILIES), seeds=list(seeds))
@@ -433,6 +464,33 @@ class BenchmarkGenerationTests(unittest.TestCase):
             self.assertEqual(_tree_digest(root), before_digest)
             self.assertEqual(after_mtimes, before_mtimes)
 
+    def test_generation_reuses_packet_with_negligible_float_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self._generate(root)
+            episode = _episode_directories(root)[0]
+            manifest_path = episode / "manifest.json"
+            manifest = _manifest(manifest_path)
+            orientation = manifest["scene"]["initial_objects"][0][
+                "orientation_xyzw"
+            ]
+            orientation[0] = float(orientation[0]) + 5e-13
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            report = generate_benchmark(
+                root,
+                families=["block_stack"],
+                seeds=[7],
+                backend="synthetic",
+                overwrite=False,
+            )
+
+            self.assertEqual(report.generated, 0)
+            self.assertEqual(report.skipped, report.scenario_count)
+
     def test_incompatible_root_is_rejected_before_existing_packets_change(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -656,6 +714,101 @@ class BenchmarkValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             self._valid_root(Path(directory))
 
+    def test_validator_accepts_negligible_quaternion_float_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            episodes = self._valid_root(root)
+            manifest_path = episodes[0] / "manifest.json"
+            manifest = _manifest(manifest_path)
+            orientation = manifest["scene"]["initial_objects"][0][
+                "orientation_xyzw"
+            ]
+            orientation[0] = float(orientation[0]) + 5e-13
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            report = validate_benchmark(root)
+
+            self.assertTrue(report.valid, report.errors)
+            self.assertFalse(report.errors)
+
+    def test_validator_rejects_material_quaternion_float_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            episodes = self._valid_root(root)
+            manifest_path = episodes[0] / "manifest.json"
+            manifest = _manifest(manifest_path)
+            orientation = manifest["scene"]["initial_objects"][0][
+                "orientation_xyzw"
+            ]
+            orientation[0] = float(orientation[0]) + 1e-4
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            report = validate_benchmark(root)
+
+            self.assertFalse(report.valid)
+            self.assertTrue(
+                any(
+                    "scene differs from the deterministic catalog" in error
+                    for error in report.errors
+                ),
+                report.errors,
+            )
+
+    def test_validator_rejects_quaternion_numeric_type_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            episodes = self._valid_root(root)
+            manifest_path = episodes[0] / "manifest.json"
+            manifest = _manifest(manifest_path)
+            orientation = manifest["scene"]["initial_objects"][0][
+                "orientation_xyzw"
+            ]
+            orientation[0] = str(orientation[0])
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            report = validate_benchmark(root)
+
+            self.assertFalse(report.valid)
+            self.assertTrue(
+                any(
+                    "scene differs from the deterministic catalog" in error
+                    for error in report.errors
+                ),
+                report.errors,
+            )
+
+    def test_validator_rejects_integer_to_float_type_change(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            episodes = self._valid_root(root)
+            manifest_path = episodes[0] / "manifest.json"
+            manifest = _manifest(manifest_path)
+            manifest["scene"]["seed"] = float(manifest["scene"]["seed"])
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            report = validate_benchmark(root)
+
+            self.assertFalse(report.valid)
+            self.assertTrue(
+                any(
+                    "scene differs from the deterministic catalog" in error
+                    for error in report.errors
+                ),
+                report.errors,
+            )
+
     def test_validator_rejects_a_missing_numbered_frame(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -870,6 +1023,35 @@ class BenchmarkExecutorTests(unittest.TestCase):
 
 
 class BenchmarkScorerTests(unittest.TestCase):
+    @staticmethod
+    def _oracle_aligned_semantics(
+        manifest: dict[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        intent = str(manifest["target"]["instruction"])
+        resolved_task = {
+            "confirmed_intent": intent,
+            "parameters": {
+                "target_id": str(manifest["target"]["target_id"]),
+            },
+        }
+        validation_spec = {
+            "spec_id": "spec-oracle-aligned",
+            "confirmed_intent": intent,
+            "goal_conditions": [
+                {
+                    "id": f"goal-{index}",
+                    "description": "Structured benchmark goal.",
+                    "predicate": predicate,
+                    "arguments": [],
+                }
+                for index, predicate in enumerate(
+                    manifest["target"]["goal_predicates"],
+                    start=1,
+                )
+            ],
+        }
+        return resolved_task, validation_spec
+
     def test_scorer_consumes_native_hri_result_shape(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -884,15 +1066,22 @@ class BenchmarkScorerTests(unittest.TestCase):
                 for path in root.rglob("manifest.json")
                 if _manifest(path)["expected_outcome"] == "success"
             )
+            resolved_task, validation_spec = self._oracle_aligned_semantics(
+                manifest
+            )
             runtime_result = {
                 "hri": {"mode": "REPORT", "report": {"outcome": "SUCCESS"}},
                 "memory": None,
+                "resolved_task": resolved_task,
                 "task": {
                     "outcome": "SUCCESS",
                     "next_action": "NONE",
                     "attempts": [
                         {
-                            "plan": {"planning_status": "READY"},
+                            "plan": {
+                                "planning_status": "READY",
+                                "validation_spec": validation_spec,
+                            },
                             "execution": {
                                 "status": "OBSERVED_RECORDED_ATTEMPT"
                             },
@@ -917,6 +1106,346 @@ class BenchmarkScorerTests(unittest.TestCase):
             self.assertGreater(report.total, 0)
             self.assertEqual(report.skipped, 1)  # history delta needs store snapshots
             self.assertFalse(strict_report.passed)
+
+    def test_scorer_requires_target_and_goal_oracle_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generate_benchmark(
+                root,
+                families=["block_stack"],
+                seeds=[31],
+                backend="synthetic",
+            )
+            manifest = next(
+                _manifest(path)
+                for path in root.rglob("manifest.json")
+                if _manifest(path)["expected_outcome"] == "success"
+            )
+
+            report = score_agent_result(
+                manifest,
+                {
+                    "task": {
+                        "attempts": [
+                            {"plan": {"planning_status": "READY"}}
+                        ]
+                    }
+                },
+                allow_partial=True,
+            )
+
+            for name in (
+                "hri_resolved_target",
+                "planner_confirmed_intent",
+                "planner_goal_predicates",
+            ):
+                check = next(
+                    item for item in report.checks if item["name"] == name
+                )
+                self.assertTrue(check["evaluated"])
+                self.assertFalse(check["passed"])
+            self.assertFalse(report.passed)
+
+    def test_scorer_rejects_wrong_hri_target_despite_self_consistent_result(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            generate_benchmark(
+                root,
+                families=["block_stack"],
+                seeds=[37],
+                backend="synthetic",
+            )
+            manifest = next(
+                _manifest(path)
+                for path in root.rglob("manifest.json")
+                if _manifest(path)["target"]["target_id"]
+                == "rgb_bottom_to_top"
+                and _manifest(path)["expected_outcome"] == "success"
+            )
+            wrong_intent = (
+                "Stack the blocks in blue, green, red order from bottom to top."
+            )
+            _, validation_spec = self._oracle_aligned_semantics(manifest)
+            validation_spec["confirmed_intent"] = wrong_intent
+            result = {
+                "resolved_task": {
+                    "confirmed_intent": wrong_intent,
+                    "parameters": {
+                        "color_positions": {
+                            "bottom": "blue",
+                            "middle": "green",
+                            "top": "red",
+                        }
+                    },
+                },
+                "task": {
+                    "attempts": [
+                        {
+                            "plan": {
+                                "planning_status": "READY",
+                                "validation_spec": validation_spec,
+                            }
+                        }
+                    ]
+                },
+            }
+
+            report = score_agent_result(
+                manifest,
+                result,
+                allow_partial=True,
+            )
+
+            target_check = next(
+                item
+                for item in report.checks
+                if item["name"] == "hri_resolved_target"
+            )
+            self.assertEqual(
+                target_check["actual"],
+                "bgr_bottom_to_top",
+            )
+            self.assertFalse(target_check["passed"])
+
+    def test_scorer_canonicalises_semantic_predicate_arguments(self) -> None:
+        intent = (
+            "Stack the red block at the bottom and the blue block on top."
+        )
+        manifest = {
+            "scenario_id": "semantic-alias-case",
+            "scene": {
+                "family": "block_stack",
+                "initial_objects": [
+                    {
+                        "object_id": "obj-red",
+                        "object_type": "cube",
+                        "attributes": {"colour": "red"},
+                    },
+                    {
+                        "object_id": "obj-green",
+                        "object_type": "cube",
+                        "attributes": {"colour": "green"},
+                    },
+                    {
+                        "object_id": "obj-blue",
+                        "object_type": "cube",
+                        "attributes": {"colour": "blue"},
+                    },
+                ],
+            },
+            "target": {
+                "target_id": "rgb_bottom_to_top",
+                "instruction": intent,
+                "goal_predicates": [
+                    "SUPPORTED_BY(obj-green,obj-red)=true",
+                    "SUPPORTED_BY(obj-blue,obj-green)=true",
+                ],
+            },
+            "benchmark_expectations": {},
+        }
+        result = {
+            "resolved_task": {
+                "confirmed_intent": (
+                    "Put red at the bottom, green in the middle, "
+                    "and blue at the top."
+                ),
+                "parameters": {},
+            },
+            "task": {
+                "attempts": [
+                    {
+                        "plan": {
+                            "validation_spec": {
+                                "confirmed_intent": (
+                                    "Put red at the bottom, green in the middle, "
+                                    "and blue at the top."
+                                ),
+                                "goal_conditions": [
+                                    {
+                                        "id": "middle-on-bottom",
+                                        "predicate": "supported-by",
+                                        "arguments": [
+                                            "the green block",
+                                            "red cube",
+                                        ],
+                                    },
+                                    {
+                                        "id": "top-on-middle",
+                                        "predicate": "SUPPORTED_BY",
+                                        "arguments": ["blue", "green"],
+                                    },
+                                ],
+                            }
+                        }
+                    }
+                ]
+            },
+        }
+
+        report = score_agent_result(manifest, result)
+
+        self.assertTrue(report.passed, report.checks)
+        predicate_check = next(
+            item
+            for item in report.checks
+            if item["name"] == "planner_goal_predicates"
+        )
+        self.assertTrue(predicate_check["passed"])
+
+    def test_scorer_treats_set_valued_goal_arguments_as_unordered(self) -> None:
+        intent = (
+            "Place printed items on the left and electronic devices on the right."
+        )
+        manifest = {
+            "scenario_id": "unordered-category-completeness",
+            "scene": {
+                "family": "category_sort",
+                "initial_objects": [
+                    {
+                        "object_id": "obj-001",
+                        "object_type": "tablet",
+                        "attributes": {
+                            "role": "tablet",
+                            "semantic_category": "electronic",
+                        },
+                    },
+                    {
+                        "object_id": "obj-002",
+                        "object_type": "book",
+                        "attributes": {
+                            "role": "book",
+                            "semantic_category": "printed",
+                        },
+                    },
+                ],
+            },
+            "target": {
+                "target_id": "printed_left",
+                "instruction": intent,
+                "goal_predicates": [
+                    "ALL_ITEMS_ASSIGNED(obj-001,obj-002)=true",
+                ],
+            },
+            "benchmark_expectations": {},
+        }
+        result = {
+            "resolved_task": {
+                "confirmed_intent": intent,
+                "parameters": {
+                    "printed": "left",
+                    "electronic": "right",
+                },
+            },
+            "task": {
+                "attempts": [
+                    {
+                        "plan": {
+                            "validation_spec": {
+                                "confirmed_intent": intent,
+                                "goal_conditions": [
+                                    {
+                                        "id": "all-assigned",
+                                        "predicate": "ALL_ITEMS_ASSIGNED",
+                                        # Semantic item order need not reproduce
+                                        # the oracle's hidden object-ID order.
+                                        "arguments": ["book", "tablet"],
+                                    }
+                                ],
+                            }
+                        }
+                    }
+                ]
+            },
+        }
+
+        report = score_agent_result(manifest, result)
+
+        self.assertTrue(report.passed, report.checks)
+
+    def test_scorer_rejects_description_only_and_extra_goal_conditions(
+        self,
+    ) -> None:
+        manifest = {
+            "scenario_id": "strict-goal-schema",
+            "scene": {"family": "place_setting", "initial_objects": []},
+            "target": {
+                "target_id": "right_handed",
+                "instruction": "Create a right-handed place setting.",
+                "goal_predicates": ["AT_ANCHOR(plate,place-centre)=true"],
+            },
+            "benchmark_expectations": {},
+        }
+        result = {
+            "resolved_task": {
+                "confirmed_intent": "Create a right-handed place setting.",
+                "parameters": {},
+            },
+            "task": {
+                "attempts": [
+                    {
+                        "plan": {
+                            "validation_spec": {
+                                "confirmed_intent": (
+                                    "Create a right-handed place setting."
+                                ),
+                                "goal_conditions": [
+                                    {
+                                        "id": "description-only",
+                                        "description": "The plate is centred.",
+                                    },
+                                    {
+                                        "id": "extra",
+                                        "predicate": "DECORATED",
+                                        "arguments": ["plate"],
+                                    },
+                                ],
+                            }
+                        }
+                    }
+                ]
+            },
+        }
+
+        report = score_agent_result(
+            manifest,
+            result,
+            allow_partial=True,
+        )
+
+        predicate_check = next(
+            item
+            for item in report.checks
+            if item["name"] == "planner_goal_predicates"
+        )
+        self.assertFalse(predicate_check["passed"])
+        self.assertIn("issues", predicate_check["details"])
+        self.assertFalse(report.passed)
+
+    def test_non_benchmark_manifest_keeps_legacy_partial_scoring(self) -> None:
+        report = score_agent_result(
+            {
+                "scenario_id": "legacy",
+                "benchmark_expectations": {
+                    "planner": {"expected_status": "READY"}
+                },
+            },
+            {
+                "task": {
+                    "attempts": [
+                        {"plan": {"planning_status": "READY"}}
+                    ]
+                }
+            },
+            allow_partial=True,
+        )
+
+        self.assertTrue(report.passed, report.checks)
+        self.assertEqual(
+            [check["name"] for check in report.checks],
+            ["planner_status"],
+        )
 
     def test_scorer_detects_validator_call_after_unsafe_execution(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -61,6 +61,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-replans", type=int, default=1)
     parser.add_argument("--max-reobservations", type=int, default=1)
     parser.add_argument("--model", help="Override the model for all four VLM agents.")
+    parser.add_argument(
+        "--model-seed",
+        type=int,
+        help="Set the Ollama sampling seed for all four VLM agents.",
+    )
     parser.add_argument("--ollama-host", help="Ollama service URL override.")
     return parser
 
@@ -89,6 +94,8 @@ def main() -> None:
     ):
         if args.model:
             agent_config.model = args.model
+        if args.model_seed is not None:
+            agent_config.seed = args.model_seed
         if args.ollama_host:
             agent_config.host = args.ollama_host
     transcript_path = (

@@ -101,6 +101,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                         "validator_outcome": "SUCCESS",
                         "history_delta": 1,
                         "preference_delta": 0,
+                        "task_semantic_score": True,
                     },
                 }
             ],
@@ -131,6 +132,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                         "validator_outcome": "SUCCESS",
                         "min_dispatches": 1,
                         "post_task_preference_question": False,
+                        "task_semantic_score": True,
                     },
                 },
                 {
@@ -150,6 +152,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                         "validator_outcome": "SUCCESS",
                         "min_dispatches": 1,
                         "post_task_preference_question": True,
+                        "task_semantic_score": True,
                     },
                 },
                 {
@@ -170,6 +173,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                         "history_delta": 0,
                         "preference_delta": 0,
                         "post_task_preference_question": True,
+                        "task_semantic_score": True,
                     },
                 },
                 {
@@ -202,6 +206,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                         "validator_outcome": "SUCCESS",
                         "history_delta": 1,
                         "preference_delta": 0,
+                        "task_semantic_score": True,
                     },
                 },
                 {
@@ -217,6 +222,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                         "history_delta": 1,
                         "preference_delta": 0,
                         "post_task_preference_question": False,
+                        "task_semantic_score": True,
                     },
                 },
             ],
@@ -269,6 +275,7 @@ def build_memory_protocols(scenarios: Iterable[Any]) -> list[dict[str, Any]]:
                             "validator_outcome": "SUCCESS",
                             "history_delta": 1,
                             "preference_delta": 0,
+                            "task_semantic_score": True,
                         },
                     }
                 ],

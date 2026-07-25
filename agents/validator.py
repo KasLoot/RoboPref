@@ -31,6 +31,7 @@ class ValidatorAgent:
             config.temperature,
             host=config.host,
             timeout_seconds=config.timeout_seconds,
+            seed=config.seed,
         )
         self.model = (
             DisplayingJsonModel(base_model, output_display, "Validator Agent")

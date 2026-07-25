@@ -34,6 +34,40 @@ MEMORY_ACTIONS = {
 }
 
 
+def _agent_failure_evidence(
+    stage: str,
+    error: Exception,
+    *,
+    attempt: int,
+    event: str,
+) -> dict[str, Any]:
+    name = type(error).__name__
+    message = str(error)
+    lowered = f"{name} {message}".casefold()
+    if name in {"PlannerAgentError", "ValidatorAgentError", "HRIContractError"}:
+        classification = "OUTPUT_CONTRACT"
+    elif "timeout" in lowered or "timed out" in lowered:
+        classification = "INFRASTRUCTURE_TIMEOUT"
+    elif any(
+        marker in lowered
+        for marker in ("connection", "connecterror", "ollama", "http")
+    ):
+        classification = "MODEL_OR_CONNECTION"
+    else:
+        classification = "AGENT_RUNTIME"
+    return {
+        "event_id": (
+            f"{stage.casefold()}-attempt-{attempt}-{event.casefold()}"
+        ),
+        "attempt": attempt,
+        "event": event,
+        "stage": stage,
+        "error_type": name,
+        "classification": classification,
+        "message": message,
+    }
+
+
 class HRIContractError(ValueError):
     pass
 
@@ -62,6 +96,7 @@ class HRIOrchestrator:
             config.hri.temperature,
             host=config.hri.host,
             timeout_seconds=config.hri.timeout_seconds,
+            seed=config.hri.seed,
         )
         self.hri_model = DisplayingJsonModel(
             base_hri_model,
@@ -653,6 +688,12 @@ class HRIOrchestrator:
                     recovery_context=recovery_context,
                 )
             except Exception as error:
+                failure_evidence = _agent_failure_evidence(
+                    "PLANNING",
+                    error,
+                    attempt=attempt,
+                    event="planner-call",
+                )
                 self._display_agent_output(
                     "Planner Agent",
                     f"attempt {attempt} error",
@@ -663,9 +704,15 @@ class HRIOrchestrator:
                     code="PLANNER_UNAVAILABLE",
                     message="The planner is unavailable, so no action was dispatched.",
                     next_action="REPLAN",
-                    observed=str(error),
+                    observed=failure_evidence,
                 )
-                attempts.append({"attempt": attempt, "planner_error": str(error)})
+                attempts.append(
+                    {
+                        "attempt": attempt,
+                        "planner_error": str(error),
+                        "failure": failure_evidence,
+                    }
+                )
                 if attempt <= self.config.max_replans:
                     recovery_context = {
                         "planner_error": str(error),
@@ -728,7 +775,10 @@ class HRIOrchestrator:
                 )
                 attempt_record["execution"] = execution.to_model_dict()
                 validation, validation_gate = self._validate_execution(
-                    frozen_validation_spec, execution, attempt
+                    frozen_validation_spec,
+                    execution,
+                    attempt,
+                    event="already-satisfied",
                 )
                 attempt_record["validation"] = validation.to_dict() if validation else None
                 attempt_record["validation_assurance"] = validation_gate.to_dict()
@@ -742,6 +792,12 @@ class HRIOrchestrator:
             try:
                 execution = self._dispatch_plan(plan, attempt)
             except Exception as error:
+                failure_evidence = _agent_failure_evidence(
+                    "EXECUTION",
+                    error,
+                    attempt=attempt,
+                    event="vla-dispatch",
+                )
                 self._display_agent_output(
                     "VLA Agent",
                     f"attempt {attempt} error",
@@ -752,9 +808,10 @@ class HRIOrchestrator:
                     code="VLA_EXECUTOR_UNAVAILABLE",
                     message="The VLA executor failed before validation.",
                     next_action="REPLAN",
-                    observed=str(error),
+                    observed=failure_evidence,
                 )
                 attempt_record["execution_error"] = str(error)
+                attempt_record["failure"] = failure_evidence
                 attempts.append(attempt_record)
                 if attempt <= self.config.max_replans:
                     recovery_context = {
@@ -788,7 +845,10 @@ class HRIOrchestrator:
             if frozen_validation_spec is None:
                 raise HRIContractError("Ready plan has no validation specification.")
             validation, validation_gate = self._validate_execution(
-                frozen_validation_spec, execution, attempt
+                frozen_validation_spec,
+                execution,
+                attempt,
+                event="initial-observation",
             )
             reobservations: list[dict[str, Any]] = []
             for reobservation_index in range(1, self.config.max_reobservations + 1):
@@ -806,7 +866,10 @@ class HRIOrchestrator:
                     },
                 )
                 validation, validation_gate = self._validate_execution(
-                    frozen_validation_spec, refreshed, attempt
+                    frozen_validation_spec,
+                    refreshed,
+                    attempt,
+                    event=f"reobservation-{reobservation_index}",
                 )
                 reobservations.append(
                     {
@@ -898,6 +961,8 @@ class HRIOrchestrator:
         validation_spec: Any,
         execution: ExecutionResult,
         attempt: int,
+        *,
+        event: str,
     ) -> tuple[ValidationResult | None, TaskAssuranceResult]:
         try:
             validation = self.validator_agent.validate(validation_spec, execution)
@@ -922,6 +987,12 @@ class HRIOrchestrator:
             )
             return validation, gate
         except Exception as error:
+            failure_evidence = _agent_failure_evidence(
+                "VALIDATION",
+                error,
+                attempt=attempt,
+                event=event,
+            )
             self._display_agent_output(
                 "Validator Agent",
                 f"attempt {attempt} error",
@@ -932,7 +1003,7 @@ class HRIOrchestrator:
                 code="VALIDATOR_UNAVAILABLE",
                 message="The final state could not be verified.",
                 next_action="REOBSERVE",
-                observed=str(error),
+                observed=failure_evidence,
             )
             self._display_agent_output(
                 "Task Assurance",

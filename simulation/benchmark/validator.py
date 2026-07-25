@@ -10,6 +10,7 @@ from typing import Any
 
 from PIL import Image, ImageChops, UnidentifiedImageError
 
+from .canonical import catalog_values_equal
 from .catalog import FAMILY_DEFINITIONS, build_catalog, build_control_catalog
 from .generator import SCHEMA_VERSION, _scenario_manifest
 from .protocols import build_memory_protocols, memory_protocol_fixtures
@@ -271,7 +272,10 @@ def validate_benchmark(root: str | Path) -> ValidationReport:
                     "benchmark_expectations",
                     "generation",
                 ):
-                    if manifest.get(field) != canonical.get(field):
+                    if not catalog_values_equal(
+                        manifest.get(field),
+                        canonical.get(field),
+                    ):
                         errors.append(
                             f"{label}: {field} differs from the deterministic catalog"
                         )

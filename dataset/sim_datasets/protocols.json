@@ -141,6 +141,7 @@
             "history_delta": 1,
             "min_dispatches": 1,
             "preference_delta": 0,
+            "task_semantic_score": true,
             "validator_outcome": "SUCCESS"
           },
           "reply": "Red, green, then blue from bottom to top."
@@ -172,6 +173,7 @@
             "min_dispatches": 1,
             "post_task_preference_question": false,
             "preference_delta": 0,
+            "task_semantic_score": true,
             "validator_outcome": "SUCCESS"
           },
           "reply": "Red, green, then blue from bottom to top."
@@ -195,6 +197,7 @@
             "min_dispatches": 1,
             "post_task_preference_question": true,
             "preference_delta": 0,
+            "task_semantic_score": true,
             "validator_outcome": "SUCCESS"
           },
           "reply": "RGB again."
@@ -214,6 +217,7 @@
             "min_dispatches": 1,
             "post_task_preference_question": true,
             "preference_delta": 0,
+            "task_semantic_score": true,
             "validator_outcome": "SUCCESS"
           },
           "query": "Please stack those cubes the same way as before.",
@@ -247,6 +251,7 @@
             "min_dispatches": 1,
             "preference_delta": 0,
             "preference_retrieval_required": true,
+            "task_semantic_score": true,
             "validator_outcome": "SUCCESS"
           },
           "query": "Build a tower with the coloured cubes.",
@@ -263,6 +268,7 @@
             "min_dispatches": 1,
             "post_task_preference_question": false,
             "preference_delta": 0,
+            "task_semantic_score": true,
             "uses_one_off_override": true,
             "validator_outcome": "SUCCESS"
           },
@@ -308,6 +314,7 @@
             "history_delta": 1,
             "planner_status": "ALREADY_SATISFIED",
             "preference_delta": 0,
+            "task_semantic_score": true,
             "validator_outcome": "SUCCESS"
           },
           "query": "Stack the blocks in RGB order from bottom to top.",

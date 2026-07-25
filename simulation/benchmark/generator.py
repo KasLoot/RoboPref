@@ -10,6 +10,7 @@ from dataclasses import asdict, dataclass, is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from .canonical import catalog_values_equal, stable_float
 from .catalog import FAMILY_DEFINITIONS, build_catalog, build_control_catalog
 from .render import render_pair
 
@@ -30,6 +31,8 @@ class GenerationReport:
 
 
 def _plain(value: Any) -> Any:
+    if type(value) is float:
+        return stable_float(value)
     to_dict = getattr(value, "to_dict", None)
     if callable(to_dict):
         return _plain(to_dict())
@@ -258,7 +261,9 @@ def _directory_is_complete(
     if not isinstance(manifest, dict):
         return False
     frame_hashes = manifest.pop("frame_sha256", None)
-    if manifest != expected_manifest_without_hashes or not isinstance(
+    if not catalog_values_equal(
+        manifest, expected_manifest_without_hashes
+    ) or not isinstance(
         frame_hashes, dict
     ):
         return False

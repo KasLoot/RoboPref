@@ -34,13 +34,13 @@ observations), see [simulation/README.md](simulation/README.md).
 
 ## Run the recorded-episode prototype
 
-```powershell
-.\.venv\Scripts\python.exe .\main.py `
-  --dataset dataset/v3 `
-  --history-store memory/history.json `
-  --preference-store memory/preferences.json `
-  --user-id participant-01 `
-  --max-replans 1 `
+```bash
+./.venv/bin/python ./main.py \
+  --dataset dataset/v3 \
+  --history-store memory/history.json \
+  --preference-store memory/preferences.json \
+  --user-id participant-01 \
+  --max-replans 1 \
   --max-reobservations 1
 ```
 
@@ -59,9 +59,9 @@ configured terminal transcript; raw image bytes and hidden reasoning fields are 
 Legacy schema-v1 candidates are not valid durable preferences. Inspect a legacy file
 without writing anything:
 
-```powershell
-.\.venv\Scripts\python.exe -m memory.migration `
-  --legacy _old_1/memory/preferences_3.json `
+```bash
+./.venv/bin/python -m memory.migration \
+  --legacy _old_1/memory/preferences_3.json \
   --user-id default
 ```
 
@@ -72,8 +72,8 @@ read-only inputs and remain unchanged.
 
 ## Test
 
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -q
+```bash
+./.venv/bin/python -m unittest discover -s tests -q
 ```
 
 The offline suite uses injected scripted models and never calls Ollama. It covers

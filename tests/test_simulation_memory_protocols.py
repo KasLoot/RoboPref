@@ -13,6 +13,7 @@ from typing import Any, Callable, Mapping
 from PIL import Image
 
 from agents.contracts import ExecutionResult
+from memory.models import MemoryContext, MemoryQuery
 from simulation.benchmark.catalog import build_catalog, build_control_catalog
 from simulation.benchmark.generator import _scenario_manifest, generate_benchmark
 from simulation.benchmark.mujoco_render import _build_model, _render
@@ -32,8 +33,14 @@ MUJOCO_AVAILABLE = importlib.util.find_spec("mujoco") is not None
 
 
 class _HistoryRepository:
-    def __init__(self, episodes: list[dict[str, Any]] | None = None) -> None:
+    def __init__(
+        self,
+        episodes: list[dict[str, Any]] | None = None,
+        *,
+        summary: str = "",
+    ) -> None:
         self.episodes = copy.deepcopy(episodes or [])
+        self.summary = summary
 
     def list_episodes(
         self, user_id: str, limit: int | None = None
@@ -44,6 +51,18 @@ class _HistoryRepository:
             if item.get("user_id") == user_id
         ]
         return episodes if limit is None else episodes[:limit]
+
+    def get_summary(self, user_id: str) -> dict[str, Any]:
+        owned_ids = [
+            str(item["episode_id"])
+            for item in self.episodes
+            if item.get("user_id") == user_id and item.get("episode_id")
+        ]
+        return {
+            "text": self.summary,
+            "source_episode_ids": owned_ids,
+            "updated_at": None,
+        }
 
 
 class _PreferenceRepository:
@@ -78,6 +97,30 @@ class _OutboxRepository:
         ]
 
 
+class _FakeMemoryAgent:
+    def __init__(
+        self,
+        history: _HistoryRepository,
+        preferences: _PreferenceRepository,
+        contexts: list[MemoryContext] | None = None,
+    ) -> None:
+        self.history_repository = history
+        self.preference_repository = preferences
+        self._contexts = [copy.deepcopy(item) for item in contexts or []]
+
+    def get_memory_context(self, query: MemoryQuery) -> MemoryContext:
+        if self._contexts:
+            return copy.deepcopy(self._contexts.pop(0))
+        return MemoryContext(
+            relevant_history=self.history_repository.list_episodes(
+                query.user_id
+            ),
+            relevant_preferences=self.preference_repository.list_preferences(
+                query.user_id
+            ),
+        )
+
+
 TurnHandler = Callable[["_FakeOrchestrator"], dict[str, Any]]
 
 
@@ -90,13 +133,15 @@ class _FakeOrchestrator:
         histories: list[dict[str, Any]] | None = None,
         preferences: list[dict[str, Any]] | None = None,
         pending_outbox: list[dict[str, Any]] | None = None,
+        contexts: list[MemoryContext] | None = None,
     ) -> None:
         self.config = SimpleNamespace(user_id=user_id)
         self.history = _HistoryRepository(histories)
         self.preferences = _PreferenceRepository(preferences)
-        self.memory_agent = SimpleNamespace(
-            history_repository=self.history,
-            preference_repository=self.preferences,
+        self.memory_agent = _FakeMemoryAgent(
+            self.history,
+            self.preferences,
+            contexts,
         )
         self.history_outbox = _OutboxRepository(pending_outbox)
         self.pending_question: dict[str, Any] | None = None
@@ -111,6 +156,13 @@ class _FakeOrchestrator:
         self.messages.append(message)
         if not self._handlers:
             raise AssertionError("No fake HRI turn remains.")
+        self.memory_agent.get_memory_context(
+            MemoryQuery(
+                user_id=self.config.user_id,
+                request=message,
+                scene={},
+            )
+        )
         return copy.deepcopy(self._handlers.pop(0)(self))
 
 
@@ -141,6 +193,79 @@ def _attempt_result(
                         "outcome": "SUCCESS",
                         "task_complete": True,
                     },
+                }
+            ],
+        },
+    }
+
+
+def _scorable_success_result(
+    manifest: Mapping[str, Any],
+    *,
+    mode: str,
+    memory_refs: list[str],
+    history_refs: list[str],
+) -> dict[str, Any]:
+    target_id = str(manifest["target"]["target_id"])
+    intent = str(manifest["target"]["instruction"])
+    order = (
+        ["red", "green", "blue"]
+        if target_id == "rgb_bottom_to_top"
+        else ["blue", "green", "red"]
+    )
+    validation_spec = {
+        "spec_id": f"spec-{target_id}",
+        "confirmed_intent": intent,
+        "goal_conditions": [
+            {
+                "id": f"goal-{index}",
+                "description": "Structured protocol task goal.",
+                "predicate": predicate,
+                "arguments": [],
+            }
+            for index, predicate in enumerate(
+                manifest["target"]["goal_predicates"],
+                start=1,
+            )
+        ],
+    }
+    return {
+        "hri": {
+            "mode": mode,
+            "report": (
+                {"outcome": "SUCCESS"} if mode == "REPORT" else None
+            ),
+            "trace": {
+                "memory_refs": memory_refs,
+                "history_refs": history_refs,
+            },
+        },
+        "resolved_task": {
+            "confirmed_intent": intent,
+            "parameters": {
+                "target_id": target_id,
+                "order_bottom_to_top": order,
+            },
+            "preference_refs": memory_refs,
+        },
+        "task": {
+            "outcome": "SUCCESS",
+            "next_action": "NONE",
+            "attempts": [
+                {
+                    "plan": {
+                        "planning_status": "READY",
+                        "validation_spec": validation_spec,
+                    },
+                    "execution": {
+                        "status": "OBSERVED_RECORDED_ATTEMPT",
+                        "subtask_results": [{"status": "COMPLETED"}],
+                    },
+                    "validation": {
+                        "outcome": "SUCCESS",
+                        "task_complete": True,
+                    },
+                    "validation_assurance": {"next_action": "NONE"},
                 }
             ],
         },
@@ -396,9 +521,283 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
         self.assertFalse(fixture_called)
         self.assertEqual(orchestrator.messages, [])
 
+    def test_hallucinated_hri_trace_refs_do_not_count_as_retrieval(self) -> None:
+        orchestrator = _FakeOrchestrator(
+            [
+                lambda _orchestrator: {
+                    "hri": {
+                        "mode": "ASK",
+                        "trace": {
+                            "history_refs": ["hallucinated-history"],
+                            "memory_refs": ["hallucinated-preference"],
+                        },
+                    },
+                    "task": {"attempts": []},
+                }
+            ]
+        )
+        protocol = self._protocol(
+            {
+                "query": "Stack the blocks as before.",
+                "expected": {
+                    "history_retrieval_required": True,
+                    "preference_retrieval_required": True,
+                },
+            }
+        )
+
+        report = run_memory_protocol(
+            protocol,
+            orchestrator,
+            resolve_scenario=lambda _selector: Path("unused"),
+        )
+
+        self.assertFalse(report.passed)
+        checks = {
+            check["name"]: check for check in report.steps[0].checks
+        }
+        self.assertEqual(
+            checks["history_retrieval_required"]["actual"],
+            False,
+        )
+        self.assertFalse(
+            checks["history_retrieval_required"]["passed"]
+        )
+        self.assertEqual(
+            checks["preference_retrieval_required"]["actual"],
+            False,
+        )
+        self.assertFalse(
+            checks["preference_retrieval_required"]["passed"]
+        )
+        self.assertEqual(
+            report.steps[0].delivered_memory_context["history_ids"],
+            [],
+        )
+        self.assertEqual(
+            report.steps[0].delivered_memory_context["preference_ids"],
+            [],
+        )
+
+    def test_delivered_foreign_preference_is_detected_without_hri_ref(
+        self,
+    ) -> None:
+        foreign = {
+            "id": "foreign-preference",
+            "user_id": "participant-b",
+            "structured_value": {
+                "order_bottom_to_top": ["red", "green", "blue"]
+            },
+        }
+        orchestrator = _FakeOrchestrator(
+            [
+                lambda _orchestrator: {
+                    "hri": {
+                        "mode": "ASK",
+                        "trace": {
+                            "history_refs": [],
+                            "memory_refs": [],
+                        },
+                    },
+                    "task": {"attempts": []},
+                }
+            ],
+            preferences=[foreign],
+            contexts=[
+                MemoryContext(
+                    relevant_preferences=[copy.deepcopy(foreign)]
+                )
+            ],
+        )
+        protocol = self._protocol(
+            {
+                "query": "Stack the blocks.",
+                "expected": {
+                    "clarification_required": True,
+                    "history_retrieval_required": False,
+                    "preference_retrieval_required": True,
+                },
+            }
+        )
+
+        report = run_memory_protocol(
+            protocol,
+            orchestrator,
+            resolve_scenario=lambda _selector: Path("unused"),
+        )
+
+        self.assertFalse(report.passed)
+        checks = {
+            check["name"]: check for check in report.steps[0].checks
+        }
+        self.assertEqual(checks["foreign_preference_refs"]["expected"], 0)
+        self.assertEqual(checks["foreign_preference_refs"]["actual"], 1)
+        self.assertFalse(checks["foreign_preference_refs"]["passed"])
+        self.assertEqual(
+            checks["preference_retrieval_required"]["actual"],
+            False,
+        )
+        self.assertFalse(
+            checks["preference_retrieval_required"]["passed"]
+        )
+        delivered = report.steps[0].delivered_memory_context
+        self.assertEqual(
+            delivered["preference_ids"],
+            ["foreign-preference"],
+        )
+        self.assertEqual(
+            delivered["foreign_preference_ids"],
+            ["foreign-preference"],
+        )
+        self.assertFalse(delivered["preference_ownership_verified"])
+        self.assertEqual(
+            delivered["preference_content_mismatch_ids"],
+            ["foreign-preference"],
+        )
+
+    def test_idless_delivered_record_makes_ownership_unverifiable(
+        self,
+    ) -> None:
+        orchestrator = _FakeOrchestrator(
+            [
+                lambda _orchestrator: {
+                    "hri": {"mode": "ASK", "trace": {}},
+                    "task": {"attempts": []},
+                }
+            ],
+            contexts=[
+                MemoryContext(
+                    relevant_preferences=[
+                        {
+                            "user_id": "participant-b",
+                            "statement": "Foreign content without an ID.",
+                        }
+                    ]
+                )
+            ],
+        )
+
+        report = run_memory_protocol(
+            self._protocol(
+                {
+                    "query": "Stack the blocks.",
+                    "expected": {"clarification_required": True},
+                }
+            ),
+            orchestrator,
+            resolve_scenario=lambda _selector: Path("unused"),
+        )
+
+        self.assertFalse(report.passed)
+        delivered = report.steps[0].delivered_memory_context
+        self.assertEqual(delivered["malformed_preference_records"], 1)
+        self.assertFalse(delivered["preference_ownership_verified"])
+        ownership = next(
+            check
+            for check in report.steps[0].checks
+            if check["name"] == "memory_context_ownership_verified"
+        )
+        self.assertFalse(ownership["passed"])
+
+    def test_delivered_history_summary_must_match_user_repository(
+        self,
+    ) -> None:
+        orchestrator = _FakeOrchestrator(
+            [
+                lambda _orchestrator: {
+                    "hri": {"mode": "ASK", "trace": {}},
+                    "task": {"attempts": []},
+                }
+            ],
+            contexts=[MemoryContext(history_summary="Another user's summary.")],
+        )
+
+        report = run_memory_protocol(
+            self._protocol(
+                {
+                    "query": "Stack the blocks.",
+                    "expected": {"clarification_required": True},
+                }
+            ),
+            orchestrator,
+            resolve_scenario=lambda _selector: Path("unused"),
+        )
+
+        self.assertFalse(report.passed)
+        delivered = report.steps[0].delivered_memory_context
+        self.assertFalse(delivered["history_summary_matches_repository"])
+        self.assertFalse(delivered["history_ownership_verified"])
+
     def test_runner_executes_distinct_turns_and_passes_semantic_checks(
         self,
     ) -> None:
+        scenarios = {
+            target_id: next(
+                scenario
+                for scenario in build_catalog(
+                    families=["block_stack"],
+                    seeds=[31],
+                )
+                if scenario.target_id == target_id
+                and scenario.outcome == "success"
+            )
+            for target_id in (
+                "rgb_bottom_to_top",
+                "bgr_bottom_to_top",
+            )
+        }
+        manifests = {
+            target_id: _scenario_manifest(
+                scenario,
+                backend="synthetic",
+            )
+            for target_id, scenario in scenarios.items()
+        }
+
+        def semantic_result(
+            *,
+            target_id: str,
+            mode: str,
+            memory_refs: list[str],
+            history_refs: list[str],
+        ) -> dict[str, Any]:
+            result = _attempt_result(
+                mode=mode,
+                memory_refs=memory_refs,
+                history_refs=history_refs,
+            )
+            manifest = manifests[target_id]
+            confirmed_intent = str(manifest["target"]["instruction"])
+            order = (
+                ["red", "green", "blue"]
+                if target_id == "rgb_bottom_to_top"
+                else ["blue", "green", "red"]
+            )
+            result["resolved_task"] = {
+                "confirmed_intent": confirmed_intent,
+                "parameters": {
+                    "target_id": target_id,
+                    "order_bottom_to_top": order,
+                },
+            }
+            result["task"]["next_action"] = "NONE"
+            attempt = result["task"]["attempts"][0]
+            attempt["plan"]["validation_spec"] = {
+                "confirmed_intent": confirmed_intent,
+                "goal_conditions": [
+                    {
+                        "id": f"goal-{index}",
+                        "predicate": predicate,
+                    }
+                    for index, predicate in enumerate(
+                        manifest["target"]["goal_predicates"],
+                        start=1,
+                    )
+                ],
+            }
+            attempt["validation_assurance"] = {"next_action": "NONE"}
+            return result
+
         def first_turn(orchestrator: _FakeOrchestrator) -> dict[str, Any]:
             orchestrator.preferences.preferences.append(
                 {
@@ -426,7 +825,8 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
                 }
             )
             orchestrator.pending_question = {"kind": "MEMORY_CONSENT"}
-            return _attempt_result(
+            return semantic_result(
+                target_id="rgb_bottom_to_top",
                 mode="MEMORY_CONFIRM",
                 memory_refs=["pref-rgb"],
                 history_refs=["episode-prior"],
@@ -450,7 +850,8 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
                 }
             )
             orchestrator.pending_question = None
-            return _attempt_result(
+            return semantic_result(
+                target_id="bgr_bottom_to_top",
                 mode="REPORT",
                 memory_refs=["pref-rgb"],
                 history_refs=["episode-rgb"],
@@ -476,19 +877,25 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
                         "dispatches": 1,
                         "foreign_preference_refs": 0,
                         "history_delta": 1,
-                        "history_retrieval_required": True,
+                        "history_retrieval_required": False,
                         "min_dispatches": 1,
                         "pending_question_cleared": False,
                         "planner_status": "READY",
                         "post_task_preference_question": True,
                         "preference_delta": 1,
-                        "preference_retrieval_required": True,
+                        "preference_retrieval_required": False,
+                        "task_semantic_score": True,
                         "uses_one_off_override": False,
                         "validator_outcome": "SUCCESS",
                     },
                 },
                 {
                     "reply": "This time only, use BGR.",
+                    "scenario_selector": {
+                        "family": "block_stack",
+                        "target_id": "bgr_bottom_to_top",
+                        "outcome": "success",
+                    },
                     "expected": {
                         "active_equivalent_preferences": 1,
                         "active_rgb_preference_preserved": True,
@@ -503,6 +910,7 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
                         "post_task_preference_question": False,
                         "preference_delta": 0,
                         "preference_retrieval_required": True,
+                        "task_semantic_score": True,
                         "uses_one_off_override": True,
                         "validator_outcome": "SUCCESS",
                     },
@@ -517,6 +925,7 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
                 "episodes"
             )
             / str(selector["target_id"]),
+            load_manifest=lambda path: manifests[Path(path).name],
         )
 
         self.assertTrue(report.passed, report.steps)
@@ -526,9 +935,37 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
         )
         self.assertEqual(
             orchestrator.dataset_switches,
-            [str(Path("episodes") / "rgb_bottom_to_top")],
+            [
+                str(Path("episodes") / "rgb_bottom_to_top"),
+                str(Path("episodes") / "bgr_bottom_to_top"),
+            ],
         )
         self.assertTrue(all(step.passed for step in report.steps))
+        self.assertTrue(all(step.task_score_required for step in report.steps))
+        self.assertTrue(
+            all(
+                step.task_score is not None
+                and step.task_score["semantic_passed"] is True
+                for step in report.steps
+            )
+        )
+        first_task_score = report.steps[0].task_score
+        assert first_task_score is not None
+        self.assertFalse(first_task_score["full_passed"])
+        preference_delta_check = next(
+            check
+            for check in first_task_score["checks"]
+            if check["name"] == "preference_delta_without_consent"
+        )
+        self.assertEqual(preference_delta_check["actual"], 1)
+        self.assertFalse(preference_delta_check["passed"])
+        self.assertNotIn(
+            "preference_delta_without_consent",
+            {
+                check["name"]
+                for check in first_task_score["semantic_checks"]
+            },
+        )
         self.assertTrue(
             all(
                 check["evaluated"] and check["passed"]
@@ -536,6 +973,137 @@ class MemoryProtocolRunnerTests(unittest.TestCase):
                 for check in step.checks
             )
         )
+
+    def test_selected_rgb_manifest_rejects_native_bgr_task_result(self) -> None:
+        scenarios = build_catalog(families=["block_stack"], seeds=[47])
+        rgb = next(
+            scenario
+            for scenario in scenarios
+            if scenario.target_id == "rgb_bottom_to_top"
+            and scenario.outcome == "success"
+        )
+        bgr = next(
+            scenario
+            for scenario in scenarios
+            if scenario.target_id == "bgr_bottom_to_top"
+            and scenario.outcome == "success"
+        )
+        rgb_manifest = _scenario_manifest(rgb, backend="synthetic")
+        bgr_manifest = _scenario_manifest(bgr, backend="synthetic")
+        events: list[str] = []
+
+        def wrong_turn(orchestrator: _FakeOrchestrator) -> dict[str, Any]:
+            events.append("hri")
+            orchestrator.history.episodes.append(
+                {
+                    "episode_id": "episode-wrong-bgr",
+                    "user_id": "participant-a",
+                }
+            )
+            return _scorable_success_result(
+                bgr_manifest,
+                mode="REPORT",
+                memory_refs=[],
+                history_refs=[],
+            )
+
+        def load_manifest(_path: str | Path) -> Mapping[str, Any]:
+            events.append("oracle")
+            return rgb_manifest
+
+        orchestrator = _FakeOrchestrator([wrong_turn])
+        report = run_memory_protocol(
+            self._protocol(
+                {
+                    "query": "Stack the blocks RGB from bottom to top.",
+                    "scenario_selector": {
+                        "family": "block_stack",
+                        "target_id": "rgb_bottom_to_top",
+                        "outcome": "success",
+                    },
+                    "expected": {
+                        "clarification_required": False,
+                        "dispatches": 1,
+                        "history_delta": 1,
+                        "min_dispatches": 1,
+                        "planner_status": "READY",
+                        "preference_delta": 0,
+                        "task_semantic_score": True,
+                        "validator_outcome": "SUCCESS",
+                    },
+                }
+            ),
+            orchestrator,
+            resolve_scenario=lambda _selector: Path("opaque-rgb-episode"),
+            load_manifest=load_manifest,
+        )
+
+        self.assertEqual(events, ["hri", "oracle"])
+        self.assertFalse(report.passed)
+        step = report.steps[0]
+        self.assertTrue(step.task_score_required)
+        self.assertIsNotNone(step.task_score)
+        assert step.task_score is not None
+        self.assertFalse(step.task_score["semantic_passed"])
+        self.assertFalse(step.task_score["full_passed"])
+        hri_target = next(
+            check
+            for check in step.task_score["checks"]
+            if check["name"] == "hri_resolved_target"
+        )
+        self.assertEqual(hri_target["actual"], "bgr_bottom_to_top")
+        self.assertFalse(hri_target["passed"])
+        ordinary_checks = [
+            check
+            for check in step.checks
+            if check["name"] != "task_semantic_score"
+        ]
+        self.assertTrue(
+            all(
+                check["evaluated"] and check["passed"]
+                for check in ordinary_checks
+            ),
+            ordinary_checks,
+        )
+        semantic_gate = next(
+            check
+            for check in step.checks
+            if check["name"] == "task_semantic_score"
+        )
+        self.assertFalse(semantic_gate["actual"])
+        self.assertFalse(semantic_gate["passed"])
+
+    def test_clarification_only_step_does_not_require_task_score(self) -> None:
+        orchestrator = _FakeOrchestrator(
+            [
+                lambda _orchestrator: {
+                    "hri": {
+                        "mode": "ASK",
+                        "trace": {"history_refs": [], "memory_refs": []},
+                    },
+                    "task": {"attempts": []},
+                }
+            ]
+        )
+        report = run_memory_protocol(
+            self._protocol(
+                {
+                    "query": "Stack the blocks.",
+                    "scenario_selector": {
+                        "family": "block_stack",
+                        "target_id": "rgb_bottom_to_top",
+                        "outcome": "success",
+                    },
+                    "expected": {"clarification_required": True},
+                }
+            ),
+            orchestrator,
+            resolve_scenario=lambda _selector: Path("opaque-episode"),
+        )
+
+        self.assertTrue(report.passed, report.steps)
+        self.assertFalse(report.steps[0].task_score_required)
+        self.assertIsNone(report.steps[0].task_score)
 
 
 class MemoryProtocolScorerTests(unittest.TestCase):
@@ -552,10 +1120,33 @@ class MemoryProtocolScorerTests(unittest.TestCase):
             and scenario.outcome == "success"
         )
         manifest = _scenario_manifest(success, backend="synthetic")
+        confirmed_intent = str(manifest["target"]["instruction"])
+        validation_spec = {
+            "spec_id": "spec-memory-boundary",
+            "confirmed_intent": confirmed_intent,
+            "goal_conditions": [
+                {
+                    "id": f"goal-{index}",
+                    "description": "Structured benchmark goal.",
+                    "predicate": predicate,
+                    "arguments": [],
+                }
+                for index, predicate in enumerate(
+                    manifest["target"]["goal_predicates"],
+                    start=1,
+                )
+            ],
+        }
         result = {
             "hri": {
                 "mode": "MEMORY_CONFIRM",
                 "report": {"outcome": "SUCCESS"},
+            },
+            "resolved_task": {
+                "confirmed_intent": confirmed_intent,
+                "parameters": {
+                    "target_id": str(manifest["target"]["target_id"])
+                },
             },
             "history_checkpointed": True,
             "memory": {"preference_delta": 0},
@@ -564,7 +1155,10 @@ class MemoryProtocolScorerTests(unittest.TestCase):
                 "next_action": "NONE",
                 "attempts": [
                     {
-                        "plan": {"planning_status": "READY"},
+                        "plan": {
+                            "planning_status": "READY",
+                            "validation_spec": validation_spec,
+                        },
                         "execution": {
                             "status": "OBSERVED_RECORDED_ATTEMPT",
                             "subtask_results": [{"status": "COMPLETED"}],

@@ -62,10 +62,10 @@ Do not put consent forms or identity keys in the repository. Store the participa
 
 ## 5. Running an Episode
 
-From `C:\Users\yuxin\workspace\RoboPref`, run:
+From the repository root, run:
 
-```powershell
-python .\main.py --dataset dataset/collection/P001/S01 --memory-store experiments/collection/P001/preferences.json --user-id P001 --transcript experiments/collection/P001/S01-transcript.txt
+```bash
+python ./main.py --dataset dataset/collection/P001/S01 --memory-store experiments/collection/P001/preferences.json --user-id P001 --transcript experiments/collection/P001/S01-transcript.txt
 ```
 
 Use the same participant-specific memory store for longitudinal preference trials and a new empty path for a new participant or independent control condition. Never reuse another participant’s memory. Use a distinct transcript path for every trial.

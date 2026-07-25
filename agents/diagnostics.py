@@ -3,9 +3,10 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+from datetime import datetime, timezone
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from agents.model import JsonModel
 
@@ -20,16 +21,36 @@ _HIDDEN_REASONING_KEYS = {
 class AgentOutputDisplay:
     """Opt-in terminal display for agent outputs; never used as agent context."""
 
-    def __init__(self, *, enabled: bool = False) -> None:
+    def __init__(
+        self,
+        *,
+        enabled: bool = False,
+        observer: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
         self.enabled = enabled
+        self.observer = observer
 
     def emit(self, agent: str, stage: str, output: Any) -> None:
+        safe_output = self._safe_value(output)
+        if self.observer is not None:
+            try:
+                self.observer(
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "agent": str(agent),
+                        "stage": str(stage),
+                        "output": safe_output,
+                    }
+                )
+            except Exception:
+                # Diagnostics must never alter orchestration behavior.
+                pass
         if not self.enabled:
             return
         print(f"\n[Display All] {agent} — {stage}")
         print(
             json.dumps(
-                self._safe_value(output),
+                safe_output,
                 ensure_ascii=False,
                 indent=2,
                 default=str,

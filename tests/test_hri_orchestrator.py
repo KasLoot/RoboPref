@@ -9,7 +9,7 @@ from agents.configs import PrefMemConfig
 from agents.contracts import GoalCondition, PlanResult, ValidationResult, ValidationSpec
 from agents.hri import HRIContractError, HRIOrchestrator
 from agents.memory import MemoryAgent
-from agents.planner import PlannerAgent
+from agents.planner import PlannerAgent, PlannerAgentError
 from agents.validator import ValidatorAgent
 from memory.models import MemoryContext
 from memory.repositories import HistoryRepository, PreferenceRepository
@@ -71,6 +71,177 @@ def successful_task_components(final_frame: str) -> tuple[FixedPlanner, FixedVal
         user_message="Task Complete.",
     )
     return FixedPlanner(plan), FixedValidator(validation), RecordingExecutor(final_frame)
+
+
+class PlannerStructuredGoalContractTests(unittest.TestCase):
+    @staticmethod
+    def _planner(
+        directory: str,
+        response: dict[str, Any],
+    ) -> PlannerAgent:
+        config = config_for(directory)
+        return PlannerAgent(
+            config.planner,
+            vision=config.vision,
+            model=ScriptedJsonModel({"plan_task": response}),
+        )
+
+    def test_ready_plan_rejects_description_only_goal(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            planner = self._planner(
+                directory,
+                {
+                    "planning_status": "READY",
+                    "planner_confidence": 0.9,
+                    "preconditions": [],
+                    "subtasks": [{"task_instruction": "Stack the blocks."}],
+                    "validation_spec": {
+                        "confirmed_intent": "Stack RGB bottom-to-top.",
+                        "goal_conditions": [
+                            {
+                                "id": "goal-prose-only",
+                                "description": "The RGB stack is complete.",
+                            }
+                        ],
+                    },
+                },
+            )
+
+            with self.assertRaisesRegex(
+                PlannerAgentError,
+                "structured predicate",
+            ):
+                planner.plan(
+                    "Stack RGB bottom-to-top.",
+                    str(ROOT / "dataset" / "v3" / "1.png"),
+                )
+
+    def test_ready_plan_rejects_predicate_without_arguments(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            planner = self._planner(
+                directory,
+                {
+                    "planning_status": "READY",
+                    "planner_confidence": 0.9,
+                    "preconditions": [],
+                    "subtasks": [{"task_instruction": "Stack the blocks."}],
+                    "validation_spec": {
+                        "confirmed_intent": "Stack RGB bottom-to-top.",
+                        "goal_conditions": [
+                            {
+                                "id": "goal-empty-arguments",
+                                "description": "The stack is stable.",
+                                "predicate": "STABLE_STACK",
+                                "arguments": [],
+                            }
+                        ],
+                    },
+                },
+            )
+
+            with self.assertRaisesRegex(
+                PlannerAgentError,
+                "at least one semantic predicate argument",
+            ):
+                planner.plan(
+                    "Stack RGB bottom-to-top.",
+                    str(ROOT / "dataset" / "v3" / "1.png"),
+                )
+
+    def test_ready_plan_accepts_semantic_goals_and_safety_evidence(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            planner = self._planner(
+                directory,
+                {
+                    "planning_status": "READY",
+                    "planner_confidence": 0.9,
+                    "preconditions": [],
+                    "subtasks": [{"task_instruction": "Stack the blocks."}],
+                    "validation_spec": {
+                        "spec_id": "spec-structured",
+                        "confirmed_intent": "Stack RGB bottom-to-top.",
+                        "goal_conditions": [
+                            {
+                                "id": "goal-stack",
+                                "description": "The blocks form one RGB stack.",
+                                "predicate": "STABLE_STACK",
+                                "arguments": [
+                                    "red block",
+                                    "green block",
+                                    "blue block",
+                                ],
+                            },
+                            {
+                                "id": "goal-safety",
+                                "description": "Execution remained safe.",
+                                "observable": False,
+                                "required": False,
+                                "predicate": "SAFE_EXECUTION",
+                                "arguments": ["robot"],
+                                "evidence_modalities": [
+                                    "execution_evidence"
+                                ],
+                            },
+                        ],
+                    },
+                },
+            )
+
+            plan = planner.plan(
+                "Stack RGB bottom-to-top.",
+                str(ROOT / "dataset" / "v3" / "1.png"),
+            )
+
+            self.assertEqual(plan.status, "READY")
+            self.assertIsNotNone(plan.validation_spec)
+            assert plan.validation_spec is not None
+            safety = plan.validation_spec.goal_conditions[1]
+            self.assertEqual(safety.predicate, "SAFE_EXECUTION")
+            self.assertEqual(safety.arguments, ("robot",))
+            self.assertFalse(safety.required)
+            self.assertFalse(safety.observable)
+            self.assertEqual(
+                safety.evidence_modalities,
+                ("execution_evidence",),
+            )
+            self.assertIn("SUPPORTED_BY", planner.system_prompt)
+            self.assertIn("INSIDE_SORT_ZONE", planner.system_prompt)
+            self.assertIn(
+                "ALL_PLACE_SETTING_ITEMS_PLACED",
+                planner.system_prompt,
+            )
+            self.assertIn(
+                "hidden simulator object IDs",
+                planner.system_prompt,
+            )
+
+    def test_non_ready_plan_does_not_require_validation_spec(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            planner = self._planner(
+                directory,
+                {
+                    "planning_status": "BLOCKED",
+                    "planner_confidence": 0.9,
+                    "preconditions": [],
+                    "subtasks": [],
+                    "failure": {
+                        "stage": "PLANNING",
+                        "code": "OBJECT_MISSING",
+                        "recoverability": "USER_ASSIST",
+                        "user_message": "A required object is missing.",
+                    },
+                },
+            )
+
+            plan = planner.plan(
+                "Stack RGB bottom-to-top.",
+                str(ROOT / "dataset" / "v3" / "1.png"),
+            )
+
+            self.assertEqual(plan.status, "BLOCKED")
+            self.assertIsNone(plan.validation_spec)
 
 
 class HRIHistoryIntegrationTests(unittest.TestCase):
@@ -586,6 +757,64 @@ class HRIQuestionTypingTests(unittest.TestCase):
 
 
 class FrozenValidationFlowTests(unittest.TestCase):
+    def test_repeated_planner_failures_have_distinct_event_identity(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config = config_for(directory, max_replans=1)
+            hri_model = ScriptedJsonModel(
+                {
+                    "resolve_hri_turn": {
+                        "mode": "EXECUTE",
+                        "user_message": "I will stack the blocks.",
+                        "task_contract": {
+                            "confirmed_intent": "Stack RGB bottom-to-top.",
+                            "parameters": {"order": "RGB"},
+                        },
+                        "memory_action": {"action": "NONE"},
+                    }
+                }
+            )
+
+            class RepeatedlyFailingPlanner:
+                def __init__(self) -> None:
+                    self.calls = 0
+
+                def plan(self, *args: Any, **kwargs: Any) -> PlanResult:
+                    del args, kwargs
+                    self.calls += 1
+                    raise PlannerAgentError("same invalid planner response")
+
+            planner = RepeatedlyFailingPlanner()
+            _, validator, executor = successful_task_components(
+                str(ROOT / "dataset" / "v3" / "12.png")
+            )
+            hri = HRIOrchestrator(
+                config,
+                hri_model=hri_model,
+                memory_agent=RecordingMemoryAgent(),
+                planner_agent=planner,
+                validator_agent=validator,
+                executor=executor,
+            )
+
+            result = hri.handle_user_message("Stack the blocks")
+
+            failures = [
+                attempt["failure"] for attempt in result["task"]["attempts"]
+            ]
+            self.assertEqual(planner.calls, 2)
+            self.assertEqual([item["attempt"] for item in failures], [1, 2])
+            self.assertEqual(
+                {item["event"] for item in failures},
+                {"planner-call"},
+            )
+            self.assertEqual(len({item["event_id"] for item in failures}), 2)
+            self.assertEqual(
+                {item["message"] for item in failures},
+                {"same invalid planner response"},
+            )
+
     def test_planner_validation_spec_reaches_executor_and_validator_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             config = config_for(directory)
@@ -628,10 +857,22 @@ class FrozenValidationFlowTests(unittest.TestCase):
                                 {
                                     "id": "frozen-order",
                                     "description": "Red is below green and green is below blue.",
+                                    "predicate": "VERTICALLY_ALIGNED",
+                                    "arguments": [
+                                        "red block",
+                                        "green block",
+                                        "blue block",
+                                    ],
                                 },
                                 {
                                     "id": "frozen-single-stack",
                                     "description": "All three blocks form one stack.",
+                                    "predicate": "STABLE_STACK",
+                                    "arguments": [
+                                        "red block",
+                                        "green block",
+                                        "blue block",
+                                    ],
                                 },
                             ],
                         },

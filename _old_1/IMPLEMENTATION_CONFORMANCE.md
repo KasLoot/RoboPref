@@ -53,14 +53,14 @@ The deterministic assurance layer guarantees:
 
 Command:
 
-```powershell
-$env:PYTHONDONTWRITEBYTECODE='1'
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```bash
+export PYTHONDONTWRITEBYTECODE=1
+./.venv/bin/python -m unittest discover -s tests -v
 ```
 
 Result: **60 tests passed**. This includes dataset loading, HRI/memory integration, consent-gated preference transitions, component-unavailability handling, user cancellation, bounded recovery escalation, the scenario matrix, task assurance, transcript behaviour, and the pre-existing visual-image preprocessing tests.
 
-`python .\main.py --help` also completed successfully and exposed participant-specific dataset, memory-store, user-ID, and transcript options for data collection.
+`python ./main.py --help` also completed successfully and exposed participant-specific dataset, memory-store, user-ID, and transcript options for data collection.
 
 ## Residual Risks and Required Next Integration
 

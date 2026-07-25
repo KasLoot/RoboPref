@@ -31,6 +31,7 @@ class PlannerAgent:
             config.temperature,
             host=config.host,
             timeout_seconds=config.timeout_seconds,
+            seed=config.seed,
         )
         self.model = (
             DisplayingJsonModel(base_model, output_display, "Planner Agent")
@@ -88,7 +89,12 @@ class PlannerAgent:
             raise PlannerAgentError("Planner preconditions must be a list.")
         validation_spec = None
         if status in {"READY", "ALREADY_SATISFIED"}:
-            validation_spec = ValidationSpec.from_plan(raw, confirmed_intent)
+            try:
+                validation_spec = ValidationSpec.from_plan(raw, confirmed_intent)
+            except (TypeError, ValueError) as error:
+                raise PlannerAgentError(
+                    f"Invalid Planner validation specification: {error}"
+                ) from error
             raw["validation_spec"] = validation_spec.to_dict()
         return PlanResult(
             status=status,

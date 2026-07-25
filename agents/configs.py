@@ -14,6 +14,7 @@ class AgentModelConfig:
     system_prompt_path: str = ""
     host: str | None = None
     timeout_seconds: float = 120.0
+    seed: int | None = None
 
     def __post_init__(self) -> None:
         if not self.model.strip():
@@ -22,6 +23,12 @@ class AgentModelConfig:
             raise ValueError("Agent temperature cannot be negative.")
         if self.timeout_seconds <= 0:
             raise ValueError("Agent timeout must be positive.")
+        if self.seed is not None and (
+            not isinstance(self.seed, int)
+            or isinstance(self.seed, bool)
+            or self.seed < 0
+        ):
+            raise ValueError("Agent seed must be a non-negative integer or null.")
 
 
 @dataclass(slots=True)

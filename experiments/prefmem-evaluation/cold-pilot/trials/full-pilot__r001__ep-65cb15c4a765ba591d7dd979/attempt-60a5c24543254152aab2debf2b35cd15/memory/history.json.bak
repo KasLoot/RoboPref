@@ -1,0 +1,78 @@
+{
+  "episodes": [
+    {
+      "actions": [],
+      "assurance": {
+        "failure": {
+          "code": "PLANNER_UNAVAILABLE",
+          "memory_effect": "HISTORY_ONLY",
+          "next_action": "REPLAN",
+          "observed": {
+            "attempt": 2,
+            "classification": "INFRASTRUCTURE_TIMEOUT",
+            "error_type": "ReadTimeout",
+            "event": "planner-call",
+            "event_id": "planning-attempt-2-planner-call",
+            "message": "timed out",
+            "stage": "PLANNING"
+          },
+          "stage": "PLANNING",
+          "user_message": "The planner is unavailable, so no action was dispatched."
+        },
+        "message": "The planner is unavailable, so no action was dispatched.",
+        "next_action": "REPLAN",
+        "outcome": "UNKNOWN",
+        "phase": "PLANNING"
+      },
+      "completed_at": "2026-07-25T13:07:35.044634+00:00",
+      "created_at": "2026-07-25T13:09:35.102163+00:00",
+      "episode_id": "episode-80c8f37621844cc09007aa4b7336e020",
+      "execution": [],
+      "memory_events": [],
+      "resolved_task": {
+        "approval": {
+          "source": "hri_resolved_user_turn",
+          "turn_id": "turn-58ea119c1f9246eb97628864d64455b6"
+        },
+        "confirmed_intent": "Stack the blocks in blue, green, red order from bottom to top.",
+        "episode_id": "episode-80c8f37621844cc09007aa4b7336e020",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "preference_refs": [],
+        "schema_version": 1,
+        "task_id": "task-ff1e482cc0764cc3abd403424f58314b",
+        "task_type": "stack_blocks",
+        "user_id": "evaluation-participant"
+      },
+      "session_id": "aa8000bfc372416ab349cc3f9981b762",
+      "source_fingerprint": "8f5c987dbaf27b7f4c778adacbd3ea78e123d96bc0d172e4af481c1410a24742",
+      "started_at": "2026-07-25T13:02:53.594753+00:00",
+      "summary": "The planner is unavailable, so no action was dispatched.",
+      "terminal_outcome": "UNKNOWN",
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "The planner is unavailable, so no action was dispatched.",
+      "validation": []
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}
