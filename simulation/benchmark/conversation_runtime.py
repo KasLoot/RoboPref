@@ -1,4 +1,4 @@
-"""Production PrefMem construction for benchmark evaluations."""
+"""Production construction and audit sinks for conversation evaluation."""
 
 from __future__ import annotations
 
@@ -14,10 +14,13 @@ from agents.memory import MemoryAgent
 from agents.model import JsonModel, build_json_model
 from agents.planner import PlannerAgent
 from agents.validator import ValidatorAgent
+from dataset.benchmark import BenchmarkEpisode
 from memory.repositories import HistoryRepository, PreferenceRepository
 
-from .ablations import apply_memory_mode
-from .executor import BenchmarkEpisodeExecutor
+from .ablations import apply_memory_mode, record_memory_context
+from .conversation_models import ConversationEvaluationConfig, ConversationRunContext
+from .executor import CounterfactualSequenceExecutor
+from .model_defaults import apply_evaluation_model_defaults
 
 
 def _append_jsonl(path: Path, value: Mapping[str, Any]) -> None:
@@ -39,13 +42,7 @@ def _append_jsonl(path: Path, value: Mapping[str, Any]) -> None:
 
 
 class EvaluationArtifactSink:
-    """Best-effort observer with an explicit post-run completeness signal.
-
-    Agent diagnostics must never interrupt robot orchestration, so observer
-    failures remain non-throwing. Unlike a bare callback, this sink retains the
-    failure for the out-of-band evaluator to mark the experiment artifact
-    incomplete.
-    """
+    """Non-throwing observer with an explicit completeness signal."""
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
@@ -57,10 +54,7 @@ class EvaluationArtifactSink:
             _append_jsonl(self.path, event)
         except Exception as error:
             self.errors.append(
-                {
-                    "type": type(error).__name__,
-                    "message": str(error),
-                }
+                {"type": type(error).__name__, "message": str(error)}
             )
             return
         self.events_written += 1
@@ -71,15 +65,13 @@ class EvaluationArtifactSink:
             "events_written": self.events_written,
             "error_count": len(self.errors),
             "errors": [dict(item) for item in self.errors],
-            "complete": (
-                not self.errors
-                and (self.events_written > 0 or not require_event)
-            ),
+            "complete": not self.errors
+            and (self.events_written > 0 or not require_event),
         }
 
 
 class EvaluationArtifactRecorder:
-    """Own the two structured audit streams for one isolated run."""
+    """Own both structured audit streams for one isolated conversation."""
 
     def __init__(self, artifact_dir: str | Path) -> None:
         artifact_dir = Path(artifact_dir)
@@ -96,11 +88,56 @@ class EvaluationArtifactRecorder:
             "agent_events": self.agent_events.status(),
         }
         return {
-            "complete": all(
-                stream["complete"] for stream in streams.values()
-            ),
+            "complete": all(item["complete"] for item in streams.values()),
             "streams": streams,
         }
+
+
+def build_prefmem_config(
+    evaluation: ConversationEvaluationConfig,
+    episode: BenchmarkEpisode,
+    run_dir: str | Path,
+    user_id: str,
+    *,
+    model_seed: int | None,
+) -> PrefMemConfig:
+    """Build one cold, run-local PrefMem configuration."""
+
+    memory_dir = Path(run_dir) / "memory"
+    config = PrefMemConfig(
+        workspace_root=str(evaluation.benchmark_root),
+        dataset_path=str(episode.episode.directory),
+        history_store_path=str(memory_dir / "history.json"),
+        history_outbox_path=str(memory_dir / "history_outbox.json"),
+        preference_store_path=str(memory_dir / "preferences.json"),
+        user_id=user_id,
+        max_replans=evaluation.max_replans,
+        max_reobservations=evaluation.max_reobservations,
+    )
+    if evaluation.model_provider in {None, "vllm"}:
+        apply_evaluation_model_defaults(config)
+    config.vision.resize_images = evaluation.resize_images
+    for model_config in (
+        config.hri,
+        config.memory,
+        config.planner,
+        config.validator,
+    ):
+        if evaluation.model:
+            model_config.model = evaluation.model
+        if evaluation.model_provider:
+            model_config.provider = evaluation.model_provider
+        if evaluation.model_base_url:
+            model_config.base_url = evaluation.model_base_url
+        if evaluation.ollama_host:
+            model_config.host = evaluation.ollama_host
+        if evaluation.temperature is not None:
+            model_config.temperature = evaluation.temperature
+        model_config.seed = model_seed
+        if evaluation.timeout_seconds is not None:
+            model_config.timeout_seconds = evaluation.timeout_seconds
+        model_config.__post_init__()
+    return config
 
 
 def _model(
@@ -116,27 +153,25 @@ def _model(
     )
 
 
-def build_evaluation_orchestrator(
+def build_conversation_orchestrator(
     config: PrefMemConfig,
-    executor: BenchmarkEpisodeExecutor,
+    executor: CounterfactualSequenceExecutor,
     artifact_dir: str | Path,
     *,
     memory_mode: str = "full",
     display_all: bool = False,
 ) -> HRIOrchestrator:
-    """Build PrefMem with isolated repositories and structured audit sinks."""
+    """Build PrefMem with isolated repositories and recorded memory delivery."""
 
-    artifact_dir = Path(artifact_dir)
-    artifact_recorder = EvaluationArtifactRecorder(artifact_dir)
+    recorder = EvaluationArtifactRecorder(artifact_dir)
     output_display = AgentOutputDisplay(
         enabled=display_all,
-        observer=artifact_recorder.agent_events,
+        observer=recorder.agent_events,
     )
-    telemetry = artifact_recorder.model_calls
-
+    telemetry = recorder.model_calls
     history_repository = HistoryRepository(config.history_store_path)
     preference_repository = PreferenceRepository(config.preference_store_path)
-    memory_agent = MemoryAgent(
+    memory_agent: Any = MemoryAgent(
         config.memory,
         history_repository,
         preference_repository,
@@ -155,7 +190,9 @@ def build_evaluation_orchestrator(
         preference_proposal_confidence=config.preference_proposal_confidence,
         compact_after_write=config.compact_preferences_after_write,
     )
-    memory_agent = apply_memory_mode(memory_agent, memory_mode)
+    memory_agent = record_memory_context(
+        apply_memory_mode(memory_agent, memory_mode)
+    )
     planner_agent = PlannerAgent(
         config.planner,
         vision=config.vision,
@@ -189,40 +226,40 @@ def build_evaluation_orchestrator(
         executor=executor,
         output_display=output_display,
     )
-    # Evaluation runners inspect this only after a turn has returned. It never
-    # enters an agent prompt or changes the agent's control flow.
-    orchestrator.evaluation_artifact_status = artifact_recorder.status
+    orchestrator.evaluation_artifact_status = recorder.status
     return orchestrator
 
 
-def evaluation_orchestrator_factory(
-    *,
-    memory_mode: str = "full",
-    display_all: bool = False,
-) -> Callable[..., HRIOrchestrator]:
-    """Adapt :func:`build_evaluation_orchestrator` to runner factory hooks."""
-
-    def factory(
-        config: PrefMemConfig,
-        _episode: Any,
-        executor: BenchmarkEpisodeExecutor,
-        artifact_dir: Path,
-        _user_id: str,
-    ) -> HRIOrchestrator:
-        return build_evaluation_orchestrator(
-            config,
-            executor,
-            artifact_dir,
-            memory_mode=memory_mode,
-            display_all=display_all,
-        )
-
-    return factory
+def default_conversation_orchestrator_factory(
+    context: ConversationRunContext,
+) -> HRIOrchestrator:
+    first = context.episodes[context.case.commands[0].episode_id]
+    episode = BenchmarkEpisode.from_path(
+        first.path,
+        context.config.benchmark_root,
+    )
+    executor = CounterfactualSequenceExecutor(episode)
+    config = build_prefmem_config(
+        context.config,
+        episode,
+        context.run_directory,
+        context.case.user_id,
+        model_seed=context.model_seed,
+    )
+    return build_conversation_orchestrator(
+        config,
+        executor,
+        context.run_directory / "artifacts",
+        memory_mode=context.config.memory_mode,
+        display_all=context.config.display_all,
+    )
 
 
 __all__ = [
     "EvaluationArtifactRecorder",
     "EvaluationArtifactSink",
-    "build_evaluation_orchestrator",
-    "evaluation_orchestrator_factory",
+    "build_conversation_orchestrator",
+    "build_prefmem_config",
+    "default_conversation_orchestrator_factory",
 ]
+

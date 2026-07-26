@@ -141,9 +141,32 @@ For a question, `pending_question` is:
 }
 ```
 
-For `TASK_CLARIFICATION` and `TASK_CONFIRMATION`, use `"payload": {}` when no
-structured metadata is needed; never use `null`. For `MEMORY_CONSENT`, `payload` must
-be an object containing the exact `preference_request` proposal.
+For `TASK_CLARIFICATION`, use `"payload": {}`; never use `null`.
+
+For `TASK_CONFIRMATION`, `payload` must contain the exact proposed current task in
+a structured form sufficient to determine its semantics without parsing the
+assistant's prose:
+
+```json
+{
+  "proposed_task": {
+    "confirmed_intent": "Put printed items on the left and electronic devices on the right.",
+    "task_type": "sort_categories",
+    "objects": ["printed items", "electronic devices"],
+    "parameters": {
+      "category_to_side": {
+        "printed": "left",
+        "electronic": "right"
+      }
+    }
+  }
+}
+```
+
+The proposal must not contain benchmark-oracle fields such as `scenario_id`,
+`target_id`, `expected_outcome`, `control_kind`, or `goal_predicates`.
+
+For `MEMORY_CONSENT`, `payload` must be an object containing the exact
 
 Only `MEMORY_CONSENT` requires `preference_request`. `EXECUTE` requires a non-null
 `task_contract`. Keep `trace` concise; it is diagnostic and will never enter history.

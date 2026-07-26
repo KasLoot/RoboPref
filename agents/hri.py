@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import uuid
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,16 @@ MEMORY_ACTIONS = {
     "CORRECT",
     "CANCEL",
 }
+
+_TASK_PROPOSAL_ORACLE_KEYS = frozenset(
+    {
+        "scenario_id",
+        "target_id",
+        "expected_outcome",
+        "control_kind",
+        "goal_predicates",
+    }
+)
 
 
 def _agent_failure_evidence(
@@ -293,6 +304,7 @@ class HRIOrchestrator:
 
         result: dict[str, Any] = {
             "hri": copy.deepcopy(response),
+            "hri_decision": copy.deepcopy(response),
             "memory": memory_result,
             "task": None,
             "awaiting_user": response["mode"] != "EXECUTE" and response["mode"] != "REPORT",
@@ -854,12 +866,26 @@ class HRIOrchestrator:
                 attempt,
                 event="initial-observation",
             )
+            attempt_record["initial_validation"] = (
+                validation.to_dict() if validation else None
+            )
+            attempt_record["initial_validation_assurance"] = validation_gate.to_dict()
             reobservations: list[dict[str, Any]] = []
             for reobservation_index in range(1, self.config.max_reobservations + 1):
                 if validation_gate.next_action != "REOBSERVE":
                     break
+                reobserve = getattr(self.executor, "reobserve", None)
                 observe = getattr(self.executor, "observe", None)
-                refreshed_path = str(observe()) if callable(observe) else execution.final_observation
+                if callable(reobserve):
+                    refreshed_path = str(
+                        reobserve(index=reobservation_index)
+                    )
+                else:
+                    refreshed_path = (
+                        str(observe())
+                        if callable(observe)
+                        else execution.final_observation
+                    )
                 refreshed = ExecutionResult(
                     status="OBSERVATION_ONLY",
                     final_observation=refreshed_path,
@@ -1332,13 +1358,13 @@ class HRIOrchestrator:
         if isinstance(pending_question, dict):
             kind = str(pending_question.get("kind", ""))
             if (
-                kind in {"TASK_CLARIFICATION", "TASK_CONFIRMATION"}
+                kind == "TASK_CLARIFICATION"
                 and pending_question.get("payload") is None
             ):
                 # Some JSON-mode models use null for an empty optional object.
-                # Task questions do not carry mutation authority, so normalizing
-                # null to an empty object is lossless. MEMORY_CONSENT remains
-                # fail-closed because its payload defines the proposed write.
+                # Clarifications do not carry a proposal or mutation authority,
+                # so this is lossless. Confirmations and memory consent remain
+                # fail-closed because their payloads authorize later decisions.
                 pending_question["payload"] = {}
         memory_action = result.get("memory_action")
         if memory_action is None:
@@ -1369,6 +1395,20 @@ class HRIOrchestrator:
             if task_mode is not None:
                 result["mode"] = task_mode
 
+        if result["mode"] == "CONFIRM" and isinstance(pending_raw, dict):
+            payload = pending_raw.get("payload")
+            if not isinstance(payload, Mapping):
+                raise HRIContractError(
+                    "TASK_CONFIRMATION requires an object payload containing proposed_task."
+                )
+            normalized_payload = copy.deepcopy(dict(payload))
+            normalized_payload["proposed_task"] = (
+                HRIOrchestrator._normalize_task_proposal(
+                    payload.get("proposed_task")
+                )
+            )
+            pending_raw["payload"] = normalized_payload
+
         # The physical task is already terminal here. A null report from the model
         # is harmless only when it resolves the exact pending MEMORY_CONSENT prompt.
         # Synthesize a non-claiming envelope; the actual transaction still happens
@@ -1393,6 +1433,50 @@ class HRIOrchestrator:
                 "next_action": "NONE",
             }
         return result
+
+    @staticmethod
+    def _normalize_task_proposal(raw: Any) -> dict[str, Any]:
+        if not isinstance(raw, Mapping):
+            raise HRIContractError(
+                "TASK_CONFIRMATION requires payload.proposed_task."
+            )
+
+        def reject_oracle_keys(value: Any, path: str = "proposed_task") -> None:
+            if isinstance(value, Mapping):
+                for key, item in value.items():
+                    normalized_key = str(key).strip().casefold()
+                    child_path = f"{path}.{key}"
+                    if normalized_key in _TASK_PROPOSAL_ORACLE_KEYS:
+                        raise HRIContractError(
+                            "Task proposal contains oracle-only field "
+                            f"{child_path}."
+                        )
+                    reject_oracle_keys(item, child_path)
+            elif isinstance(value, (list, tuple)):
+                for index, item in enumerate(value):
+                    reject_oracle_keys(item, f"{path}[{index}]")
+
+        reject_oracle_keys(raw)
+        confirmed_intent = str(raw.get("confirmed_intent", "")).strip()
+        task_type = str(raw.get("task_type", "")).strip()
+        objects = raw.get("objects", [])
+        parameters = raw.get("parameters")
+        if not confirmed_intent or not task_type:
+            raise HRIContractError(
+                "A proposed task requires confirmed_intent and task_type."
+            )
+        if not isinstance(objects, list):
+            raise HRIContractError("Proposed task objects must be a list.")
+        if not isinstance(parameters, Mapping):
+            raise HRIContractError(
+                "A proposed task requires structured parameters."
+            )
+        return {
+            "confirmed_intent": confirmed_intent,
+            "task_type": task_type,
+            "objects": [str(item) for item in objects],
+            "parameters": copy.deepcopy(dict(parameters)),
+        }
 
     @staticmethod
     def _validate_hri_transition(

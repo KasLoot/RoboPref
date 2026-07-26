@@ -78,14 +78,19 @@ through `agents.vla.CallableVLAExecutor` or the `VLAExecutor` protocol.
 
 Interactive model, prompt, memory, vision, semantic threshold, and recovery defaults
 are in `agents/configs.py`; interactive PrefMem remains Ollama-backed by default.
-The `evaluate` and `evaluate-memory` batch commands instead default to vLLM model
-`/workspace/models/gemma-4-26B-A4B-it` at `http://localhost:8000/v1`. Use
-`--model-provider`, `--model`, and `--model-base-url` to override those evaluation
-settings. To evaluate with Ollama, pass `--model-provider ollama` and optionally
-`--ollama-host`.
-Add `--display_all` to print the complete structured outputs from HRI, Memory, Planner,
-VLA, Validator, and Task Assurance. This diagnostic output is also captured by the
-configured terminal transcript; raw image bytes and hidden reasoning fields are omitted.
+The `evaluate-conversations` batch command instead defaults to vLLM model
+`/workspace/models/gemma-4-26B-A4B-it` at `http://localhost:8000/v1`. It runs
+endpoint, dialogue, memory, recovery, and safety behavior suites through the same
+HRI interface as an interactive transcript. The checked-in packets produce 594
+isolated conversations and 810 commands; summary v2 separates functional from
+audited success and retains planned missing/error denominators. Use
+`--model-provider`, `--model`, and `--model-base-url` to override model settings. To
+evaluate with Ollama, pass `--model-provider ollama` and optionally `--ollama-host`.
+See
+[`docs/PREFMEM_EVALUATION.md`](docs/PREFMEM_EVALUATION.md) for the full methodology.
+Add `--display-all` to print the complete structured outputs from HRI, Memory,
+Planner, VLA, Validator, and Task Assurance. Raw image bytes and hidden reasoning
+fields are omitted.
 
 ## Safe legacy-memory inspection
 

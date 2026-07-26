@@ -428,7 +428,7 @@ class HRIQuestionTypingTests(unittest.TestCase):
                         "pending_question": {
                             "kind": "TASK_CONFIRMATION",
                             "prompt_id": "confirm_stacking_order",
-                            "payload": {},
+                            "payload": {"proposed_task": {"confirmed_intent": "Stack the blocks in RGB order from bottom to top.", "task_type": "stack_blocks", "objects": ["red block", "green block", "blue block"], "parameters": {"order": "RGB"}}},
                         },
                         "memory_action": {
                             "action": "NONE",
@@ -650,7 +650,7 @@ class HRIQuestionTypingTests(unittest.TestCase):
                     "user_message": "Use RGB for this task?",
                     "pending_question": {
                         "kind": "TASK_CONFIRMATION",
-                        "payload": {"proposed_order": "RGB"},
+                        "payload": {"proposed_task": {"confirmed_intent": "Stack RGB bottom-to-top.", "task_type": "stack_blocks", "objects": ["red block", "green block", "blue block"], "parameters": {"order": "RGB"}}},
                     },
                     "memory_action": {"action": "NONE"},
                 },

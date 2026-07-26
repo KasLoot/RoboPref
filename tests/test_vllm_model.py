@@ -23,19 +23,13 @@ from agents.model import (
     build_json_model,
     effective_model_base_url,
 )
-from simulation.benchmark import evaluation_runtime
-from simulation.benchmark.evaluation import (
-    EvaluationConfig,
-    _config_payload,
-    _select_episodes,
-)
+from simulation.benchmark import __main__ as benchmark_main
+from simulation.benchmark.conversation_models import ConversationEvaluationConfig
 from simulation.benchmark.model_defaults import (
     DEFAULT_EVALUATION_MODEL,
     DEFAULT_EVALUATION_PROVIDER,
     default_evaluation_prefmem_config,
 )
-from simulation.benchmark.protocol_evaluation import _config_metadata
-from simulation.benchmark import __main__ as benchmark_main
 
 
 class VLLMJsonModelTests(unittest.TestCase):
@@ -346,189 +340,77 @@ class ModelProviderFactoryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported model provider"):
             build_json_model(config)
 
-    def test_evaluation_factory_delegates_to_shared_builder(self) -> None:
-        config = AgentModelConfig(provider="vllm", model="served-model")
-        sentinel = Mock()
-        observer = Mock()
-        with patch.object(
-            evaluation_runtime,
-            "build_json_model",
-            return_value=sentinel,
-        ) as builder:
-            result = evaluation_runtime._model(
-                config,
-                agent_name="Memory Agent",
-                telemetry_observer=observer,
-            )
 
-        self.assertIs(result, sentinel)
-        builder.assert_called_once_with(
-            config,
-            agent_name="Memory Agent",
-            telemetry_observer=observer,
-        )
-
-
-class VLLMProvenanceTests(unittest.TestCase):
-    def test_batch_evaluation_defaults_to_local_vllm(self) -> None:
-        config = EvaluationConfig(
-            benchmark_root=".",
-            output_dir="/tmp/robopref-evaluation-defaults",
-        )
-        self.assertEqual(config.model_provider, DEFAULT_EVALUATION_PROVIDER)
-        self.assertEqual(config.model, DEFAULT_EVALUATION_MODEL)
-
-        protocol_config = default_evaluation_prefmem_config()
+class VLLMConversationEvaluationTests(unittest.TestCase):
+    def test_evaluation_model_defaults_use_local_vllm(self) -> None:
+        config = default_evaluation_prefmem_config()
         for name in ("hri", "memory", "planner", "validator"):
-            agent_config = getattr(protocol_config, name)
-            self.assertEqual(
-                agent_config.provider, DEFAULT_EVALUATION_PROVIDER
-            )
+            agent_config = getattr(config, name)
+            self.assertEqual(agent_config.provider, DEFAULT_EVALUATION_PROVIDER)
             self.assertEqual(agent_config.model, DEFAULT_EVALUATION_MODEL)
             self.assertEqual(
                 effective_model_base_url(agent_config),
                 VLLM_DEFAULT_BASE_URL,
             )
 
-    def test_evaluation_config_uses_shared_url_validation(self) -> None:
-        config = EvaluationConfig(
+    def test_conversation_config_uses_shared_url_validation(self) -> None:
+        config = ConversationEvaluationConfig(
             benchmark_root=".",
-            output_dir="/tmp/robopref-evaluation-config",
+            output_dir="/tmp/robopref-conversation-config",
             model_provider="vllm",
             model_base_url="http://localhost:8000/v1/",
         )
         self.assertEqual(config.model_base_url, VLLM_DEFAULT_BASE_URL)
-
         with self.assertRaises(ValueError):
-            EvaluationConfig(
+            ConversationEvaluationConfig(
                 benchmark_root=".",
-                output_dir="/tmp/robopref-evaluation-config",
+                output_dir="/tmp/robopref-conversation-config",
                 model_provider="vllm",
                 model_base_url="http://user:secret@localhost:8000/v1",
             )
         with self.assertRaisesRegex(ValueError, "requires model_provider"):
-            EvaluationConfig(
+            ConversationEvaluationConfig(
                 benchmark_root=".",
-                output_dir="/tmp/robopref-evaluation-config",
+                output_dir="/tmp/robopref-conversation-config",
                 model_provider="ollama",
                 model_base_url=VLLM_DEFAULT_BASE_URL,
             )
-        with self.assertRaisesRegex(ValueError, "ollama_host"):
-            EvaluationConfig(
-                benchmark_root=".",
-                output_dir="/tmp/robopref-evaluation-config",
-                model_provider="vllm",
-                ollama_host="http://localhost:11434",
-            )
 
-    def test_cold_metadata_records_effective_default_url(self) -> None:
-        benchmark_root = Path(__file__).resolve().parents[1] / "dataset/sim_datasets"
-        config = EvaluationConfig(
-            benchmark_root=benchmark_root,
-            output_dir="/tmp/robopref-cold-provenance",
-            model_provider="vllm",
-            max_scenarios=1,
+    def test_conversation_cli_preserves_vllm_settings(self) -> None:
+        args = benchmark_main._parser().parse_args(
+            [
+                "evaluate-conversations",
+                "dataset/sim_datasets",
+                "--output",
+                "/tmp/robopref-conversation-output",
+                "--model-provider",
+                "vllm",
+                "--model-base-url",
+                "http://localhost:9100/v1/",
+                "--model",
+                "/models/benchmark-gemma",
+            ]
         )
-        selected = _select_episodes(config)
-        payload = _config_payload(
-            config,
-            selected,
-            main_module.PrefMem,
-        )
-        self.assertEqual(
-            set(payload["agent"]["base_urls"].values()),
-            {VLLM_DEFAULT_BASE_URL},
-        )
+        config = benchmark_main._conversation_config(args)
+        self.assertEqual(config.model_provider, "vllm")
+        self.assertEqual(config.model_base_url, "http://localhost:9100/v1")
+        self.assertEqual(config.model, "/models/benchmark-gemma")
 
-    def test_protocol_metadata_records_effective_default_url(self) -> None:
-        config = PrefMemConfig()
-        for name in ("hri", "memory", "planner", "validator"):
-            getattr(config, name).provider = "vllm"
-
-        metadata = _config_metadata(config)
-        for agent_metadata in metadata["agents"].values():
-            self.assertEqual(
-                agent_metadata["base_url"],
-                VLLM_DEFAULT_BASE_URL,
-            )
+    def test_conversation_cli_defaults_to_vllm(self) -> None:
+        args = benchmark_main._parser().parse_args(
+            [
+                "evaluate-conversations",
+                "dataset/sim_datasets",
+                "--output",
+                "/tmp/robopref-conversation-default",
+            ]
+        )
+        config = benchmark_main._conversation_config(args)
+        self.assertEqual(config.model_provider, DEFAULT_EVALUATION_PROVIDER)
+        self.assertIsNone(config.model)
 
 
 class VLLMCLIConfigTests(unittest.TestCase):
-    def test_benchmark_cli_defaults_to_local_vllm(self) -> None:
-        parser = benchmark_main._parser()
-        cold_args = parser.parse_args(
-            [
-                "evaluate",
-                "dataset/sim_datasets",
-                "--output",
-                "/tmp/robopref-default-cold",
-            ]
-        )
-        cold_config = benchmark_main._cold_config(cold_args)
-        self.assertEqual(cold_config.model_provider, DEFAULT_EVALUATION_PROVIDER)
-        self.assertEqual(cold_config.model, DEFAULT_EVALUATION_MODEL)
-        self.assertFalse(cold_args.no_progress)
-
-        memory_args = parser.parse_args(
-            [
-                "evaluate-memory",
-                "dataset/sim_datasets",
-                "--output",
-                "/tmp/robopref-default-memory",
-            ]
-        )
-        memory_config = benchmark_main._base_config(memory_args)
-        for agent_config in (
-            memory_config.hri,
-            memory_config.memory,
-            memory_config.planner,
-            memory_config.validator,
-        ):
-            self.assertEqual(agent_config.provider, DEFAULT_EVALUATION_PROVIDER)
-            self.assertEqual(agent_config.model, DEFAULT_EVALUATION_MODEL)
-            self.assertEqual(
-                effective_model_base_url(agent_config), VLLM_DEFAULT_BASE_URL
-            )
-
-    def test_benchmark_cli_allows_explicit_ollama_override(self) -> None:
-        parser = benchmark_main._parser()
-        cold_args = parser.parse_args(
-            [
-                "evaluate",
-                "dataset/sim_datasets",
-                "--output",
-                "/tmp/robopref-ollama-cold",
-                "--model-provider",
-                "ollama",
-            ]
-        )
-        cold_config = benchmark_main._cold_config(cold_args)
-        self.assertEqual(cold_config.model_provider, "ollama")
-        self.assertIsNone(cold_config.model)
-        self.assertIsNone(cold_config.model_base_url)
-
-        memory_args = parser.parse_args(
-            [
-                "evaluate-memory",
-                "dataset/sim_datasets",
-                "--output",
-                "/tmp/robopref-ollama-memory",
-                "--model-provider",
-                "ollama",
-            ]
-        )
-        memory_config = benchmark_main._base_config(memory_args)
-        default_model = AgentModelConfig().model
-        for agent_config in (
-            memory_config.hri,
-            memory_config.memory,
-            memory_config.planner,
-            memory_config.validator,
-        ):
-            self.assertEqual(agent_config.provider, "ollama")
-            self.assertEqual(agent_config.model, default_model)
-            self.assertIsNone(effective_model_base_url(agent_config))
-
     def test_interactive_cli_applies_vllm_settings_to_all_agents(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             transcript = Path(directory) / "terminal.txt"
@@ -566,56 +448,6 @@ class VLLMCLIConfigTests(unittest.TestCase):
             self.assertEqual(agent_config.base_url, "http://localhost:9000/v1")
             self.assertEqual(agent_config.model, "/models/local-gemma")
 
-    def test_cold_benchmark_cli_preserves_vllm_settings(self) -> None:
-        args = benchmark_main._parser().parse_args(
-            [
-                "evaluate",
-                "dataset/sim_datasets",
-                "--output",
-                "/tmp/robopref-cold-output",
-                "--model-provider",
-                "vllm",
-                "--model-base-url",
-                "http://localhost:9100/v1/",
-                "--model",
-                "/models/benchmark-gemma",
-            ]
-        )
-
-        config = benchmark_main._cold_config(args)
-
-        self.assertEqual(config.model_provider, "vllm")
-        self.assertEqual(config.model_base_url, "http://localhost:9100/v1")
-        self.assertEqual(config.model, "/models/benchmark-gemma")
-
-    def test_memory_benchmark_cli_applies_vllm_settings_to_all_agents(self) -> None:
-        args = benchmark_main._parser().parse_args(
-            [
-                "evaluate-memory",
-                "dataset/sim_datasets",
-                "--output",
-                "/tmp/robopref-memory-output",
-                "--model-provider",
-                "vllm",
-                "--model-base-url",
-                "http://localhost:9200/v1/",
-                "--model",
-                "/models/protocol-gemma",
-            ]
-        )
-
-        config = benchmark_main._base_config(args)
-
-        for agent_config in (
-            config.hri,
-            config.memory,
-            config.planner,
-            config.validator,
-        ):
-            self.assertEqual(agent_config.provider, "vllm")
-            self.assertEqual(agent_config.base_url, "http://localhost:9200/v1")
-            self.assertEqual(agent_config.model, "/models/protocol-gemma")
-
     def test_interactive_cli_rejects_mismatched_or_invalid_options(self) -> None:
         parser = main_module.build_parser()
         invalid_argv = (
@@ -642,7 +474,7 @@ class VLLMCLIConfigTests(unittest.TestCase):
     def test_benchmark_cli_rejects_mismatched_or_invalid_options(self) -> None:
         parser = benchmark_main._parser()
         base = [
-            "evaluate",
+            "evaluate-conversations",
             "dataset/sim_datasets",
             "--output",
             "/tmp/robopref-invalid-options",

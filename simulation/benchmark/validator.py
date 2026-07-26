@@ -13,7 +13,6 @@ from PIL import Image, ImageChops, UnidentifiedImageError
 from .canonical import catalog_values_equal
 from .catalog import FAMILY_DEFINITIONS, build_catalog, build_control_catalog
 from .generator import SCHEMA_VERSION, _scenario_manifest
-from .protocols import build_memory_protocols, memory_protocol_fixtures
 
 
 OPAQUE_SCENARIO_ID = re.compile(r"^ep-[0-9a-f]{24}$")
@@ -40,6 +39,15 @@ class ValidationReport:
     scenario_count: int
     errors: tuple[str, ...]
     warnings: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "root": str(self.root),
+            "valid": self.valid,
+            "scenario_count": self.scenario_count,
+            "errors": list(self.errors),
+            "warnings": list(self.warnings),
+        }
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -422,31 +430,6 @@ def validate_benchmark(root: str | Path) -> ValidationReport:
             errors.append(f"index.json is invalid: {error}")
     else:
         warnings.append("index.json is missing; matrix completeness was not checked")
-
-    protocols_path = root / "protocols.json"
-    if protocols_path.is_file():
-        try:
-            protocols = _load_json(protocols_path)
-            if declared_scenarios is None:
-                errors.append(
-                    "protocols.json cannot be bound because index.json has no "
-                    "valid family/seed declaration"
-                )
-            else:
-                expected_protocols = {
-                    "schema_version": "robopref.memory-protocols.v1",
-                    "fixtures": memory_protocol_fixtures(),
-                    "protocols": build_memory_protocols(
-                        declared_scenarios
-                    ),
-                }
-                if protocols != expected_protocols:
-                    errors.append(
-                        "protocols.json differs from the declared scenario "
-                        "matrix or canonical fixture bundle"
-                    )
-        except (OSError, ValueError, json.JSONDecodeError) as error:
-            errors.append(f"protocols.json is invalid: {error}")
 
     return ValidationReport(
         root=root,
