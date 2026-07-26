@@ -282,3 +282,167 @@ simulated interruption at the execution boundary, so PrefMem exercises its “do
 call Validator after unsafe execution” contract without exposing the expected label
 to a model. Programmatic experiments can construct this executor from
 `BenchmarkEpisode.from_path(...)` and inject it into `HRIOrchestrator`.
+
+## CLI command forms
+
+Use either `python -m simulation.benchmark` or the installed
+`robopref-benchmark` console alias. All subcommands accept `-h`/`--help`; place it
+after the subcommand to see that command's fields.
+
+**Top-level syntax**
+
+```text
+python -m simulation.benchmark {generate|validate|list|evaluate|evaluate-memory} [FIELDS]
+```
+
+| Command | Purpose |
+|---|---|
+| `generate` | Create deterministic endpoint packets and optional memory protocols. |
+| `validate` | Check packet structure, hashes, scenario semantics, and index consistency. |
+| `list` | Print the declared scenario matrix without rendering packets. |
+| `evaluate` | Run isolated cold-memory task trials and strict oracle-side scoring. |
+| `evaluate-memory` | Run stateful multi-conversation memory protocols. |
+
+### Generate packets: `generate`
+
+**Syntax**
+
+```text
+python -m simulation.benchmark generate --output PATH [FIELDS]
+```
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `--output PATH` | Yes | No default | Destination benchmark root. Generation creates `index.json` and `episodes/`; choose a new path unless intentionally regenerating. |
+| `--families FAMILY ...` | No | All three families | Space-separated subset of `block_stack`, `category_sort`, and `place_setting`. At least one value must follow the flag. |
+| `--seeds N ...` | No | `1` | One or more integer scene seeds. Use multiple seeds to create independent physical-scene variants. |
+| `--backend BACKEND` | No | `synthetic` | `synthetic` uses deterministic Pillow rendering; `mujoco` uses the archived ARX L5 scene for static snapshots. |
+| `--overwrite` | No | Off | Regenerates existing packets after renderer or schema changes. Without it, matching files are preserved idempotently. |
+| `--include-controls` | No | Off | Adds already-satisfied, observation-only control packets with zero expected VLA dispatches. |
+| `--write-memory-protocols` | No | Off | Writes `protocols.json` with semantic multi-conversation memory fixtures matched to the generated catalog. |
+| `-h`, `--help` | No | Off | Prints the `generate` parser help and exits. |
+
+Values following `--families` and `--seeds` are space-separated, not comma-separated.
+
+### Validate packets: `validate`
+
+**Syntax**
+
+```text
+python -m simulation.benchmark validate ROOT
+```
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `ROOT` | Yes | No default | Generated benchmark directory containing `index.json` and `episodes/`. Validation is read-only and exits nonzero when errors are found. |
+| `-h`, `--help` | No | Off | Prints the `validate` parser help and exits. |
+
+### List the scenario matrix: `list`
+
+**Syntax**
+
+```text
+python -m simulation.benchmark list [FIELDS]
+```
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `--families FAMILY ...` | No | All three families | Space-separated subset of `block_stack`, `category_sort`, and `place_setting`. |
+| `--seeds N ...` | No | `1` | Integer seeds for which catalog entries should be declared. |
+| `-h`, `--help` | No | Off | Prints the `list` parser help and exits. |
+
+The command prints JSON metadata only; it does not render images or write a benchmark.
+
+### Run one generated packet interactively: `main.py`
+
+**Syntax**
+
+```text
+python main.py --dataset PACKET --benchmark [OPTIONS]
+```
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `--dataset PACKET` | Yes in benchmark mode | No benchmark default | Opaque episode directory under `ROOT/episodes/`; do not pass `manifest.json` itself. |
+| `--benchmark` | Yes for this use | Off | Selects `BenchmarkEpisodeExecutor`, including manifest-aware safety interruption without exposing oracle labels to models. |
+| `--display_all`, `--display-all` | No | Off | Shows structured diagnostics from all agents and assurance gates while debugging the packet. |
+| `-h`, `--help` | No | Off | Prints every `main.py` field and exits. |
+
+The complete model, memory-store, recovery, transcript, and user fields for this same
+parser are documented in the root README's [interactive PrefMem form](../README.md#interactive-prefmem-mainpy).
+
+### Common batch-evaluation fields
+
+The following fields are parsed by both `evaluate` and `evaluate-memory`.
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `ROOT` | Yes | No default | Valid generated benchmark root. The evaluator keeps it immutable and requires the output directory to be disjoint. |
+| `--output PATH` | Yes | No default | Directory for frozen run configuration, durable JSONL results, summaries, and isolated run artifacts. |
+| `--repetitions N` | No | `1` | Positive number of model repetitions per selected scenario or protocol. |
+| `--dry-run` | No | Off | Validates the dataset and selection plan, prints planned counts, makes zero model calls, and creates no output directory. |
+| `--no-resume` | No | Resume enabled | Refuses an output directory that already contains durable results instead of skipping compatible completed keys. |
+| `--model MODEL_ID` | No | `/workspace/models/gemma-4-26B-A4B-it` with default vLLM | Model identifier applied to HRI, Memory, Planner, and Validator. It must match the server-advertised vLLM ID. |
+| `--model-provider PROVIDER` | No | `vllm` | Backend for all four VLM agents: `vllm` or `ollama`. Pass `ollama` explicitly to use the interactive default backend. |
+| `--model-base-url URL` | No | `http://localhost:8000/v1` for vLLM | OpenAI-compatible API root ending in `/v1`; credentials belong in `VLLM_API_KEY`, not in this URL. |
+| `--ollama-host URL` | No | Ollama client default | Ollama endpoint override. Use only with `--model-provider ollama`. |
+| `--temperature FLOAT` | No | `0.0` | Non-negative sampling temperature applied to all four VLM agents. |
+| `--model-seed N` | No | Unset | Non-negative base sampling seed. Repetition `r` uses `N + r - 1`. |
+| `--timeout-seconds FLOAT` | No | `120.0` | Positive per-model-call timeout for every VLM agent. |
+| `--resize-images` | No | Off | Resizes model-bound images using PrefMem's configured `640×480` vision bounds. |
+| `--max-replans N` | No | `1` | Non-negative maximum number of additional planning/recovery attempts. Use `0` to disable replanning. |
+| `--max-reobservations N` | No | `1` | Non-negative maximum number of re-observations after `UNKNOWN`. Use `0` to disable them. |
+| `--memory-mode MODE` | No | `full` | Evaluation-only ablation: `full`, `no-memory`, `history-only`, or `preference-only`; disabled channels are removed for both reads and writes. |
+| `--display_all`, `--display-all` | No | Off | Prints structured background-agent diagnostics in addition to persisting sanitized events. |
+| `--no-progress` | No | Progress shown | Disables the resume-aware tqdm bar on standard error; JSON output on standard output is unchanged. |
+| `-h`, `--help` | No | Off | Prints the selected evaluation subcommand's parser help and exits. |
+
+Changing any frozen semantic setting—including provider, model, endpoint, filters, seeds,
+memory mode, prompts, or recovery budgets—requires a new output directory. vLLM URLs require
+`--model-provider vllm`; `--ollama-host` is incompatible with that provider.
+
+### Cold-memory evaluation: `evaluate`
+
+**Syntax**
+
+```text
+python -m simulation.benchmark evaluate ROOT --output PATH [COMMON FIELDS] [FIELDS]
+```
+
+Use all fields in the common batch-evaluation form above, plus these cold-study fields:
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `--condition LABEL` | No | `full` | Stable experiment label written to every record and used in the durable resume key. Use a distinct label for each ablation or experimental condition. |
+| `--families FAMILY ...` | No | All families | Filters to `block_stack`, `category_sort`, and/or `place_setting`. |
+| `--scene-variants VALUE ...` | No | All variants | Filters scene layouts. Core values are `wide_scatter`, `compact_scatter`, `front_row`, `interleaved_scatter`, `front_scatter`, and `radial_scatter`; controls use `control_already_satisfied`. |
+| `--target-ids VALUE ...` | No | All targets | Filters semantic targets: `rgb_bottom_to_top`, `bgr_bottom_to_top`, `printed_left`, `electronics_left`, `right_handed`, or `left_handed`. |
+| `--outcomes VALUE ...` | No | All outcomes | Filters to `success`, `wrong_complete`, `partial`, `near_miss`, `unknown`, and/or `unsafe`. |
+| `--seeds N ...` | No | All generated seeds | Filters existing packets by integer scene seed; it does not generate new packets. |
+| `--scenario-ids ID ...` | No | All scenario IDs | Selects exact opaque IDs from `ROOT/index.json`, useful for reproducing individual failures. |
+| `--exclude-controls` | No | Controls included | Removes already-satisfied observation-only controls from the selected set. |
+| `--max-scenarios N` | No | Unlimited | Positive cap applied with deterministic balanced sampling before repetitions are expanded. Useful for pilots. |
+| `--shuffle-seed N` | No | `0` | Integer seed controlling randomized trial order; it does not change packet contents or model sampling. |
+| `--fail-fast` | No | Off | After durably recording an infrastructure/runtime `ERROR`, stops instead of continuing to later trials. Ordinary strict-check failures do not trigger it. |
+
+Selection filters are combined: a packet must satisfy every supplied filter. A request
+that selects zero packets is rejected. Keep selection fields and `--shuffle-seed` fixed
+when comparing model or memory conditions.
+
+### Stateful memory evaluation: `evaluate-memory`
+
+**Syntax**
+
+```text
+python -m simulation.benchmark evaluate-memory ROOT --output PATH [COMMON FIELDS] [FIELDS]
+```
+
+Use all fields in the common batch-evaluation form above, plus these protocol fields:
+
+| Field | Required | Value / default | Meaning and usage |
+|---|---:|---|---|
+| `--protocol-ids ID ...` | No | Every protocol in the bundle | Space-separated exact protocol IDs, such as `memory-repeat-defer-then-consent`; unknown or duplicate selections are rejected. |
+| `--protocols-path PATH` | No | `ROOT/protocols.json` | Validated semantic protocol bundle override. Use it to evaluate a separately versioned bundle against the same packet catalog. |
+
+Protocol preflight resolves every selector for every repetition before creating output
+or calling a model. Resume keys are `(protocol_id, repetition)`, and each run gets fresh
