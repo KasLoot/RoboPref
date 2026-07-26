@@ -408,6 +408,20 @@ class VLLMConversationEvaluationTests(unittest.TestCase):
         config = benchmark_main._conversation_config(args)
         self.assertEqual(config.model_provider, DEFAULT_EVALUATION_PROVIDER)
         self.assertIsNone(config.model)
+        self.assertTrue(config.show_progress)
+
+    def test_conversation_cli_can_disable_progress(self) -> None:
+        args = benchmark_main._parser().parse_args(
+            [
+                "evaluate-conversations",
+                "dataset/sim_datasets",
+                "--output",
+                "/tmp/robopref-conversation-no-progress",
+                "--no-progress",
+            ]
+        )
+        config = benchmark_main._conversation_config(args)
+        self.assertFalse(config.show_progress)
 
 
 class VLLMCLIConfigTests(unittest.TestCase):

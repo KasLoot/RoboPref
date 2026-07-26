@@ -116,6 +116,10 @@ artifact status, and exact command ledger. Use a new output directory after a
 semantic change. If a process was interrupted before appending a result, its old
 run directory is preserved and the retry uses `rep-N-retry-M`.
 
+Interactive runs show a resume-aware `PrefMem evaluation` progress bar. It starts
+from the number of validated resumed runs and advances only after a result is
+durably appended. Pass `--no-progress` for redirected logs or batch schedulers.
+
 Useful pilots:
 
 ```bash

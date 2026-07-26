@@ -132,6 +132,11 @@ def _parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--no-resume", action="store_true")
     evaluate.add_argument("--fail-fast", action="store_true")
     evaluate.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Disable the terminal progress bar.",
+    )
+    evaluate.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate and print the case matrix without model calls.",
@@ -177,6 +182,7 @@ def _conversation_config(args: argparse.Namespace) -> ConversationEvaluationConf
         max_user_turns=args.max_user_turns,
         resume=not args.no_resume,
         fail_fast=args.fail_fast,
+        show_progress=not args.no_progress,
         memory_mode=args.memory_mode,
         model=args.model,
         model_provider=args.model_provider,

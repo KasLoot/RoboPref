@@ -277,6 +277,7 @@ class ConversationEvaluationConfig:
     max_user_turns: int = 6
     resume: bool = True
     fail_fast: bool = False
+    show_progress: bool = True
     memory_mode: str = "full"
     model: str | None = None
     model_provider: str | None = None

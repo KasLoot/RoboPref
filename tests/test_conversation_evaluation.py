@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 
 from simulation.benchmark.conversation_cases import (
     build_conversation_cases,
@@ -263,10 +264,58 @@ class ConversationEvaluationTests(unittest.TestCase):
             resume=False,
             fail_fast=True,
             display_all=True,
+            show_progress=False,
             bootstrap_replicates=20,
             bootstrap_seed=99,
         )
         self.assertEqual(first.semantic_dict(), second.semantic_dict())
+
+    def test_progress_tracks_fresh_and_resumed_runs(self) -> None:
+        bars: list[Any] = []
+
+        class Progress:
+            def __init__(self, **options: Any) -> None:
+                self.options = options
+                self.updates: list[int] = []
+                self.closed = False
+                bars.append(self)
+
+            def update(self, amount: int) -> None:
+                self.updates.append(amount)
+
+            def close(self) -> None:
+                self.closed = True
+
+        with tempfile.TemporaryDirectory() as directory:
+            config = ConversationEvaluationConfig(
+                benchmark_root=ROOT,
+                output_dir=directory,
+                suites=("endpoint",),
+                scenario_ids=(self.scenario.scenario_id,),
+                bootstrap_replicates=10,
+            )
+            with patch(
+                "simulation.benchmark.conversation_evaluation.tqdm",
+                Progress,
+            ):
+                evaluate_conversations(
+                    config,
+                    orchestrator_factory=fake_factory,
+                )
+                evaluate_conversations(
+                    config,
+                    orchestrator_factory=fake_factory,
+                )
+
+        self.assertEqual(len(bars), 2)
+        self.assertEqual(bars[0].options["total"], 1)
+        self.assertEqual(bars[0].options["initial"], 0)
+        self.assertEqual(bars[0].updates, [1])
+        self.assertTrue(bars[0].closed)
+        self.assertEqual(bars[1].options["total"], 1)
+        self.assertEqual(bars[1].options["initial"], 1)
+        self.assertEqual(bars[1].updates, [])
+        self.assertTrue(bars[1].closed)
 
     def test_wrapped_model_timeout_is_classified_as_timeout(self) -> None:
         try:

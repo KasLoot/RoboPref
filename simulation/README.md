@@ -145,6 +145,8 @@ selection fields are `--families`, `--scene-variants`, `--target-ids`, `--outcom
 `--seeds`, `--scenario-ids`, `--exclude-controls`, `--max-cases`, and
 `--shuffle-seed`. Limited pilots use deterministic round-robin stratification over
 suite/profile/family/outcome rather than an unstratified shuffled prefix.
+Interactive runs display a resume-aware progress bar; use `--no-progress` to
+disable it for redirected logs or batch schedulers.
 
 Recovery defaults to one replan and one re-observation. Near misses default to the
 `perceptual` policy; select `--near-miss-policy strict` for geometric failure

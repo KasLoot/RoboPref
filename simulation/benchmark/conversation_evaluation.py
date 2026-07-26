@@ -11,6 +11,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping
 
+from tqdm.auto import tqdm
+
 from agents.hri import HRIContractError
 from dataset.benchmark import BenchmarkEpisodeError
 
@@ -456,6 +458,7 @@ def evaluate_conversations(
                 "resume": config.resume,
                 "fail_fast": config.fail_fast,
                 "display_all": config.display_all,
+                "show_progress": config.show_progress,
             },
             "reporting_configuration": {
                 "bootstrap_replicates": config.bootstrap_replicates,
@@ -472,6 +475,14 @@ def evaluate_conversations(
     records = list(existing)
     executed = 0
     resumed = len(existing)
+    progress = tqdm(
+        total=planned_runs,
+        initial=resumed,
+        desc="PrefMem evaluation",
+        unit="run",
+        dynamic_ncols=True,
+        disable=None if config.show_progress else True,
+    )
     for case in cases:
         for repetition in range(1, config.repetitions + 1):
             key = (case.case_id, repetition)
@@ -528,10 +539,12 @@ def evaluate_conversations(
             _append_jsonl(results_path, record)
             records.append(record)
             executed += 1
+            progress.update(1)
             if config.fail_fast and (
                 record.get("run_status") != "COMPLETED"
                 or record.get("benchmark_result") != "PASS"
             ):
+                progress.close()
                 summary = build_conversation_summary(
                     records,
                     planned_runs=planned_runs,
@@ -547,6 +560,7 @@ def evaluate_conversations(
                 raise ConversationEvaluationError(
                     f"Fail-fast stopped after {case.case_id} repetition {repetition}."
                 )
+    progress.close()
 
     summary = build_conversation_summary(
         records,
