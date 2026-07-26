@@ -1,0 +1,915 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "USER_ASSIST",
+        "outcome": "FAILED"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [
+          "The user intends for the items to be placed on the colored mats provided on the table."
+        ],
+        "grounding": [
+          "electronic devices identified as the tablet and phone",
+          "printed items identified as the blue and red books",
+          "left side corresponds to the orange mat area",
+          "right side corresponds to the teal mat area"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "The items were not sorted correctly. The laptop was placed in the left zone instead of the right zone."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-8565ad20b0c444189e4b8fe5034184d0"
+      },
+      "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+      "episode_id": "episode-f3b119ffc6c34a42a5ecb0e02d9e7880",
+      "objects": [
+        "electronic devices",
+        "printed items"
+      ],
+      "parameters": {
+        "electronic_devices_location": "left",
+        "printed_items_location": "right"
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-3c81bd04886e4f83ae44f04a80c79093",
+      "task_type": "organize_items",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 1,
+              "physical_execution_claimed": false,
+              "source": "recorded_dataset"
+            },
+            "final_observation_id": "obs-c817e0a883188c865f8aafe9",
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 1,
+                "index": 1,
+                "instruction": "Move the laptop to the right side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 2,
+                "instruction": "Move the tablet to the left side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 3,
+                "instruction": "Move the book to the right side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 4,
+                "instruction": "Move the blue device to the left side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "electronic devices are present",
+                "evidence": "laptop and tablet are visible on the table",
+                "satisfied": true
+              },
+              {
+                "condition": "printed items are present",
+                "evidence": "book is visible on the table",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "zone:right",
+                "source": "center",
+                "target": "laptop",
+                "task_instruction": "Move the laptop to the right side of the table."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:left",
+                "source": "center",
+                "target": "tablet",
+                "task_instruction": "Move the tablet to the left side of the table."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:right",
+                "source": "center",
+                "target": "book",
+                "task_instruction": "Move the book to the right side of the table."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:left",
+                "source": "center",
+                "target": "blue device",
+                "task_instruction": "Move the blue device to the left side of the table."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "laptop",
+                    "zone:right"
+                  ],
+                  "description": "laptop is in the right zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "tablet",
+                    "zone:left"
+                  ],
+                  "description": "tablet is in the left zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue device",
+                    "zone:left"
+                  ],
+                  "description": "blue device is in the left zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "book",
+                    "zone:right"
+                  ],
+                  "description": "book is in the right zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "laptop",
+                    "tablet",
+                    "book",
+                    "blue device"
+                  ],
+                  "description": "all items are assigned to their correct zones",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-5",
+                  "observable": true,
+                  "predicate": "ALL_ITEMS_ASSIGNED",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "robot safety",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-6",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-3c81bd04886e4f83ae44f04a80c79093"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          },
+          "validation": {
+            "discrepancies": [
+              "Laptop is in the left zone instead of the right.",
+              "Tablet is in the right zone instead of the left.",
+              "Blue device is in the right zone instead of the left."
+            ],
+            "failure": {
+              "description": "The electronic devices (laptop, tablet, blue device) were placed in the wrong zones relative to the printed items.",
+              "type": "GOAL_NOT_SATISFIED"
+            },
+            "goal_checks": [
+              {
+                "evidence": "The laptop is located in the left zone (yellow mat), not the right zone.",
+                "goal_id": "goal-1",
+                "satisfied": false
+              },
+              {
+                "evidence": "The tablet is located in the right zone (blue mat), not the left zone.",
+                "goal_id": "goal-2",
+                "satisfied": false
+              },
+              {
+                "evidence": "The blue device is located in the right zone (blue mat), not the left zone.",
+                "goal_id": "goal-3",
+                "satisfied": false
+              },
+              {
+                "evidence": "The book (red item) is in the right zone (blue mat).",
+                "goal_id": "goal-4",
+                "satisfied": true
+              },
+              {
+                "evidence": "Items are incorrectly sorted: laptop, tablet, and blue device are in the wrong zones.",
+                "goal_id": "goal-5",
+                "satisfied": false
+              },
+              {
+                "evidence": "No safety violations observed.",
+                "goal_id": "goal-6",
+                "satisfied": true
+              }
+            ],
+            "outcome": "FAILURE",
+            "recoverability": "REPLAN",
+            "task_complete": false,
+            "user_message": "The items were sorted into the wrong zones. The laptop, tablet, and blue device are on the incorrect sides of the table.",
+            "validator_confidence": 1.0
+          },
+          "validation_assurance": {
+            "failure": {
+              "code": "GOAL_NOT_SATISFIED",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "REPLAN",
+              "observed": [
+                "Laptop is in the left zone instead of the right.",
+                "Tablet is in the right zone instead of the left.",
+                "Blue device is in the right zone instead of the left."
+              ],
+              "stage": "VALIDATION",
+              "user_message": "The items were sorted into the wrong zones. The laptop, tablet, and blue device are on the incorrect sides of the table."
+            },
+            "message": "The items were sorted into the wrong zones. The laptop, tablet, and blue device are on the incorrect sides of the table.",
+            "next_action": "REPLAN",
+            "outcome": "FAILED",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        },
+        {
+          "attempt": 2,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 2,
+              "physical_execution_claimed": false,
+              "source": "recorded_dataset"
+            },
+            "final_observation_id": "obs-c817e0a883188c865f8aafe9",
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 2,
+                "index": 1,
+                "instruction": "Move the laptop to the right side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 2,
+                "instruction": "Move the tablet to the left side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 3,
+                "instruction": "Move the blue device to the left side of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "laptop is in the left zone",
+                "evidence": "laptop is on the yellow mat (left zone)",
+                "satisfied": true
+              },
+              {
+                "condition": "tablet is in the right zone",
+                "evidence": "tablet is on the blue mat (right zone)",
+                "satisfied": true
+              },
+              {
+                "condition": "blue device is in the right zone",
+                "evidence": "blue device is on the blue mat (right zone)",
+                "satisfied": true
+              },
+              {
+                "condition": "book is in the right zone",
+                "evidence": "book is on the blue mat (right zone)",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "zone:right",
+                "source": "zone:left",
+                "target": "laptop",
+                "task_instruction": "Move the laptop to the right side of the table."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:left",
+                "source": "zone:right",
+                "target": "tablet",
+                "task_instruction": "Move the tablet to the left side of the table."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:left",
+                "source": "zone:right",
+                "target": "blue device",
+                "task_instruction": "Move the blue device to the left side of the table."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "laptop",
+                    "zone:right"
+                  ],
+                  "description": "laptop is in the right zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "tablet",
+                    "zone:left"
+                  ],
+                  "description": "tablet is in the left zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue device",
+                    "zone:left"
+                  ],
+                  "description": "blue device is in the left zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "book",
+                    "zone:right"
+                  ],
+                  "description": "book is in the right zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "laptop",
+                    "tablet",
+                    "book",
+                    "blue device"
+                  ],
+                  "description": "all items are assigned to their correct zones",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-5",
+                  "observable": true,
+                  "predicate": "ALL_ITEMS_ASSIGNED",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "robot safety",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-6",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-3c81bd04886e4f83ae44f04a80c79093"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          },
+          "validation": {
+            "discrepancies": [
+              "Laptop is in the left zone instead of the right zone.",
+              "Tablet is not clearly identifiable in the left zone."
+            ],
+            "failure": {
+              "description": "The laptop is in the wrong zone (left instead of right), and the tablet is not in its required position.",
+              "goal_ids": [
+                "goal-1",
+                "goal-2",
+                "goal-4",
+                "goal-5"
+              ]
+            },
+            "goal_checks": [
+              {
+                "evidence": "The laptop is located in the left zone (yellow mat), not the right zone (blue mat).",
+                "goal_id": "goal-1",
+                "satisfied": false
+              },
+              {
+                "evidence": "The tablet is not visible in the left zone; the items in the left zone are a laptop and a blue device.",
+                "goal_id": "goal-2",
+                "satisfied": false
+              },
+              {
+                "evidence": "The blue device is in the left zone (yellow mat).",
+                "goal_id": "goal-3",
+                "satisfied": true
+              },
+              {
+                "evidence": "The book (red item) is in the right zone, but the laptop is also in the wrong zone, and the tablet is missing/misplaced.",
+                "goal_id": "goal-4",
+                "satisfied": false
+              },
+              {
+                "evidence": "Items are incorrectly sorted: laptop is on the left instead of the right.",
+                "goal_id": "goal-5",
+                "satisfied": false
+              },
+              {
+                "evidence": "No safety violations observed.",
+                "goal_id": "goal-6",
+                "satisfied": true
+              }
+            ],
+            "outcome": "FAILURE",
+            "recoverability": "REPLAN",
+            "task_complete": false,
+            "user_message": "The items were not sorted correctly. The laptop was placed in the left zone instead of the right zone.",
+            "validator_confidence": 1.0
+          },
+          "validation_assurance": {
+            "failure": {
+              "code": "GOAL_NOT_SATISFIED",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "USER_ASSIST",
+              "observed": [
+                "Laptop is in the left zone instead of the right zone.",
+                "Tablet is not clearly identifiable in the left zone."
+              ],
+              "stage": "VALIDATION",
+              "user_message": "The items were not sorted correctly. The laptop was placed in the left zone instead of the right zone."
+            },
+            "message": "The items were not sorted correctly. The laptop was placed in the left zone instead of the right zone.",
+            "next_action": "USER_ASSIST",
+            "outcome": "FAILED",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        }
+      ],
+      "failure": {
+        "code": "GOAL_NOT_SATISFIED",
+        "memory_effect": "HISTORY_ONLY",
+        "next_action": "USER_ASSIST",
+        "observed": [
+          "Laptop is in the left zone instead of the right zone.",
+          "Tablet is not clearly identifiable in the left zone."
+        ],
+        "stage": "VALIDATION",
+        "user_message": "The items were not sorted correctly. The laptop was placed in the left zone instead of the right zone."
+      },
+      "message": "The items were not sorted correctly. The laptop was placed in the left zone instead of the right zone.",
+      "next_action": "USER_ASSIST",
+      "outcome": "FAILED",
+      "phase": "VALIDATION",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 20,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-847fe46daf16fc3fcb44916f/attempt-8a244bd3f6f34ecd842085bcafdf963b/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 7,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-847fe46daf16fc3fcb44916f/attempt-8a244bd3f6f34ecd842085bcafdf963b/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": null,
+  "duration_seconds": 35.435926,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates",
+    "hri_terminal_outcome",
+    "validator_outcome",
+    "task_complete",
+    "recovery"
+  ],
+  "failed_checks_by_category": {
+    "HRI": [
+      "hri_terminal_outcome"
+    ],
+    "PLANNER": [
+      "planner_goal_predicates"
+    ],
+    "RECOVERY": [
+      "recovery"
+    ],
+    "VALIDATOR": [
+      "task_complete",
+      "validator_outcome"
+    ]
+  },
+  "failure_categories": [
+    "HRI",
+    "PLANNER",
+    "RECOVERY",
+    "VALIDATOR"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "category_sort",
+  "finished_at": "2026-07-26T02:54:59.750584+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-f3b119ffc6c34a42a5ecb0e02d9e7880"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3001,
+  "outcome": "success",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "electronics_left",
+        "evaluated": true,
+        "expected": "electronics_left",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "evaluated": true,
+        "expected": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_ITEMS_ASSIGNED(blue_device,obj-001,obj-002,obj-004)=true",
+          "INSIDE_SORT_ZONE(blue_device,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:right)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT",
+          "MEMORY_CONFIRM"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": true,
+        "name": "task_complete",
+        "passed": false
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "REPLAN",
+        "evaluated": true,
+        "expected": "NONE",
+        "name": "recovery",
+        "passed": false
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 8,
+    "passed": false,
+    "skipped": 0,
+    "total": 13
+  },
+  "repetition": 2,
+  "scenario_id": "ep-847fe46daf16fc3fcb44916f",
+  "scene_variant": "front_row",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "electronics_left",
+        "evaluated": true,
+        "expected": "electronics_left",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "evaluated": true,
+        "expected": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_ITEMS_ASSIGNED(blue_device,obj-001,obj-002,obj-004)=true",
+          "INSIDE_SORT_ZONE(blue_device,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:right)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT",
+          "MEMORY_CONFIRM"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": true,
+        "name": "task_complete",
+        "passed": false
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "REPLAN",
+        "evaluated": true,
+        "expected": "NONE",
+        "name": "recovery",
+        "passed": false
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 9,
+    "passed": false,
+    "skipped": 0,
+    "total": 14
+  },
+  "score_exclusions": [],
+  "seed": 3,
+  "skipped_check_names": [],
+  "started_at": "2026-07-26T02:54:24.314671+00:00",
+  "status": "COMPLETED",
+  "target_id": "electronics_left",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-847fe46daf16fc3fcb44916f/attempt-8a244bd3f6f34ecd842085bcafdf963b",
+  "user_id": "evaluation-participant"
+}

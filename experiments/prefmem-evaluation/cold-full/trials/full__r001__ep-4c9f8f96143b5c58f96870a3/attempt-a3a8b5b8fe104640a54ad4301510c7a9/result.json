@@ -1,0 +1,587 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "USER_ASSIST",
+        "outcome": "BLOCKED"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [
+          "The orange mat is the intended location for 'left' and the blue mat for 'right'."
+        ],
+        "grounding": [
+          "orange mat identified as left destination",
+          "blue mat identified as right destination",
+          "printed items and electronic devices identified in scene"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "A required task precondition is not satisfied."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-32f770e4668746d6a75756cab17bbcc9"
+      },
+      "confirmed_intent": "Place printed items on the left and electronic devices on the right.",
+      "episode_id": "episode-3397f0b1c7ff4339b8ec9c79cf10c576",
+      "objects": [
+        "printed items",
+        "electronic devices"
+      ],
+      "parameters": {
+        "left_destination": "orange mat",
+        "right_destination": "blue mat"
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-25f40ece448d4841b2700904f77702e7",
+      "task_type": "sort_objects",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "printed items are on the orange mat",
+                "evidence": "none",
+                "satisfied": false
+              },
+              {
+                "condition": "electronic devices are on the blue mat",
+                "evidence": "none",
+                "satisfied": false
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "orange mat",
+                "source": "table",
+                "target": "red book",
+                "task_instruction": "Pick up the red book and place it on the orange mat."
+              },
+              {
+                "arm": "right",
+                "destination": "orange mat",
+                "source": "table",
+                "target": "blue book",
+                "task_instruction": "Pick up the blue book and place it on the orange mat."
+              },
+              {
+                "arm": "right",
+                "destination": "blue mat",
+                "source": "table",
+                "target": "laptop",
+                "task_instruction": "Pick up the laptop and place it on the blue mat."
+              },
+              {
+                "arm": "right",
+                "destination": "blue mat",
+                "source": "table",
+                "target": "tablet",
+                "task_instruction": "Pick up the tablet and place it on the blue mat."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Place printed items on the left and electronic devices on the right.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "red book",
+                    "zone:left"
+                  ],
+                  "description": "red book is in the left sort zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue book",
+                    "zone:left"
+                  ],
+                  "description": "blue book is in the left sort zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "laptop",
+                    "zone:right"
+                  ],
+                  "description": "laptop is in the right sort zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "tablet",
+                    "zone:right"
+                  ],
+                  "description": "tablet is in the right sort zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "red book",
+                    "blue book",
+                    "laptop",
+                    "tablet"
+                  ],
+                  "description": "all items are assigned to their correct zones",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-5",
+                  "observable": true,
+                  "predicate": "ALL_ITEMS_ASSIGNED",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "safe execution of the robot",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-6",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-25f40ece448d4841b2700904f77702e7"
+            }
+          },
+          "plan_assurance": {
+            "failure": {
+              "code": "UNSATISFIED_PRECONDITION",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "USER_ASSIST",
+              "observed": [
+                {
+                  "condition": "printed items are on the orange mat",
+                  "evidence": "none",
+                  "satisfied": false
+                },
+                {
+                  "condition": "electronic devices are on the blue mat",
+                  "evidence": "none",
+                  "satisfied": false
+                }
+              ],
+              "stage": "PRECONDITION",
+              "user_message": "A required task precondition is not satisfied."
+            },
+            "message": "A required task precondition is not satisfied.",
+            "next_action": "USER_ASSIST",
+            "outcome": "BLOCKED",
+            "phase": "PRECONDITION",
+            "proceed": false
+          }
+        }
+      ],
+      "failure": {
+        "code": "UNSATISFIED_PRECONDITION",
+        "memory_effect": "HISTORY_ONLY",
+        "next_action": "USER_ASSIST",
+        "observed": [
+          {
+            "condition": "printed items are on the orange mat",
+            "evidence": "none",
+            "satisfied": false
+          },
+          {
+            "condition": "electronic devices are on the blue mat",
+            "evidence": "none",
+            "satisfied": false
+          }
+        ],
+        "stage": "PRECONDITION",
+        "user_message": "A required task precondition is not satisfied."
+      },
+      "message": "A required task precondition is not satisfied.",
+      "next_action": "USER_ASSIST",
+      "outcome": "BLOCKED",
+      "phase": "PRECONDITION",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 9,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r001__ep-4c9f8f96143b5c58f96870a3/attempt-a3a8b5b8fe104640a54ad4301510c7a9/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 4,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r001__ep-4c9f8f96143b5c58f96870a3/attempt-a3a8b5b8fe104640a54ad4301510c7a9/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": null,
+  "duration_seconds": 14.494115,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates",
+    "hri_terminal_outcome",
+    "validator_called",
+    "validator_outcome",
+    "task_complete",
+    "recovery"
+  ],
+  "failed_checks_by_category": {
+    "HRI": [
+      "hri_terminal_outcome"
+    ],
+    "PLANNER": [
+      "planner_goal_predicates"
+    ],
+    "RECOVERY": [
+      "recovery"
+    ],
+    "VALIDATOR": [
+      "task_complete",
+      "validator_called",
+      "validator_outcome"
+    ]
+  },
+  "failure_categories": [
+    "HRI",
+    "PLANNER",
+    "RECOVERY",
+    "VALIDATOR"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "category_sort",
+  "finished_at": "2026-07-26T02:48:18.348702+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-3397f0b1c7ff4339b8ec9c79cf10c576"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3000,
+  "outcome": "unknown",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "printed_left",
+        "evaluated": true,
+        "expected": "printed_left",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Place printed items on the left and electronic devices on the right.",
+        "evaluated": true,
+        "expected": "Place printed items on the left and electronic devices on the right.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_ITEMS_ASSIGNED(blue_book,obj-002,obj-003,red_book)=true",
+          "INSIDE_SORT_ZONE(blue_book,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:right)=true",
+          "INSIDE_SORT_ZONE(red_book,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "BLOCKED",
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": false
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": false
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": null,
+        "evaluated": false,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": null
+      },
+      {
+        "actual": "USER_ASSIST",
+        "evaluated": true,
+        "expected": "REOBSERVE",
+        "name": "recovery",
+        "passed": false
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 6,
+    "passed": false,
+    "skipped": 1,
+    "total": 12
+  },
+  "repetition": 1,
+  "scenario_id": "ep-4c9f8f96143b5c58f96870a3",
+  "scene_variant": "interleaved_scatter",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "printed_left",
+        "evaluated": true,
+        "expected": "printed_left",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Place printed items on the left and electronic devices on the right.",
+        "evaluated": true,
+        "expected": "Place printed items on the left and electronic devices on the right.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_ITEMS_ASSIGNED(blue_book,obj-002,obj-003,red_book)=true",
+          "INSIDE_SORT_ZONE(blue_book,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:right)=true",
+          "INSIDE_SORT_ZONE(red_book,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "BLOCKED",
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": false
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": false
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": null,
+        "evaluated": false,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": null
+      },
+      {
+        "actual": "USER_ASSIST",
+        "evaluated": true,
+        "expected": "REOBSERVE",
+        "name": "recovery",
+        "passed": false
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 7,
+    "passed": false,
+    "skipped": 1,
+    "total": 13
+  },
+  "score_exclusions": [],
+  "seed": 3,
+  "skipped_check_names": [
+    "execution_status"
+  ],
+  "started_at": "2026-07-26T02:48:03.854584+00:00",
+  "status": "COMPLETED",
+  "target_id": "printed_left",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r001__ep-4c9f8f96143b5c58f96870a3/attempt-a3a8b5b8fe104640a54ad4301510c7a9",
+  "user_id": "evaluation-participant"
+}

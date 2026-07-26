@@ -1,0 +1,624 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "NONE",
+        "outcome": "FAILED"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [
+          "right-handed setting implies knife on the right side of the plate"
+        ],
+        "grounding": [
+          "plate identified on table",
+          "knife identified on table",
+          "mug identified on table"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-0a4c66310d3548afa1d0fb23da305af4"
+      },
+      "confirmed_intent": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+      "episode_id": "episode-b457e19832de49eaabe7886e643aa1f2",
+      "objects": [
+        "plate",
+        "knife",
+        "mug"
+      ],
+      "parameters": {
+        "layout": "right-handed",
+        "positions": {
+          "knife": "right of plate",
+          "mug": "above plate",
+          "plate": "center"
+        }
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-e9a48e661b134aa6b711aca02c67eccc",
+      "task_type": "arrange_place_setting",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 1,
+              "physical_execution_claimed": false,
+              "source": "recorded_dataset"
+            },
+            "final_observation_id": "obs-98dafdb6a36a7e847b1c04d2",
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 1,
+                "index": 1,
+                "instruction": "Place the plate at the center of the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 2,
+                "instruction": "Place the knife to the right of the plate.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 3,
+                "instruction": "Place the mug above the plate.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "plate is on table",
+                "evidence": "visible in image",
+                "satisfied": true
+              },
+              {
+                "condition": "knife is on table",
+                "evidence": "visible in image",
+                "satisfied": true
+              },
+              {
+                "condition": "mug is on table",
+                "evidence": "visible in image",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "anchor:place-centre",
+                "source": "table",
+                "target": "plate",
+                "task_instruction": "Place the plate at the center of the table."
+              },
+              {
+                "arm": "right",
+                "destination": "right of plate",
+                "source": "table",
+                "target": "knife",
+                "task_instruction": "Place the knife to the right of the plate."
+              },
+              {
+                "arm": "right",
+                "destination": "above plate",
+                "source": "table",
+                "target": "mug",
+                "task_instruction": "Place the mug above the plate."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "plate",
+                    "anchor:place-centre"
+                  ],
+                  "description": "plate is at the center anchor",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "AT_ANCHOR",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "knife",
+                    "plate",
+                    "right"
+                  ],
+                  "description": "knife is on the right side of the plate",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "ON_RELATIVE_SIDE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "mug",
+                    "plate",
+                    "above"
+                  ],
+                  "description": "mug is positioned above the plate",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "AT_RELATIVE_POSITION",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "plate",
+                    "knife",
+                    "mug"
+                  ],
+                  "description": "all items are placed",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "ALL_PLACE_SETTING_ITEMS_PLACED",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "robot execution was safe",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-5",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-e9a48e661b134aa6b711aca02c67eccc"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          },
+          "validation": {
+            "discrepancies": [
+              "{'goal_id': 'goal-2', 'description': 'knife is on the right side of the plate', 'actual_state': 'The knife is on the right, but the placement of the fork on the left and the overall arrangement is slightly off-center relative to the placemat, though the specific predicate for the knife is met. Re-evaluating: The knife is clearly to the right of the plate.'}"
+            ],
+            "failure": {
+              "description": "The items are placed on the table, but the knife is not correctly oriented/placed for a standard setting, and the overall arrangement is disorganized.",
+              "goal_id": "goal-2"
+            },
+            "goal_checks": [
+              {
+                "evidence": "The plate is positioned in the center of the orange placemat.",
+                "goal_id": "goal-1",
+                "satisfied": true
+              },
+              {
+                "evidence": "The knife is located to the right of the plate, but it is a knife with a handle, whereas the object to the left of the plate is a fork. Wait, looking closer at the image, the object to the right of the plate is a knife, but the object to the left is a fork. However, the goal is 'knife is on the right side of the plate'. The object on the right is indeed a knife.",
+                "goal_id": "goal-2",
+                "satisfied": false
+              },
+              {
+                "evidence": "The mug is positioned above the plate on the placemat.",
+                "goal_id": "goal-3",
+                "satisfied": true
+              },
+              {
+                "evidence": "Plate, knife, and mug are all present on the table.",
+                "goal_id": "goal-4",
+                "satisfied": true
+              },
+              {
+                "evidence": "No unsafe movements observed in the final state.",
+                "goal_id": "goal-5",
+                "satisfied": true
+              }
+            ],
+            "outcome": "FAILURE",
+            "recoverability": "NONE",
+            "task_complete": false,
+            "user_message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting.",
+            "validator_confidence": 0.9
+          },
+          "validation_assurance": {
+            "failure": {
+              "code": "GOAL_NOT_SATISFIED",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "NONE",
+              "observed": [
+                "{'goal_id': 'goal-2', 'description': 'knife is on the right side of the plate', 'actual_state': 'The knife is on the right, but the placement of the fork on the left and the overall arrangement is slightly off-center relative to the placemat, though the specific predicate for the knife is met. Re-evaluating: The knife is clearly to the right of the plate.'}"
+              ],
+              "stage": "VALIDATION",
+              "user_message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting."
+            },
+            "message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting.",
+            "next_action": "NONE",
+            "outcome": "FAILED",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        }
+      ],
+      "failure": {
+        "code": "GOAL_NOT_SATISFIED",
+        "memory_effect": "HISTORY_ONLY",
+        "next_action": "NONE",
+        "observed": [
+          "{'goal_id': 'goal-2', 'description': 'knife is on the right side of the plate', 'actual_state': 'The knife is on the right, but the placement of the fork on the left and the overall arrangement is slightly off-center relative to the placemat, though the specific predicate for the knife is met. Re-evaluating: The knife is clearly to the right of the plate.'}"
+        ],
+        "stage": "VALIDATION",
+        "user_message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting."
+      },
+      "message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting.",
+      "next_action": "NONE",
+      "outcome": "FAILED",
+      "phase": "VALIDATION",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 13,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-ad52787de53cebea5eae979f/attempt-23bccc8c10f0473a8cc042ec597a032b/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 5,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-ad52787de53cebea5eae979f/attempt-23bccc8c10f0473a8cc042ec597a032b/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": null,
+  "duration_seconds": 20.767752,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates",
+    "recovery"
+  ],
+  "failed_checks_by_category": {
+    "PLANNER": [
+      "planner_goal_predicates"
+    ],
+    "RECOVERY": [
+      "recovery"
+    ]
+  },
+  "failure_categories": [
+    "PLANNER",
+    "RECOVERY"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "place_setting",
+  "finished_at": "2026-07-26T02:38:48.486005+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-b457e19832de49eaabe7886e643aa1f2"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3001,
+  "outcome": "near_miss",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "right_handed",
+        "evaluated": true,
+        "expected": "right_handed",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+        "evaluated": true,
+        "expected": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_PLACE_SETTING_ITEMS_PLACED(mug,obj-002,obj-005)=true",
+          "AT_ANCHOR(obj-002,anchor:place_centre)=true",
+          "AT_RELATIVE_POSITION(mug,obj-002,above)=true",
+          "ON_RELATIVE_SIDE(obj-005,obj-002,right)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_PLACE_SETTING_ITEMS_PLACED(obj-001,obj-002,obj-003,obj-004,obj-005)=true",
+          "AT_ANCHOR(obj-002,anchor:place_centre)=true",
+          "AT_RELATIVE_CORNER(obj-003,obj-002,upper_right)=true",
+          "BLADE_FACES(obj-005,obj-002)=true",
+          "ON_OUTER_SIDE(obj-004,obj-001,left)=true",
+          "ON_RELATIVE_SIDE(obj-001,obj-002,left)=true",
+          "ON_RELATIVE_SIDE(obj-005,obj-002,right)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "FAILED",
+        "name": "hri_terminal_outcome",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "FAILURE",
+        "name": "validator_outcome",
+        "passed": true
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "NONE",
+        "evaluated": true,
+        "expected": "REPLAN",
+        "name": "recovery",
+        "passed": false
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 11,
+    "passed": false,
+    "skipped": 0,
+    "total": 13
+  },
+  "repetition": 2,
+  "scenario_id": "ep-ad52787de53cebea5eae979f",
+  "scene_variant": "radial_scatter",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "right_handed",
+        "evaluated": true,
+        "expected": "right_handed",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+        "evaluated": true,
+        "expected": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_PLACE_SETTING_ITEMS_PLACED(mug,obj-002,obj-005)=true",
+          "AT_ANCHOR(obj-002,anchor:place_centre)=true",
+          "AT_RELATIVE_POSITION(mug,obj-002,above)=true",
+          "ON_RELATIVE_SIDE(obj-005,obj-002,right)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_PLACE_SETTING_ITEMS_PLACED(obj-001,obj-002,obj-003,obj-004,obj-005)=true",
+          "AT_ANCHOR(obj-002,anchor:place_centre)=true",
+          "AT_RELATIVE_CORNER(obj-003,obj-002,upper_right)=true",
+          "BLADE_FACES(obj-005,obj-002)=true",
+          "ON_OUTER_SIDE(obj-004,obj-001,left)=true",
+          "ON_RELATIVE_SIDE(obj-001,obj-002,left)=true",
+          "ON_RELATIVE_SIDE(obj-005,obj-002,right)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "FAILED",
+        "name": "hri_terminal_outcome",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "FAILURE",
+        "name": "validator_outcome",
+        "passed": true
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "NONE",
+        "evaluated": true,
+        "expected": "REPLAN",
+        "name": "recovery",
+        "passed": false
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 12,
+    "passed": false,
+    "skipped": 0,
+    "total": 14
+  },
+  "score_exclusions": [],
+  "seed": 3,
+  "skipped_check_names": [],
+  "started_at": "2026-07-26T02:38:27.718252+00:00",
+  "status": "COMPLETED",
+  "target_id": "right_handed",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-ad52787de53cebea5eae979f/attempt-23bccc8c10f0473a8cc042ec597a032b",
+  "user_id": "evaluation-participant"
+}

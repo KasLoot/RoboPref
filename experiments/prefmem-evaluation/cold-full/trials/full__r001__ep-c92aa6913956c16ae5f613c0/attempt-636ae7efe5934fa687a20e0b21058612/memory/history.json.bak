@@ -1,0 +1,79 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it on the left mat."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it on the left mat."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "red book",
+          "task_instruction": "Pick up the red book and place it on the right mat."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "blue book",
+          "task_instruction": "Pick up the blue book and place it on the right mat."
+        }
+      ],
+      "completed_at": "2026-07-26T01:37:44.509252+00:00",
+      "created_at": "2026-07-26T01:37:49.125167+00:00",
+      "episode_id": "episode-c9018b8929d646e9b78eb0a602542a51",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left mat and printed items on the right mat.",
+        "objects": [
+          "electronic devices",
+          "printed items"
+        ],
+        "parameters": {
+          "electronic_devices_location": "left mat",
+          "printed_items_location": "right mat"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "124d7ab2f5764adfb54096e271bd6591",
+      "source_fingerprint": "51f321a5f508639036053f5ec19e3c59918d00f630c525700c8dae71c70a4de9",
+      "started_at": "2026-07-26T01:37:28.649494+00:00",
+      "summary": "The user requested to sort electronic devices on the left and printed items on the right. The task failed verification because a large grey object obstructed the camera view.",
+      "tags": [
+        "sorting",
+        "obstructed_view",
+        "failed_verification"
+      ],
+      "user_choices": {
+        "electronic_devices_location": "left mat",
+        "printed_items_location": "right mat"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+      "validation": {
+        "description": "The camera view is blocked by a large grey object, preventing verification of all goal conditions.",
+        "outcome": "FAILURE",
+        "reason": "OBSERVATION_OBSTRUCTED"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

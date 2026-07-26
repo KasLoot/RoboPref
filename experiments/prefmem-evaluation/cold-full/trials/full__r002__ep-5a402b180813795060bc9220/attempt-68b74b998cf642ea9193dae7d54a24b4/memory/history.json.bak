@@ -1,0 +1,63 @@
+{
+  "episodes": [
+    {
+      "actions": [],
+      "completed_at": "2026-07-26T02:18:11.899612+00:00",
+      "created_at": "2026-07-26T02:18:14.787238+00:00",
+      "episode_id": "episode-ec8527c31e5e4a31aeb510e171d8133f",
+      "execution": {
+        "evidence": {
+          "source": "planner_already_satisfied_claim"
+        },
+        "status": "OBSERVATION_ONLY"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "laptop",
+          "red block",
+          "blue book"
+        ],
+        "parameters": {
+          "left_side": [
+            "laptop"
+          ],
+          "right_side": [
+            "red block",
+            "blue book"
+          ]
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "6c1eeda597364b858d2f717c5cbe00a7",
+      "source_fingerprint": "5b54ee4caa8aa13f33c4027f09560e5f7acb2021e5d272be07bf95b73ffa1dee",
+      "started_at": "2026-07-26T02:18:01.092735+00:00",
+      "summary": "The user requested to sort electronic devices to the left and printed items to the right. The agent placed the laptop on the left and the red block and blue book on the right.",
+      "tags": [
+        "sorting",
+        "electronics",
+        "printed_items"
+      ],
+      "user_choices": {
+        "left_side": [
+          "laptop"
+        ],
+        "right_side": [
+          "red block",
+          "blue book"
+        ]
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "All items have been correctly sorted into their respective zones."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

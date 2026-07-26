@@ -1,0 +1,65 @@
+{
+  "episodes": [
+    {
+      "actions": [],
+      "completed_at": "2026-07-26T01:17:17.266287+00:00",
+      "created_at": "2026-07-26T01:17:20.065339+00:00",
+      "episode_id": "episode-70fe7b7e251e4af9886c785dbfe9cbdd",
+      "execution": {
+        "evidence": "planner_already_satisfied_claim",
+        "status": "OBSERVATION_ONLY"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "757532ed97494988b1e097671385ee92",
+      "source_fingerprint": "559446d1738199c957a5f824656d3e6cfddc0ec9074f8b6e8a83c42009f01eef",
+      "started_at": "2026-07-26T01:17:08.090085+00:00",
+      "summary": "The user requested to stack blue, green, and red blocks in a specific vertical order from bottom to top.",
+      "tags": [
+        "stacking",
+        "blocks",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "The blocks have been successfully stacked in the requested order: blue at the bottom, green in the middle, and red on top."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-70fe7b7e251e4af9886c785dbfe9cbdd"
+      ],
+      "text": "The user requested a specific vertical stacking order for blue, green, and red blocks, with blue at the bottom, green in the middle, and red on top.",
+      "updated_at": "2026-07-26T01:17:20.824481+00:00"
+    }
+  },
+  "version": 2
+}

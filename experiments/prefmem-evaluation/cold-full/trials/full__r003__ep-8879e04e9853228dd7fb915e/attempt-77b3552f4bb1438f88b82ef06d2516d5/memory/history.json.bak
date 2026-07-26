@@ -1,0 +1,82 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "blue block",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it in the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "green block",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "red block",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T01:48:05.736554+00:00",
+      "created_at": "2026-07-26T01:48:10.213267+00:00",
+      "episode_id": "episode-3e4de10049d84e3ab1e8fc0eccd4c4ba",
+      "execution": {
+        "evidence": {
+          "attempt": 1,
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "cb86ded19338401fa772f26780a21250",
+      "source_fingerprint": "c05ed4f8fe4f453a3d64903aac7a8d64b6d71d334cace0575857932449898fa3",
+      "started_at": "2026-07-26T01:47:54.360056+00:00",
+      "summary": "The user requested to stack blocks in a specific color order (blue, green, red) from bottom to top, which was successfully executed.",
+      "tags": [
+        "stacking",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "The blocks have been successfully stacked in the correct order (blue, green, red) within the center zone."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

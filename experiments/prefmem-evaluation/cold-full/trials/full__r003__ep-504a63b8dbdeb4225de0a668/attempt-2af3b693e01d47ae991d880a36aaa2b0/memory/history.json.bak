@@ -1,0 +1,87 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "destination": "zone:left",
+          "target": "laptop"
+        },
+        {
+          "destination": "zone:left",
+          "target": "tablet"
+        },
+        {
+          "destination": "zone:right",
+          "target": "red book"
+        },
+        {
+          "destination": "zone:right",
+          "target": "blue notebook"
+        }
+      ],
+      "completed_at": "2026-07-26T01:08:19.915321+00:00",
+      "created_at": "2026-07-26T01:08:23.699200+00:00",
+      "episode_id": "episode-8730777802a749ff93c08d1bccff1fc5",
+      "execution": {
+        "evidence": {
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Move electronic devices to the left side of the table and printed items to the right side of the table.",
+        "objects": [
+          "laptop",
+          "tablet",
+          "red book",
+          "blue notebook"
+        ],
+        "parameters": {
+          "grouping": {
+            "left": [
+              "laptop",
+              "tablet"
+            ],
+            "right": [
+              "red book",
+              "blue notebook"
+            ]
+          }
+        },
+        "task_type": "organize_items"
+      },
+      "session_id": "6b571d4ec03b4771b4cad2d9824ba977",
+      "source_fingerprint": "a3f293b36dc409da7a2ab4dd74db720afbc7941e6707dcd974571e97d848a8a5",
+      "started_at": "2026-07-26T01:08:06.897945+00:00",
+      "summary": "The user requested to organize items by placing electronic devices on the left and printed items on the right.",
+      "tags": [
+        "organize_items",
+        "sorting"
+      ],
+      "user_choices": {
+        "grouping": {
+          "left": [
+            "laptop",
+            "tablet"
+          ],
+          "right": [
+            "red book",
+            "blue notebook"
+          ]
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "All items have been successfully sorted into their correct zones."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

@@ -1,0 +1,92 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "destination": "zone:left",
+          "target": "laptop"
+        },
+        {
+          "destination": "zone:left",
+          "target": "tablet"
+        },
+        {
+          "destination": "zone:right",
+          "target": "book"
+        }
+      ],
+      "completed_at": "2026-07-26T01:09:40.538518+00:00",
+      "created_at": "2026-07-26T01:09:45.040012+00:00",
+      "episode_id": "episode-cd315d72438b48bb9611e340486fe822",
+      "execution": {
+        "error": null,
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "laptop",
+          "tablet",
+          "book"
+        ],
+        "parameters": {
+          "grouping": {
+            "left": [
+              "laptop",
+              "tablet"
+            ],
+            "right": [
+              "book"
+            ]
+          }
+        },
+        "task_type": "organize_items"
+      },
+      "session_id": "8bb9a6211f5146acb82c7ed7d4a691cd",
+      "source_fingerprint": "84b58a13cf8044398a4b910c8e19acbca6a8e611ffef46a420f0be46e6ccc9bd",
+      "started_at": "2026-07-26T01:09:22.636521+00:00",
+      "summary": "The user requested to organize items by placing electronic devices on the left and printed items on the right, but the task was blocked because the laptop, tablet, and book were not visible on the table.",
+      "tags": [
+        "organize_items",
+        "blocked",
+        "object_not_found"
+      ],
+      "user_choices": {
+        "grouping": {
+          "left": [
+            "laptop",
+            "tablet"
+          ],
+          "right": [
+            "book"
+          ]
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "I cannot proceed because the laptop, tablet, and book are not visible on the table. Please place them on the table so I can organize them.",
+      "validation": {
+        "discrepancies": [
+          "The final image shows an empty table, whereas the task required placing a laptop, tablet, and book in specific zones."
+        ],
+        "failure": {
+          "description": "The target objects were not found in their required locations on the table.",
+          "type": "OBJECT_NOT_FOUND"
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-cd315d72438b48bb9611e340486fe822"
+      ],
+      "text": "The user attempted to organize items by placing electronic devices on the left and printed items on the right, but the task failed because the required objects (laptop, tablet, and book) were not visible on the table.",
+      "updated_at": "2026-07-26T01:09:45.863012+00:00"
+    }
+  },
+  "version": 2
+}

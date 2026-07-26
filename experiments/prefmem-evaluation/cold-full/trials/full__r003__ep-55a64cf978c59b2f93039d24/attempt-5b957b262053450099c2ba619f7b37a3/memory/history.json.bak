@@ -1,0 +1,110 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "black mat",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and place it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "black mat",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it on top of the green block."
+        },
+        {
+          "arm": "right",
+          "destination": "table",
+          "source": "green block",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and place it on the table."
+        },
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "blue block",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and place it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T01:44:40.324483+00:00",
+      "created_at": "2026-07-26T01:44:46.811476+00:00",
+      "episode_id": "episode-683cf8198c23459991d512440256a49d",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "attempt": 1,
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "attempt": 1,
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "0eb02b73e6fd4512a87dbf77aa340b70",
+      "source_fingerprint": "f015ac3883a7ebd2a03a63b18ed2552be5d24a24b011356a24ac6a71d150bf2e",
+      "started_at": "2026-07-26T01:44:20.385053+00:00",
+      "summary": "The user requested to stack red, green, and blue blocks in that specific order from bottom to top, but the task failed as the blocks were stacked in reverse order.",
+      "tags": [
+        "stacking",
+        "failure",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "The blocks were stacked in the incorrect order. The red block should be at the bottom, but it is at the top.",
+      "validation": {
+        "discrepancies": [
+          "The stack order is inverted: the requirement was red (bottom), green (middle), blue (top), but the image shows blue (bottom), green (middle), red (top)."
+        ],
+        "failure": {
+          "description": "The stack order is the reverse of the specified intent.",
+          "type": "GOAL_NOT_MET"
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

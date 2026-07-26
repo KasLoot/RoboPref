@@ -1,0 +1,98 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "destination": "zone:left",
+          "target": "laptop"
+        },
+        {
+          "destination": "zone:left",
+          "target": "smartphone"
+        },
+        {
+          "destination": "zone:left",
+          "target": "tablet"
+        },
+        {
+          "destination": "zone:right",
+          "target": "red book"
+        },
+        {
+          "destination": "zone:right",
+          "target": "blue book"
+        },
+        {
+          "destination": "zone:left",
+          "target": "tablet"
+        }
+      ],
+      "completed_at": "2026-07-26T01:16:08.766811+00:00",
+      "created_at": "2026-07-26T01:16:13.154626+00:00",
+      "episode_id": "episode-790b2164167e49ae8f0be6c805990f0e",
+      "execution": {
+        "details": "The agent attempted to move the objects, but the tablet was reported as missing or not in the correct zone.",
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "objects": [
+          "laptop",
+          "smartphone",
+          "tablet",
+          "red book",
+          "blue book"
+        ],
+        "parameters": {
+          "grouping": {
+            "left": [
+              "laptop",
+              "smartphone",
+              "tablet"
+            ],
+            "right": [
+              "red book",
+              "blue book"
+            ]
+          }
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "a266fed25c704ef2940b538d2eb92dec",
+      "source_fingerprint": "c7cdddc3575e453b0afd022c6b4a4b4bc186afacf155cb8d22334534a875fcdc",
+      "started_at": "2026-07-26T01:15:42.150835+00:00",
+      "summary": "The user requested to sort electronic devices to the left and printed items to the right, but the task failed because the tablet was not successfully placed in the left zone.",
+      "tags": [
+        "sorting",
+        "failure",
+        "electronics",
+        "printed_items"
+      ],
+      "user_choices": {
+        "grouping": {
+          "left": [
+            "laptop",
+            "smartphone",
+            "tablet"
+          ],
+          "right": [
+            "red book",
+            "blue book"
+          ]
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The task failed because the tablet was not placed in the left zone.",
+      "validation": {
+        "discrepancies": [
+          "The tablet is missing from the left zone."
+        ],
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

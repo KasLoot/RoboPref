@@ -1,0 +1,114 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:stack-centre",
+          "source": "blue block",
+          "target": "blue block",
+          "task_instruction": "Move the blue block to the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "green block",
+          "target": "green block",
+          "task_instruction": "Stack the green block on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "red block",
+          "target": "red block",
+          "task_instruction": "Stack the red block on top of the green block."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:stack-centre",
+          "source": "blue block",
+          "target": "blue block",
+          "task_instruction": "Move the blue and green block stack to the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "red block",
+          "target": "red block",
+          "task_instruction": "Stack the red block on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T02:52:49.334637+00:00",
+      "created_at": "2026-07-26T02:52:56.375001+00:00",
+      "episode_id": "episode-99ca05d3fc454c85b4b591c91e4e890b",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "instruction": "Move the blue block to the center of the stack zone.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "instruction": "Stack the green block on top of the blue block.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "instruction": "Stack the red block on top of the green block.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "849df7f7ff2d49129149a24c78d420b5",
+      "source_fingerprint": "d7b83aeb29b7025cae71a8a8524e153a04290f5ffb9ffed41307a8db496b62b3",
+      "started_at": "2026-07-26T02:52:28.846456+00:00",
+      "summary": "The user requested to stack blue, green, and red blocks in that order from bottom to top, but the task failed as the red block remained isolated and the stack was not in the center zone.",
+      "tags": [
+        "stacking",
+        "failure",
+        "blocks"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "The task failed. The red block was not stacked on top of the green block, and the stack is not in the center zone.",
+      "validation": {
+        "discrepancies": [
+          "The red block was not stacked on the green block.",
+          "The stack is not in the center zone.",
+          "The stack is not vertically aligned as a single unit."
+        ],
+        "outcome": "FAILURE",
+        "user_message": "The task failed. The red block was not stacked on top of the green block, and the stack is not in the center zone."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

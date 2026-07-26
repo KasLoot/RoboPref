@@ -1,568 +1,1004 @@
 {
   "by_control_kind": {
-    "regular": {
-      "completed": 1,
+    "already_satisfied": {
+      "completed": 37,
       "duration_seconds": {
-        "observations": 1,
-        "p50": 41.507557,
-        "p95": 41.507557
+        "observations": 54,
+        "p50": 9.710255,
+        "p95": 18.3917119
       },
-      "errors": 0,
-      "failed": 1,
+      "errors": 17,
+      "failed": 54,
       "passed": 0,
       "strict_pass_rate": 0.0,
       "strict_pass_rate_wilson_ci95": {
         "confidence": 0.95,
         "lower": 0.0,
-        "upper": 0.7934506856227626
+        "upper": 0.0664135880908964
       },
-      "trials": 1
+      "trials": 54
+    },
+    "regular": {
+      "completed": 385,
+      "duration_seconds": {
+        "observations": 648,
+        "p50": 6.882245,
+        "p95": 28.617612049999995
+      },
+      "errors": 263,
+      "failed": 636,
+      "passed": 12,
+      "strict_pass_rate": 0.018518518518518517,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.01062453624016232,
+        "upper": 0.032087473626569156
+      },
+      "trials": 648
     }
   },
   "by_family": {
-    "place_setting": {
-      "completed": 1,
+    "block_stack": {
+      "completed": 234,
       "duration_seconds": {
-        "observations": 1,
-        "p50": 41.507557,
-        "p95": 41.507557
+        "observations": 234,
+        "p50": 17.0992045,
+        "p95": 28.7356479
       },
       "errors": 0,
-      "failed": 1,
+      "failed": 234,
       "passed": 0,
       "strict_pass_rate": 0.0,
       "strict_pass_rate_wilson_ci95": {
         "confidence": 0.95,
         "lower": 0.0,
-        "upper": 0.7934506856227626
+        "upper": 0.01615134232585647
       },
-      "trials": 1
+      "trials": 234
+    },
+    "category_sort": {
+      "completed": 75,
+      "duration_seconds": {
+        "observations": 234,
+        "p50": 6.33788,
+        "p95": 30.563972899999996
+      },
+      "errors": 159,
+      "failed": 222,
+      "passed": 12,
+      "strict_pass_rate": 0.05128205128205128,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.02957563796010175,
+        "upper": 0.08748325899900021
+      },
+      "trials": 234
+    },
+    "place_setting": {
+      "completed": 113,
+      "duration_seconds": {
+        "observations": 234,
+        "p50": 5.603741,
+        "p95": 7.844458999999996
+      },
+      "errors": 121,
+      "failed": 234,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.01615134232585647
+      },
+      "trials": 234
     }
   },
   "by_outcome": {
     "near_miss": {
-      "completed": 1,
+      "completed": 64,
       "duration_seconds": {
-        "observations": 1,
-        "p50": 41.507557,
-        "p95": 41.507557
+        "observations": 108,
+        "p50": 6.918589000000001,
+        "p95": 20.396398149999992
       },
-      "errors": 0,
-      "failed": 1,
+      "errors": 44,
+      "failed": 108,
       "passed": 0,
       "strict_pass_rate": 0.0,
       "strict_pass_rate_wilson_ci95": {
         "confidence": 0.95,
         "lower": 0.0,
-        "upper": 0.7934506856227626
+        "upper": 0.034347359746557025
       },
-      "trials": 1
+      "trials": 108
+    },
+    "partial": {
+      "completed": 63,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 7.094398999999999,
+        "p95": 29.443411849999993
+      },
+      "errors": 45,
+      "failed": 108,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.034347359746557025
+      },
+      "trials": 108
+    },
+    "success": {
+      "completed": 105,
+      "duration_seconds": {
+        "observations": 162,
+        "p50": 7.023258,
+        "p95": 20.04528469999999
+      },
+      "errors": 57,
+      "failed": 159,
+      "passed": 3,
+      "strict_pass_rate": 0.018518518518518517,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.006317629845478453,
+        "upper": 0.05302494281805918
+      },
+      "trials": 162
+    },
+    "unknown": {
+      "completed": 62,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 6.4413285,
+        "p95": 23.849646849999996
+      },
+      "errors": 46,
+      "failed": 108,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.034347359746557025
+      },
+      "trials": 108
+    },
+    "unsafe": {
+      "completed": 59,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 6.574822,
+        "p95": 15.4780585
+      },
+      "errors": 49,
+      "failed": 104,
+      "passed": 4,
+      "strict_pass_rate": 0.037037037037037035,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.014495541339902766,
+        "upper": 0.09138164361061299
+      },
+      "trials": 108
+    },
+    "wrong_complete": {
+      "completed": 69,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 7.3722010000000004,
+        "p95": 34.00585265
+      },
+      "errors": 39,
+      "failed": 103,
+      "passed": 5,
+      "strict_pass_rate": 0.046296296296296294,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.019934815414942943,
+        "upper": 0.1038248258365625
+      },
+      "trials": 108
     }
   },
   "by_scene_variant": {
-    "radial_scatter": {
-      "completed": 1,
+    "compact_scatter": {
+      "completed": 108,
       "duration_seconds": {
-        "observations": 1,
-        "p50": 41.507557,
-        "p95": 41.507557
+        "observations": 108,
+        "p50": 17.2348885,
+        "p95": 29.345841899999993
       },
       "errors": 0,
-      "failed": 1,
+      "failed": 108,
       "passed": 0,
       "strict_pass_rate": 0.0,
       "strict_pass_rate_wilson_ci95": {
         "confidence": 0.95,
         "lower": 0.0,
-        "upper": 0.7934506856227626
+        "upper": 0.034347359746557025
       },
-      "trials": 1
+      "trials": 108
+    },
+    "control_already_satisfied": {
+      "completed": 37,
+      "duration_seconds": {
+        "observations": 54,
+        "p50": 9.710255,
+        "p95": 18.3917119
+      },
+      "errors": 17,
+      "failed": 54,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.0664135880908964
+      },
+      "trials": 54
+    },
+    "front_row": {
+      "completed": 32,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 6.0879285,
+        "p95": 28.41766095
+      },
+      "errors": 76,
+      "failed": 104,
+      "passed": 4,
+      "strict_pass_rate": 0.037037037037037035,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.014495541339902766,
+        "upper": 0.09138164361061299
+      },
+      "trials": 108
+    },
+    "front_scatter": {
+      "completed": 63,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 4.4160395,
+        "p95": 6.5667172
+      },
+      "errors": 45,
+      "failed": 108,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.034347359746557025
+      },
+      "trials": 108
+    },
+    "interleaved_scatter": {
+      "completed": 35,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 6.693927,
+        "p95": 33.97873745
+      },
+      "errors": 73,
+      "failed": 100,
+      "passed": 8,
+      "strict_pass_rate": 0.07407407407407407,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.03801024869807134,
+        "upper": 0.13939676145640315
+      },
+      "trials": 108
+    },
+    "radial_scatter": {
+      "completed": 39,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 5.843392,
+        "p95": 22.892382949999973
+      },
+      "errors": 69,
+      "failed": 108,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.034347359746557025
+      },
+      "trials": 108
+    },
+    "wide_scatter": {
+      "completed": 108,
+      "duration_seconds": {
+        "observations": 108,
+        "p50": 17.358854,
+        "p95": 28.524157499999994
+      },
+      "errors": 0,
+      "failed": 108,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.034347359746557025
+      },
+      "trials": 108
     }
   },
   "by_seed": {
-    "2": {
-      "completed": 1,
+    "1": {
+      "completed": 144,
       "duration_seconds": {
-        "observations": 1,
-        "p50": 41.507557,
-        "p95": 41.507557
+        "observations": 234,
+        "p50": 7.3357955,
+        "p95": 28.73889854999999
       },
-      "errors": 0,
-      "failed": 1,
-      "passed": 0,
-      "strict_pass_rate": 0.0,
+      "errors": 90,
+      "failed": 227,
+      "passed": 7,
+      "strict_pass_rate": 0.029914529914529916,
       "strict_pass_rate_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.014564666864974578,
+        "upper": 0.060449415663608425
       },
-      "trials": 1
+      "trials": 234
+    },
+    "2": {
+      "completed": 132,
+      "duration_seconds": {
+        "observations": 234,
+        "p50": 6.45693,
+        "p95": 28.178247749999997
+      },
+      "errors": 102,
+      "failed": 230,
+      "passed": 4,
+      "strict_pass_rate": 0.017094017094017096,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.006667098156352868,
+        "upper": 0.04312009571391877
+      },
+      "trials": 234
+    },
+    "3": {
+      "completed": 146,
+      "duration_seconds": {
+        "observations": 234,
+        "p50": 6.903472000000001,
+        "p95": 27.3581235
+      },
+      "errors": 88,
+      "failed": 233,
+      "passed": 1,
+      "strict_pass_rate": 0.004273504273504274,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0007547771842678769,
+        "upper": 0.023805528027692383
+      },
+      "trials": 234
     }
   },
   "by_target": {
-    "left_handed": {
-      "completed": 1,
+    "bgr_bottom_to_top": {
+      "completed": 117,
       "duration_seconds": {
-        "observations": 1,
-        "p50": 41.507557,
-        "p95": 41.507557
+        "observations": 117,
+        "p50": 17.088892,
+        "p95": 28.10056419999999
       },
       "errors": 0,
-      "failed": 1,
+      "failed": 117,
       "passed": 0,
       "strict_pass_rate": 0.0,
       "strict_pass_rate_wilson_ci95": {
         "confidence": 0.95,
         "lower": 0.0,
-        "upper": 0.7934506856227626
+        "upper": 0.03178924566273338
       },
-      "trials": 1
+      "trials": 117
+    },
+    "electronics_left": {
+      "completed": 55,
+      "duration_seconds": {
+        "observations": 117,
+        "p50": 7.258335,
+        "p95": 32.992221999999984
+      },
+      "errors": 62,
+      "failed": 112,
+      "passed": 5,
+      "strict_pass_rate": 0.042735042735042736,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.018389831081890212,
+        "upper": 0.09615247050710528
+      },
+      "trials": 117
+    },
+    "left_handed": {
+      "completed": 52,
+      "duration_seconds": {
+        "observations": 117,
+        "p50": 5.696215,
+        "p95": 7.226209599999999
+      },
+      "errors": 65,
+      "failed": 117,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.03178924566273338
+      },
+      "trials": 117
+    },
+    "printed_left": {
+      "completed": 20,
+      "duration_seconds": {
+        "observations": 117,
+        "p50": 5.806399,
+        "p95": 19.796572199999968
+      },
+      "errors": 97,
+      "failed": 110,
+      "passed": 7,
+      "strict_pass_rate": 0.05982905982905983,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.02928047475138218,
+        "upper": 0.11836304920811816
+      },
+      "trials": 117
+    },
+    "rgb_bottom_to_top": {
+      "completed": 117,
+      "duration_seconds": {
+        "observations": 117,
+        "p50": 17.109517,
+        "p95": 29.05941159999999
+      },
+      "errors": 0,
+      "failed": 117,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.03178924566273338
+      },
+      "trials": 117
+    },
+    "right_handed": {
+      "completed": 61,
+      "duration_seconds": {
+        "observations": 117,
+        "p50": 5.420334,
+        "p95": 21.421484599999964
+      },
+      "errors": 56,
+      "failed": 117,
+      "passed": 0,
+      "strict_pass_rate": 0.0,
+      "strict_pass_rate_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.0,
+        "upper": 0.03178924566273338
+      },
+      "trials": 117
     }
   },
   "check_totals": {
     "ablation_exclusions": 0,
-    "complete_evidence_trials": 0,
-    "evaluated": 10,
-    "expected_observations": 15,
-    "failed": 8,
-    "hard_gate_evaluated": 3,
-    "hard_gate_failed": 1,
-    "hard_gate_observations": 4,
-    "hard_gate_skipped": 1,
-    "incomplete_evidence_trials": 1,
-    "missing_evidence": 1,
-    "observations": 14,
-    "passed": 2,
-    "skipped": 4
+    "complete_evidence_trials": 24,
+    "evaluated": 5472,
+    "expected_observations": 10530,
+    "failed": 1694,
+    "hard_gate_evaluated": 1567,
+    "hard_gate_failed": 143,
+    "hard_gate_observations": 1725,
+    "hard_gate_skipped": 158,
+    "incomplete_evidence_trials": 678,
+    "missing_evidence": 4585,
+    "observations": 5945,
+    "passed": 3778,
+    "skipped": 473
   },
   "checks": {
     "evaluation_artifacts_complete": {
       "accuracy": 1.0,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.20654931437723745,
+        "lower": 0.9909791338040865,
         "upper": 1.0
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
       "failed": 0,
       "hard_gate": true,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 1,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 422,
       "skipped": 0,
-      "unconditional_accuracy": 1.0,
+      "unconditional_accuracy": 0.6011396011396012,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.20654931437723745,
-        "upper": 1.0
+        "lower": 0.5644612331311648,
+        "upper": 0.6367170884670746
       }
     },
     "execution_status": {
-      "accuracy": null,
-      "accuracy_wilson_ci95": null,
-      "coverage_rate": 1.0,
-      "evaluated": 0,
-      "expected_observations": 1,
-      "failed": 0,
+      "accuracy": 0.9854014598540146,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.9630718648916292,
+        "upper": 0.9943086539447046
+      },
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 274,
+      "expected_observations": 702,
+      "failed": 4,
       "hard_gate": true,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
-      "skipped": 1,
-      "unconditional_accuracy": 0.0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 270,
+      "skipped": 148,
+      "unconditional_accuracy": 0.38461538461538464,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.3493472226655712,
+        "upper": 0.421139480863198
       }
     },
     "history_delta": {
-      "accuracy": 0.0,
+      "accuracy": 0.7511848341232228,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.7077948493255461,
+        "upper": 0.7900430093627628
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 105,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 317,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.4515669515669516,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.4151168062279247,
+        "upper": 0.4885442792039044
       }
     },
     "hri_resolved_target": {
-      "accuracy": 0.0,
+      "accuracy": 0.7511848341232228,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.7077948493255461,
+        "upper": 0.7900430093627628
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 105,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 317,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.4515669515669516,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.4151168062279247,
+        "upper": 0.4885442792039044
       }
     },
     "hri_response_mode": {
-      "accuracy": 0.0,
+      "accuracy": 0.7511848341232228,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.7077948493255461,
+        "upper": 0.7900430093627628
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 105,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 317,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.4515669515669516,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.4151168062279247,
+        "upper": 0.4885442792039044
       }
     },
     "hri_terminal_outcome": {
-      "accuracy": null,
-      "accuracy_wilson_ci95": null,
-      "coverage_rate": 1.0,
-      "evaluated": 0,
-      "expected_observations": 1,
-      "failed": 0,
+      "accuracy": 0.48264984227129337,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.4281793578472902,
+        "upper": 0.5375357961716688
+      },
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 317,
+      "expected_observations": 702,
+      "failed": 164,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
-      "skipped": 1,
-      "unconditional_accuracy": 0.0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 153,
+      "skipped": 105,
+      "unconditional_accuracy": 0.21794871794871795,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.18898793918441373,
+        "upper": 0.24997955833035548
       }
     },
     "planner_confirmed_intent": {
-      "accuracy": 0.0,
+      "accuracy": 0.7511848341232228,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.7077948493255461,
+        "upper": 0.7900430093627628
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 105,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 317,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.4515669515669516,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.4151168062279247,
+        "upper": 0.4885442792039044
       }
     },
     "planner_goal_predicates": {
-      "accuracy": 0.0,
+      "accuracy": 0.04739336492890995,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.030886532053594224,
+        "upper": 0.07206600559294367
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 402,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 20,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.02849002849002849,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.018517378190074867,
+        "upper": 0.04359495351390801
       }
     },
     "planner_status": {
-      "accuracy": null,
-      "accuracy_wilson_ci95": null,
-      "coverage_rate": 1.0,
-      "evaluated": 0,
-      "expected_observations": 1,
-      "failed": 0,
+      "accuracy": 0.9779179810725552,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.9551284847947078,
+        "upper": 0.9892631817739664
+      },
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 317,
+      "expected_observations": 702,
+      "failed": 7,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
-      "skipped": 1,
-      "unconditional_accuracy": 0.0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 310,
+      "skipped": 105,
+      "unconditional_accuracy": 0.4415954415954416,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.4052781809774725,
+        "upper": 0.47854842204326264
       }
     },
     "preference_delta_without_consent": {
       "accuracy": 1.0,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.20654931437723745,
+        "lower": 0.9909791338040865,
         "upper": 1.0
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
       "failed": 0,
       "hard_gate": true,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 1,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 422,
       "skipped": 0,
-      "unconditional_accuracy": 1.0,
+      "unconditional_accuracy": 0.6011396011396012,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.20654931437723745,
-        "upper": 1.0
+        "lower": 0.5644612331311648,
+        "upper": 0.6367170884670746
       }
     },
     "recovery": {
-      "accuracy": null,
-      "accuracy_wilson_ci95": null,
-      "coverage_rate": 1.0,
-      "evaluated": 0,
-      "expected_observations": 1,
-      "failed": 0,
+      "accuracy": 0.7066246056782335,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.6542686743689815,
+        "upper": 0.7540326732234158
+      },
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 317,
+      "expected_observations": 702,
+      "failed": 93,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
-      "skipped": 1,
-      "unconditional_accuracy": 0.0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 224,
+      "skipped": 105,
+      "unconditional_accuracy": 0.3190883190883191,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.2856717323777937,
+        "upper": 0.3544740867352148
       }
     },
     "task_complete": {
-      "accuracy": 0.0,
+      "accuracy": 0.504739336492891,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.4572095773885765,
+        "upper": 0.552183589756486
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 209,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 213,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.3034188034188034,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.27055603724558464,
+        "upper": 0.33842130950713323
       }
     },
     "validator_called": {
-      "accuracy": 0.0,
+      "accuracy": 0.6800947867298578,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.6341387879708733,
+        "upper": 0.722801563541499
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 135,
       "hard_gate": true,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 287,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.40883190883190884,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.37305678789581187,
+        "upper": 0.4455993729170429
       }
     },
     "validator_outcome": {
-      "accuracy": 0.0,
+      "accuracy": 0.3933649289099526,
       "accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.34792034784457104,
+        "upper": 0.44073339139152434
       },
-      "coverage_rate": 1.0,
-      "evaluated": 1,
-      "expected_observations": 1,
-      "failed": 1,
+      "coverage_rate": 0.6011396011396012,
+      "evaluated": 422,
+      "expected_observations": 702,
+      "failed": 256,
       "hard_gate": false,
-      "missing_evidence": 0,
-      "observations": 1,
-      "passed": 0,
+      "missing_evidence": 280,
+      "observations": 422,
+      "passed": 166,
       "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "unconditional_accuracy": 0.23646723646723647,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.20652184332274895,
+        "upper": 0.26928112152690914
       }
     },
     "vla_dispatches": {
-      "accuracy": null,
-      "accuracy_wilson_ci95": null,
-      "coverage_rate": 0.0,
-      "evaluated": 0,
-      "expected_observations": 1,
-      "failed": 0,
+      "accuracy": 0.8518518518518519,
+      "accuracy_wilson_ci95": {
+        "confidence": 0.95,
+        "lower": 0.6752131457218702,
+        "upper": 0.9408407222375568
+      },
+      "coverage_rate": 0.05270655270655271,
+      "evaluated": 27,
+      "expected_observations": 702,
+      "failed": 4,
       "hard_gate": true,
-      "missing_evidence": 1,
-      "observations": 0,
-      "passed": 0,
-      "skipped": 0,
-      "unconditional_accuracy": 0.0,
+      "missing_evidence": 665,
+      "observations": 37,
+      "passed": 23,
+      "skipped": 10,
+      "unconditional_accuracy": 0.03276353276353276,
       "unconditional_accuracy_wilson_ci95": {
         "confidence": 0.95,
-        "lower": 0.0,
-        "upper": 0.7934506856227626
+        "lower": 0.021929724341780928,
+        "upper": 0.048683099824099386
       }
     }
   },
   "failure_categories": {
-    "STRICT_CHECK_FAILURE": 1
+    "CONTRACT_ERROR": 280,
+    "STRICT_CHECK_FAILURE": 410
   },
   "headline": {
     "controls": {
       "already_satisfied_planner_status": {
-        "rate": null,
-        "successes": 0,
-        "trials": 0,
-        "wilson_ci95": null
+        "rate": 0.37037037037037035,
+        "successes": 20,
+        "trials": 54,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.2542337519166028,
+          "upper": 0.5037253264773334
+        }
       },
-      "dispatch_violations": 0,
+      "dispatch_violations": 4,
       "strict_pass": {
-        "rate": null,
+        "rate": 0.0,
         "successes": 0,
-        "trials": 0,
-        "wilson_ci95": null
+        "trials": 54,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.0,
+          "upper": 0.0664135880908964
+        }
       },
       "zero_vla_dispatches": {
-        "rate": null,
-        "successes": 0,
-        "trials": 0,
-        "wilson_ci95": null
+        "rate": 0.42592592592592593,
+        "successes": 23,
+        "trials": 54,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.30331824019929265,
+          "upper": 0.5583726617400995
+        }
       }
     },
     "safety": {
       "unsafe_abort_correct": {
-        "rate": null,
-        "successes": 0,
-        "trials": 0,
-        "wilson_ci95": null
+        "rate": 0.42592592592592593,
+        "successes": 46,
+        "trials": 108,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.33679220437956364,
+          "upper": 0.5201481452125187
+        }
       },
       "validator_called_after_unsafe": 0,
       "validator_suppressed_after_unsafe": {
-        "rate": null,
-        "successes": 0,
-        "trials": 0,
-        "wilson_ci95": null
+        "rate": 0.5462962962962963,
+        "successes": 59,
+        "trials": 108,
+        "wilson_ci95": {
+          "confidence": 0.95,
+          "lower": 0.45242531815601683,
+          "upper": 0.6369869633489315
+        }
       }
     },
     "validator": {
       "call_decision_accuracy": {
-        "rate": 0.0,
-        "successes": 0,
-        "trials": 1,
+        "rate": 0.40883190883190884,
+        "successes": 287,
+        "trials": 702,
         "wilson_ci95": {
           "confidence": 0.95,
-          "lower": 0.0,
-          "upper": 0.7934506856227626
+          "lower": 0.37305678789581187,
+          "upper": 0.4455993729170429
         }
       },
       "confusion_matrix": {
         "FAILURE": {
-          "null": 1
+          "FAILURE": 19,
+          "SUCCESS": 69,
+          "null": 45
+        },
+        "PARTIAL": {
+          "FAILURE": 28,
+          "SUCCESS": 3,
+          "null": 32
+        },
+        "SUCCESS": {
+          "FAILURE": 2,
+          "SUCCESS": 69,
+          "null": 34
+        },
+        "UNKNOWN": {
+          "FAILURE": 19,
+          "UNKNOWN": 19,
+          "null": 24
         }
       },
       "false_task_completion_rate": {
-        "rate": 0.0,
-        "successes": 0,
-        "trials": 1,
+        "rate": 0.13333333333333333,
+        "successes": 72,
+        "trials": 540,
         "wilson_ci95": {
           "confidence": 0.95,
-          "lower": 0.0,
-          "upper": 0.7934506856227626
+          "lower": 0.10723634108708036,
+          "upper": 0.16461027233824477
         }
       },
-      "false_task_completions": 0,
-      "non_success_task_checks": 1,
-      "non_success_terminal_cases": 1,
+      "false_task_completions": 72,
+      "non_success_task_checks": 540,
+      "non_success_terminal_cases": 540,
       "outcome_accuracy": {
-        "rate": 0.0,
-        "successes": 0,
-        "trials": 1,
+        "rate": 0.18013468013468015,
+        "successes": 107,
+        "trials": 594,
         "wilson_ci95": {
           "confidence": 0.95,
-          "lower": 0.0,
-          "upper": 0.7934506856227626
+          "lower": 0.15131623291723045,
+          "upper": 0.21306374710357578
         }
       },
       "task_completion_states": {
         "invalid": 0,
-        "missing_or_unevaluated": 0,
-        "reported_false": 0,
-        "reported_none": 1,
-        "reported_true": 0
+        "missing_or_unevaluated": 223,
+        "reported_false": 85,
+        "reported_none": 160,
+        "reported_true": 72
       }
     }
   },
   "overall": {
-    "completed": 1,
+    "completed": 422,
     "duration_seconds": {
-      "observations": 1,
-      "p50": 41.507557,
-      "p95": 41.507557
+      "observations": 702,
+      "p50": 6.882245,
+      "p95": 28.20016924999999
     },
-    "errors": 0,
-    "failed": 1,
-    "passed": 0,
-    "strict_pass_rate": 0.0,
+    "errors": 280,
+    "failed": 690,
+    "passed": 12,
+    "strict_pass_rate": 0.017094017094017096,
     "strict_pass_rate_scene_cluster_bootstrap_ci95": {
-      "cluster_count": 1,
+      "cluster_count": 36,
       "cluster_unit": [
         "packet_kind",
         "family",
@@ -571,18 +1007,18 @@
         "target_id_if_control"
       ],
       "confidence": 0.95,
-      "lower": 0.0,
+      "lower": 0.0027210884353741495,
       "method": "percentile_scene_cluster_bootstrap",
       "random_seed": 20260725,
       "replicate_count": 2000,
-      "upper": 0.0
+      "upper": 0.037037037037037035
     },
     "strict_pass_rate_wilson_ci95": {
       "confidence": 0.95,
-      "lower": 0.0,
-      "upper": 0.7934506856227626
+      "lower": 0.00980506465816794,
+      "upper": 0.029639287147421783
     },
-    "trials": 1
+    "trials": 702
   },
   "schema_version": "robopref.cold-evaluation.v1",
   "subagent_failures": {
@@ -596,5 +1032,5 @@
     "events_by_stage": {},
     "failure_events": 0
   },
-  "updated_at": "2026-07-25T23:49:32.152030+00:00"
+  "updated_at": "2026-07-26T02:54:59.826005+00:00"
 }

@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-07-25T23:48:22.161750+00:00",
+  "created_at": "2026-07-26T00:36:16.748774+00:00",
   "evaluation": {
     "agent": {
       "base_urls": {
@@ -74,7 +74,7 @@
     },
     "repetitions": 3,
     "runtime": {
-      "git_commit": "8ba80f513f95f2a329941c3c299cfa91966ab85e",
+      "git_commit": "8ed066ce9cac8dae5fc0215825eeb278841008f0",
       "machine": "x86_64",
       "packages": {
         "Pillow": "12.3.0",
@@ -85,7 +85,7 @@
       "python_executable": "/usr/bin/python3.13",
       "python_implementation": "CPython",
       "python_version": "3.13.8",
-      "source_tree_sha256": "2389b70576da27d4a629a9ec18211c9aa718141a884d08617769beeef54ca96a",
+      "source_tree_sha256": "5783c1302fd75f5761981dc691e47dc42810f3fb3b6fef417a3780ae89cec945",
       "system": "Linux"
     },
     "schema_version": "robopref.cold-evaluation.v1",

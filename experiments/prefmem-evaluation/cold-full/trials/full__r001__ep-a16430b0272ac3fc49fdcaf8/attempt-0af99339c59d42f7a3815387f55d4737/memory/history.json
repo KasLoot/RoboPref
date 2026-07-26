@@ -1,0 +1,91 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Move the laptop to the left side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Move the tablet to the left side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Move the book to the right side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "magazine",
+          "task_instruction": "Move the magazine to the right side of the table."
+        }
+      ],
+      "completed_at": "2026-07-26T01:55:26.070549+00:00",
+      "created_at": "2026-07-26T01:55:30.488632+00:00",
+      "episode_id": "episode-f018b7a88a0944e7873a53b66c17d125",
+      "execution": {
+        "evidence": {
+          "attempt": 1,
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "electronic devices",
+          "printed items"
+        ],
+        "parameters": {
+          "electronic_devices_location": "left",
+          "printed_items_location": "right"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "300c2ff7b8a3463dbcca1be48e80ee27",
+      "source_fingerprint": "00f3711a36b244dcb628456115195c4f0b0db05c7e8d8fcef8f0472fb85bc54b",
+      "started_at": "2026-07-26T01:55:14.047050+00:00",
+      "summary": "The user requested to sort objects by placing electronic devices on the left and printed items on the right.",
+      "tags": [
+        "sorting",
+        "electronics",
+        "printed_items"
+      ],
+      "user_choices": {
+        "electronic_devices_location": "left",
+        "printed_items_location": "right"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "All items have been correctly sorted into their designated zones."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-f018b7a88a0944e7873a53b66c17d125"
+      ],
+      "text": "The user sorted objects by placing electronic devices (laptop, tablet) on the left side of the table and printed items (book, magazine) on the right side.",
+      "updated_at": "2026-07-26T01:55:32.913179+00:00"
+    }
+  },
+  "version": 2
+}

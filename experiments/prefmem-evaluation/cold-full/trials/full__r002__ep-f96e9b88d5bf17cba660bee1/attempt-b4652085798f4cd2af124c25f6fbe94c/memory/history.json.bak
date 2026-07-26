@@ -1,0 +1,73 @@
+{
+  "episodes": [
+    {
+      "actions": [],
+      "completed_at": "2026-07-26T01:05:57.895210+00:00",
+      "created_at": "2026-07-26T01:06:01.569654+00:00",
+      "episode_id": "episode-fd31ca087b5d4a99b0af8041fc84dd4e",
+      "execution": {
+        "evidence": "planner_already_satisfied_claim",
+        "status": "OBSERVATION_ONLY"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "f69ac2f842d64b2ba10a793f11bd8501",
+      "source_fingerprint": "a98d079d9b866a30df1f46792918d0067cb99797443780c628587a67d3fe66c3",
+      "started_at": "2026-07-26T01:05:48.751926+00:00",
+      "summary": "The user requested to stack blocks in a specific color order (blue, green, red) from bottom to top, which was successfully completed.",
+      "tags": [
+        "stacking",
+        "blocks",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "goal_checks": [
+          {
+            "evidence": "The green block is positioned directly on top of the blue block.",
+            "goal_id": "goal-1",
+            "satisfied": true
+          },
+          {
+            "evidence": "The red block is positioned directly on top of the green block.",
+            "goal_id": "goal-2",
+            "satisfied": true
+          },
+          {
+            "evidence": "The blocks are stacked vertically in the order blue, green, red and appear stable.",
+            "goal_id": "goal-3",
+            "satisfied": true
+          }
+        ],
+        "outcome": "SUCCESS"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

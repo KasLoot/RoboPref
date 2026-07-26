@@ -1,0 +1,540 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "NONE",
+        "outcome": "SUCCESS"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [],
+        "grounding": [
+          "blue block identified at bottom of current stack",
+          "green block identified in middle of current stack",
+          "red block identified at top of current stack"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "Task Complete."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-e7e4b856264c470bbd3d97042905e43a"
+      },
+      "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+      "episode_id": "episode-26a7b99166614d73b3fd7798f0e48019",
+      "objects": [
+        "blue block",
+        "green block",
+        "red block"
+      ],
+      "parameters": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-aff3d48825604c13a7bc4614e316a218",
+      "task_type": "stack_blocks",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 1,
+              "source": "planner_already_satisfied_claim"
+            },
+            "final_observation_id": "obs-a5a2ee128d0aed51897db1a8",
+            "status": "OBSERVATION_ONLY",
+            "subtask_results": []
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "ALREADY_SATISFIED",
+            "preconditions": [
+              {
+                "condition": "blue block is at the bottom of the stack",
+                "evidence": "The blue block is the base of the visible stack on the table.",
+                "satisfied": true
+              },
+              {
+                "condition": "green block is in the middle of the stack",
+                "evidence": "The green block is positioned between the blue and red blocks.",
+                "satisfied": true
+              },
+              {
+                "condition": "red block is on top of the stack",
+                "evidence": "The red block is the topmost object in the stack.",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [],
+            "validation_spec": {
+              "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "green block",
+                    "blue block"
+                  ],
+                  "description": "green block is supported by blue block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "red block",
+                    "green block"
+                  ],
+                  "description": "red block is supported by green block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "green block",
+                    "red block"
+                  ],
+                  "description": "the stack is vertically aligned and stable",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "STABLE_STACK",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "safe execution of the robot",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-4",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-aff3d48825604c13a7bc4614e316a218"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The requested state is already satisfied.",
+            "next_action": "NONE",
+            "outcome": "ALREADY_SATISFIED",
+            "phase": "PLANNING",
+            "proceed": false
+          },
+          "validation": {
+            "discrepancies": [],
+            "failure": null,
+            "goal_checks": [
+              {
+                "evidence": "The green block is positioned directly on top of the blue block.",
+                "goal_id": "goal-1",
+                "satisfied": true
+              },
+              {
+                "evidence": "The red block is positioned directly on top of the green block.",
+                "goal_id": "goal-2",
+                "satisfied": true
+              },
+              {
+                "evidence": "The blue, green, and red blocks are stacked vertically in a stable column.",
+                "goal_id": "goal-3",
+                "satisfied": true
+              },
+              {
+                "evidence": "No unsafe robot movements or collisions were observed in the execution metadata.",
+                "goal_id": "goal-4",
+                "satisfied": true
+              }
+            ],
+            "outcome": "SUCCESS",
+            "recoverability": "NONE",
+            "task_complete": true,
+            "user_message": "The blocks have been successfully stacked with blue at the bottom, green in the middle, and red on top.",
+            "validator_confidence": 1.0
+          },
+          "validation_assurance": {
+            "failure": null,
+            "message": "Task Complete.",
+            "next_action": "NONE",
+            "outcome": "SUCCESS",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        }
+      ],
+      "failure": null,
+      "message": "Task Complete.",
+      "next_action": "NONE",
+      "outcome": "SUCCESS",
+      "phase": "VALIDATION",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 13,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-f96e9b88d5bf17cba660bee1/attempt-fd856461a2c54d0d95f5d5c4240d0c25/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 5,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-f96e9b88d5bf17cba660bee1/attempt-fd856461a2c54d0d95f5d5c4240d0c25/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": "already_satisfied",
+  "duration_seconds": 13.424351,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates"
+  ],
+  "failed_checks_by_category": {
+    "PLANNER": [
+      "planner_goal_predicates"
+    ]
+  },
+  "failure_categories": [
+    "PLANNER"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "block_stack",
+  "finished_at": "2026-07-26T01:04:00.983078+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-26a7b99166614d73b3fd7798f0e48019"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3002,
+  "outcome": "success",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "bgr_bottom_to_top",
+        "evaluated": true,
+        "expected": "bgr_bottom_to_top",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "evaluated": true,
+        "expected": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-002)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "INSIDE_STACK_ZONE(obj-002,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-002)=true",
+          "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT",
+          "MEMORY_CONFIRM"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "SUCCESS",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "hri_terminal_outcome",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "SUCCESS",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "validator_outcome",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "ALREADY_SATISFIED",
+        "evaluated": true,
+        "expected": "ALREADY_SATISFIED",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVATION_ONLY",
+        "evaluated": true,
+        "expected": "OBSERVATION_ONLY",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "vla_dispatches",
+        "passed": true
+      },
+      {
+        "actual": "NONE",
+        "evaluated": true,
+        "expected": "NONE",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 13,
+    "passed": false,
+    "skipped": 0,
+    "total": 14
+  },
+  "repetition": 3,
+  "scenario_id": "ep-f96e9b88d5bf17cba660bee1",
+  "scene_variant": "control_already_satisfied",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "bgr_bottom_to_top",
+        "evaluated": true,
+        "expected": "bgr_bottom_to_top",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "evaluated": true,
+        "expected": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-002)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "INSIDE_STACK_ZONE(obj-002,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-002)=true",
+          "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT",
+          "MEMORY_CONFIRM"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "SUCCESS",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "hri_terminal_outcome",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "SUCCESS",
+        "evaluated": true,
+        "expected": "SUCCESS",
+        "name": "validator_outcome",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "ALREADY_SATISFIED",
+        "evaluated": true,
+        "expected": "ALREADY_SATISFIED",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVATION_ONLY",
+        "evaluated": true,
+        "expected": "OBSERVATION_ONLY",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "vla_dispatches",
+        "passed": true
+      },
+      {
+        "actual": "NONE",
+        "evaluated": true,
+        "expected": "NONE",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 14,
+    "passed": false,
+    "skipped": 0,
+    "total": 15
+  },
+  "score_exclusions": [],
+  "seed": 3,
+  "skipped_check_names": [],
+  "started_at": "2026-07-26T01:03:47.558733+00:00",
+  "status": "COMPLETED",
+  "target_id": "bgr_bottom_to_top",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-f96e9b88d5bf17cba660bee1/attempt-fd856461a2c54d0d95f5d5c4240d0c25",
+  "user_id": "evaluation-participant"
+}

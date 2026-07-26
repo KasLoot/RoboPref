@@ -1,0 +1,84 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Pick up the book and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "magazine",
+          "task_instruction": "Pick up the magazine and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it in the right zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it in the right zone."
+        }
+      ],
+      "completed_at": "2026-07-26T01:49:01.227132+00:00",
+      "created_at": "2026-07-26T01:49:05.930858+00:00",
+      "episode_id": "episode-ec02541888874707a511724c78dada8b",
+      "execution": {
+        "error": "The simulated execution crossed a configured safety limit.",
+        "status": "UNSAFE",
+        "subtask_results": [
+          {
+            "index": 1,
+            "instruction": "Pick up the book and place it in the left zone.",
+            "safety_event": "insufficient_edge_support",
+            "status": "UNSAFE"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place printed items on the left side of the table and electronic devices on the right side of the table.",
+        "objects": [
+          "printed items",
+          "electronic devices"
+        ],
+        "parameters": {
+          "left_side_target": "printed items",
+          "right_side_target": "electronic devices"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "7772be696a2246679a146754cb67729f",
+      "source_fingerprint": "c4b5d3afbd9d8e656ed8d8356348a438e9deb8f4c52bf3720805effa7becf16b",
+      "started_at": "2026-07-26T01:48:52.257642+00:00",
+      "summary": "The user requested to sort printed items to the left and electronic devices to the right, but the task was aborted due to a safety violation regarding insufficient edge support.",
+      "tags": [
+        "sorting",
+        "safety_abort",
+        "insufficient_edge_support"
+      ],
+      "user_choices": {
+        "left_side_target": "printed items",
+        "right_side_target": "electronic devices"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place printed items on the left and electronic devices on the right.",
+      "user_visible_result": "Execution stopped because the VLA reported an unsafe state.",
+      "validation": []
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

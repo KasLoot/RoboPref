@@ -1,0 +1,69 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "center",
+          "target": "book",
+          "task_instruction": "Pick up the book and place it in zone:left."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "center",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it in zone:right."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "center",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it in zone:right."
+        }
+      ],
+      "completed_at": "2026-07-26T01:32:54.739275+00:00",
+      "created_at": "2026-07-26T01:32:58.468417+00:00",
+      "episode_id": "episode-27b4f3d10886466da2b7b04ca414567f",
+      "execution": [],
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place the printed items on the left side of the table and the electronic devices on the right side of the table.",
+        "objects": [
+          "printed items",
+          "electronic devices"
+        ],
+        "parameters": {
+          "left_side": "printed items",
+          "right_side": "electronic devices"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "38dc7f2a925849a192d055798f3a2849",
+      "source_fingerprint": "0b4abe9f513307290479d159eeb406ba951ce9f339f0b7e103554da8c31e0383",
+      "started_at": "2026-07-26T01:32:46.725081+00:00",
+      "summary": "The user requested to sort printed items to the left and electronic devices to the right, but the task was blocked due to unsatisfied preconditions.",
+      "tags": [
+        "sorting",
+        "blocked",
+        "precondition_failure"
+      ],
+      "user_choices": {
+        "left_side": "printed items",
+        "right_side": "electronic devices"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place printed items on the left and electronic devices on the right.",
+      "user_visible_result": "A required task precondition is not satisfied.",
+      "validation": {
+        "failure_reason": "Unsatisfied preconditions: book was in center instead of left; laptop and tablet were in center instead of right.",
+        "terminal_outcome": "BLOCKED"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

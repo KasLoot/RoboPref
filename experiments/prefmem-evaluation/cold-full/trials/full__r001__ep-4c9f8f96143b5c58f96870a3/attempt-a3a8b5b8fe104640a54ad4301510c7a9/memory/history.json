@@ -1,0 +1,81 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "orange mat",
+          "source": "table",
+          "target": "red book",
+          "task_instruction": "Pick up the red book and place it on the orange mat."
+        },
+        {
+          "arm": "right",
+          "destination": "orange mat",
+          "source": "table",
+          "target": "blue book",
+          "task_instruction": "Pick up the blue book and place it on the orange mat."
+        },
+        {
+          "arm": "right",
+          "destination": "blue mat",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it on the blue mat."
+        },
+        {
+          "arm": "right",
+          "destination": "blue mat",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it on the blue mat."
+        }
+      ],
+      "completed_at": "2026-07-26T02:48:13.137898+00:00",
+      "created_at": "2026-07-26T02:48:17.143592+00:00",
+      "episode_id": "episode-3397f0b1c7ff4339b8ec9c79cf10c576",
+      "execution": [],
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place printed items on the left and electronic devices on the right.",
+        "objects": [
+          "printed items",
+          "electronic devices"
+        ],
+        "parameters": {
+          "left_destination": "orange mat",
+          "right_destination": "blue mat"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "16c2ee121fe5491ca9162bf07bce09b4",
+      "source_fingerprint": "cc26f6c2dcea8fb652b7c4e0df9f0b778dbd7d09b463a9c0e0a8fc00c588aae1",
+      "started_at": "2026-07-26T02:48:04.060105+00:00",
+      "summary": "The user requested to sort printed items on the left and electronic devices on the right, but the task was blocked due to unsatisfied preconditions.",
+      "tags": [
+        "sorting",
+        "blocked",
+        "precondition_failure"
+      ],
+      "user_choices": {
+        "left_destination": "orange mat",
+        "right_destination": "blue mat"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place printed items on the left and electronic devices on the right.",
+      "user_visible_result": "A required task precondition is not satisfied.",
+      "validation": []
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-3397f0b1c7ff4339b8ec9c79cf10c576"
+      ],
+      "text": "The user attempted to sort objects by placing printed items (red and blue books) on the orange mat (left) and electronic devices (laptop and tablet) on the blue mat (right), but the task was blocked by unsatisfied preconditions.",
+      "updated_at": "2026-07-26T02:48:18.278561+00:00"
+    }
+  },
+  "version": 2
+}

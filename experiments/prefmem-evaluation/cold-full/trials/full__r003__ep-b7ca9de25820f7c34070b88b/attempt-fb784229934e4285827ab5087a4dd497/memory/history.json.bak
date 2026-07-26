@@ -1,0 +1,133 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "black mat",
+          "target": "red block",
+          "task_instruction": "Place the red block at the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "black mat",
+          "target": "green block",
+          "task_instruction": "Stack the green block on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "black mat",
+          "target": "blue block",
+          "task_instruction": "Stack the blue block on top of the green block."
+        },
+        {
+          "arm": "right",
+          "destination": "black mat",
+          "source": "green block",
+          "target": "red block",
+          "task_instruction": "Pick up the red block from the top of the stack and place it on the table."
+        },
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "black mat",
+          "target": "red block",
+          "task_instruction": "Pick up the red block from the table and place it at the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "blue block",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T02:13:59.211051+00:00",
+      "created_at": "2026-07-26T02:14:07.371664+00:00",
+      "episode_id": "episode-276fe7111b554cf39d041c9efb3880b7",
+      "execution": {
+        "evidence": {
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "attempt": 1,
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "attempt": 1,
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "attempt": 1,
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "70910864ef4e41fb85251a905494a387",
+      "source_fingerprint": "b78cd51898dd12dea165597fd1fd5c6f74f4475942b9ca8251b5937df326070e",
+      "started_at": "2026-07-26T02:13:35.810336+00:00",
+      "summary": "The user requested a block stack in red-green-blue order from bottom to top, but the execution resulted in an inverted stack (blue-green-red).",
+      "tags": [
+        "stacking",
+        "blocks",
+        "failure",
+        "incorrect_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "The blocks were stacked in the wrong order. The red block is on top instead of at the bottom.",
+      "validation": {
+        "discrepancies": [
+          "The stack order is inverted: blue is at the bottom, green is in the middle, and red is at the top, which contradicts the requirement of red at the bottom and blue on top."
+        ],
+        "failure": {
+          "description": "The stack order is incorrect. The requirement was red (bottom), green (middle), blue (top), but the result is blue (bottom), green (middle), red (top).",
+          "type": "GOAL_NOT_MET"
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

@@ -1,0 +1,198 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and stack it on top of the green block."
+        },
+        {
+          "arm": "right",
+          "destination": "table",
+          "source": "green block",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block from the top of the stack and place it on the table."
+        },
+        {
+          "arm": "right",
+          "destination": "table",
+          "source": "green block",
+          "target": "red block",
+          "task_instruction": "Pick up the red block from the bottom of the stack and place it on the table."
+        },
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T02:22:14.846988+00:00",
+      "created_at": "2026-07-26T02:22:28.046368+00:00",
+      "episode_id": "episode-28a7f838de07415d98bfc5bc74f055d3",
+      "execution": {
+        "attempts": [
+          {
+            "attempt": 1,
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 1,
+                "index": 1,
+                "instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 2,
+                "instruction": "Pick up the green block and stack it on top of the blue block.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 3,
+                "instruction": "Pick up the red block and stack it on top of the green block.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          {
+            "attempt": 2,
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 2,
+                "index": 1,
+                "instruction": "Pick up the blue block from the top of the stack and place it on the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 2,
+                "instruction": "Pick up the red block from the bottom of the stack and place it on the table.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 3,
+                "instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 4,
+                "instruction": "Pick up the green block and stack it on top of the blue block.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 5,
+                "instruction": "Pick up the red block and stack it on top of the green block.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "approval": {
+          "source": "hri_resolved_user_turn",
+          "turn_id": "turn-a53ac7d9d8ec458da0c264c6fd83caca"
+        },
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "episode_id": "episode-28a7f838de07415d98bfc5bc74f055d3",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "preference_refs": [],
+        "schema_version": 1,
+        "task_id": "task-99f37dc0103040e0a1b9981ca9b93e8e",
+        "task_type": "stack_blocks",
+        "user_id": "evaluation-participant"
+      },
+      "session_id": "0ff75699785f4e47b39a90c9693a71c6",
+      "source_fingerprint": "8d03a481299ccdb3ca4db1426dbc7ffb9616fdd811849fee464f1b0e7fbf6077",
+      "started_at": "2026-07-26T02:21:51.461214+00:00",
+      "summary": "The user requested a block stack in blue, green, and red order from bottom to top, but the execution resulted in a reversed stack order.",
+      "tags": [
+        "stacking",
+        "failure",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "The blocks were stacked, but in the reverse order of the requirement. The blue block should be at the bottom.",
+      "validation": {
+        "discrepancies": [
+          "The required stack order (blue bottom, green middle, red top) was not achieved. The observed order is red bottom, green middle, blue top."
+        ],
+        "failure": {
+          "description": "The stack order is incorrect. The intent was blue (bottom), green (middle), red (top), but the result is red (bottom), green (middle), blue (top).",
+          "type": "GOAL_NOT_MET"
+        },
+        "outcome": "FAILURE",
+        "user_message": "The blocks were stacked, but in the reverse order of the requirement. The blue block should be at the bottom."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-28a7f838de07415d98bfc5bc74f055d3"
+      ],
+      "text": "The user attempted to stack blue, green, and red blocks in a specific bottom-to-top order, but the execution resulted in a reversed stack order.",
+      "updated_at": "2026-07-26T02:22:28.774603+00:00"
+    }
+  },
+  "version": 2
+}

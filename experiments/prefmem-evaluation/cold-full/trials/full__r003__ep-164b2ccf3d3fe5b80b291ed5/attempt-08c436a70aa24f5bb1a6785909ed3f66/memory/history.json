@@ -1,0 +1,124 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Move the laptop to the left side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Move the tablet to the left side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Move the book to the right side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "zone:right",
+          "target": "laptop",
+          "task_instruction": "Move the laptop from the right zone to the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "zone:left",
+          "target": "book",
+          "task_instruction": "Move the book from the left zone to the right zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Move the tablet to the left zone."
+        }
+      ],
+      "completed_at": "2026-07-26T01:19:40.516993+00:00",
+      "created_at": "2026-07-26T01:19:47.656933+00:00",
+      "episode_id": "episode-fa2dbc337ecc40abb40c6c254b13bed0",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "instruction": "Move the laptop to the left side of the table.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "instruction": "Move the tablet to the left side of the table.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "instruction": "Move the book to the right side of the table.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "electronic devices",
+          "printed items"
+        ],
+        "parameters": {
+          "electronic_devices_location": "left",
+          "printed_items_location": "right"
+        },
+        "task_type": "organize_items"
+      },
+      "session_id": "52ae40548562427eae2d5349adee64a2",
+      "source_fingerprint": "22973c83fa194c5cc1f00f799689c182830780b7e175aebb938c85519c55438b",
+      "started_at": "2026-07-26T01:19:18.625478+00:00",
+      "summary": "The user requested to organize items by placing electronic devices on the left and printed items on the right, but the task failed as items were placed in the incorrect zones.",
+      "tags": [
+        "organize_items",
+        "failed_task"
+      ],
+      "user_choices": {
+        "electronic_devices_location": "left",
+        "printed_items_location": "right"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The items were placed in the wrong zones. The laptop and book are swapped, and the tablet is not correctly positioned.",
+      "validation": {
+        "discrepancies": [
+          "Laptop is in the right zone instead of the left.",
+          "Book is in the left zone instead of the right.",
+          "Tablet is missing or not in the left zone."
+        ],
+        "failure": {
+          "description": "The electronic devices (laptop, tablet) were not placed on the left, and printed items (book) were not placed on the right.",
+          "type": "GOAL_NOT_MET"
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-fa2dbc337ecc40abb40c6c254b13bed0"
+      ],
+      "text": "The user attempted to organize a table by placing electronic devices on the left and printed items on the right, but the task failed due to incorrect item placement.",
+      "updated_at": "2026-07-26T01:19:48.444644+00:00"
+    }
+  },
+  "version": 2
+}

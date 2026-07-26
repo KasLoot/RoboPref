@@ -1,0 +1,104 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "plate",
+          "task_instruction": "Place the plate at the center of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "right of plate",
+          "source": "table",
+          "target": "knife",
+          "task_instruction": "Place the knife to the right of the plate."
+        },
+        {
+          "arm": "right",
+          "destination": "above plate",
+          "source": "table",
+          "target": "mug",
+          "task_instruction": "Place the mug above the plate."
+        }
+      ],
+      "completed_at": "2026-07-26T02:38:41.276934+00:00",
+      "created_at": "2026-07-26T02:38:47.471203+00:00",
+      "episode_id": "episode-b457e19832de49eaabe7886e643aa1f2",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "attempt": 1,
+            "index": 1,
+            "instruction": "Place the plate at the center of the table.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "attempt": 1,
+            "index": 2,
+            "instruction": "Place the knife to the right of the plate.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "attempt": 1,
+            "index": 3,
+            "instruction": "Place the mug above the plate.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Create a right-handed place setting by arranging the plate, knife, and mug on the table.",
+        "objects": [
+          "plate",
+          "knife",
+          "mug"
+        ],
+        "parameters": {
+          "layout": "right-handed",
+          "positions": {
+            "knife": "right of plate",
+            "mug": "above plate",
+            "plate": "center"
+          }
+        },
+        "task_type": "arrange_place_setting"
+      },
+      "session_id": "9c2ce2a2d7fc4a9abb034fc018e2555f",
+      "source_fingerprint": "81b1c4e37fe58aed3995a4f8c1aaca370257289188a33bcabf15c4ea9870ae9e",
+      "started_at": "2026-07-26T02:38:28.173398+00:00",
+      "summary": "The user requested a right-handed place setting, but the task failed because the resulting arrangement of the plate, knife, and mug was not a standard or functional setting.",
+      "tags": [
+        "place_setting",
+        "failed_task",
+        "right-handed"
+      ],
+      "user_choices": {
+        "layout": "right-handed",
+        "positions": {
+          "knife": "right of plate",
+          "mug": "above plate",
+          "plate": "center"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Create a right-handed place setting.",
+      "user_visible_result": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting.",
+      "validation": {
+        "failure": {
+          "description": "The items are placed on the table, but the knife is not correctly oriented/placed for a standard setting, and the overall arrangement is disorganized.",
+          "goal_id": "goal-2"
+        },
+        "outcome": "FAILURE",
+        "user_message": "The task failed because the arrangement does not constitute a standard right-handed place setting; while the knife is to the right, the items are not correctly aligned for a functional setting."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

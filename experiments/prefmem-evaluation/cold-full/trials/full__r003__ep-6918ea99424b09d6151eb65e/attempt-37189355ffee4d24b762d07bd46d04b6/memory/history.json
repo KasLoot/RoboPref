@@ -1,0 +1,108 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:stack-centre",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and place it in the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T02:42:20.766831+00:00",
+      "created_at": "2026-07-26T02:42:26.827411+00:00",
+      "episode_id": "episode-885461adbf74457589f44e008a3d2051",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "instruction": "Pick up the red block and place it in the center of the stack zone.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "instruction": "Pick up the green block and stack it on top of the red block.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "instruction": "Pick up the blue block and stack it on top of the green block.",
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "875c731d3e284269a6d890f03855eafb",
+      "source_fingerprint": "e2ac5489749dbb5619f792f8a734056ea1047efd59f5639952568101ae437d3f",
+      "started_at": "2026-07-26T02:42:00.730970+00:00",
+      "summary": "The user requested a stack of red, green, and blue blocks from bottom to top, but the task failed because the blue block was placed on the black zone instead of on top of the green block.",
+      "tags": [
+        "stacking",
+        "failure",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "The task failed because the blue block was not stacked on top of the green block; it remains separate on the black zone.",
+      "validation": {
+        "discrepancies": [
+          "The blue block was not stacked on top of the green block as required."
+        ],
+        "failure": {
+          "description": "The blue block is not on top of the green block, so the required stack (red-green-blue) was not formed."
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-885461adbf74457589f44e008a3d2051"
+      ],
+      "text": "The user attempted to stack red, green, and blue blocks in that specific order from bottom to top, but the task failed when the blue block was placed in the wrong zone instead of on the green block.",
+      "updated_at": "2026-07-26T02:42:27.583971+00:00"
+    }
+  },
+  "version": 2
+}

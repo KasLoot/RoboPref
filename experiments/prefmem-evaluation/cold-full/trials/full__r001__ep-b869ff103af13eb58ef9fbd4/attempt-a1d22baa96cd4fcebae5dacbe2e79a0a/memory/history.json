@@ -1,0 +1,93 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T00:44:37.981700+00:00",
+      "created_at": "2026-07-26T00:44:42.781158+00:00",
+      "episode_id": "episode-9080ded33beb4436b4fb7525118fb415",
+      "execution": {
+        "error": "The simulated execution crossed a configured safety limit.",
+        "status": "UNSAFE",
+        "subtask_results": [
+          {
+            "error": "The simulated execution crossed a configured safety limit.",
+            "index": 1,
+            "instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base.",
+            "safety_event": "unsafe_contact",
+            "status": "UNSAFE"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "stack_order": {
+            "bottom": "blue block",
+            "middle": "green block",
+            "top": "red block"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "d981e6467c214f2f96938c3196e233a7",
+      "source_fingerprint": "07f9061867e18226553cd8cb64302a3e44513be2a26cec2c00bcb3f0bb8083bf",
+      "started_at": "2026-07-26T00:44:30.099658+00:00",
+      "summary": "The user requested to stack blue, green, and red blocks in that order from bottom to top, but the execution was aborted due to a safety violation during the first subtask.",
+      "tags": [
+        "stacking",
+        "safety_abort",
+        "blocks"
+      ],
+      "user_choices": {
+        "stack_order": {
+          "bottom": "blue block",
+          "middle": "green block",
+          "top": "red block"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "Execution stopped because the VLA reported an unsafe state.",
+      "validation": []
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-9080ded33beb4436b4fb7525118fb415"
+      ],
+      "text": "The user attempted to stack blue, green, and red blocks from bottom to top, but the task was aborted due to a safety violation during the initial placement of the blue block.",
+      "updated_at": "2026-07-26T00:44:43.883249+00:00"
+    }
+  },
+  "version": 2
+}

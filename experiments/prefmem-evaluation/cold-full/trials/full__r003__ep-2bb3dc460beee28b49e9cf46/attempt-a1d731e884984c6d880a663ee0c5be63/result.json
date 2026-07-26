@@ -1,0 +1,745 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "REOBSERVE",
+        "outcome": "FAILED"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [
+          "The user wants the electronic devices on the orange mat and printed items on the blue mat based on the spatial instruction."
+        ],
+        "grounding": [
+          "left mat is orange",
+          "right mat is blue",
+          "laptop and smartphone are electronic devices",
+          "book and notebook are printed items"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-c1a25348a9cc4c5b85046e3b3a65f607"
+      },
+      "confirmed_intent": "Place electronic devices on the left mat and printed items on the right mat.",
+      "episode_id": "episode-39a830438213414da84431d7aec37531",
+      "objects": [
+        "laptop",
+        "smartphone",
+        "book",
+        "notebook"
+      ],
+      "parameters": {
+        "left_mat_contents": [
+          "electronic devices"
+        ],
+        "right_mat_contents": [
+          "printed items"
+        ]
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-0c0ff3bb89464a9e91314f50255d6025",
+      "task_type": "sort_objects",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 1,
+              "physical_execution_claimed": false,
+              "source": "recorded_dataset"
+            },
+            "final_observation_id": "obs-b0f992970967aa16a399259f",
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 1,
+                "index": 1,
+                "instruction": "Pick up the laptop and place it on the left mat.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 2,
+                "instruction": "Pick up the smartphone and place it on the left mat.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 3,
+                "instruction": "Pick up the book and place it on the right mat.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 4,
+                "instruction": "Pick up the notebook and place it on the right mat.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "laptop, smartphone, book, notebook are visible",
+                "evidence": "current_image",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "zone:left",
+                "source": "table",
+                "target": "laptop",
+                "task_instruction": "Pick up the laptop and place it on the left mat."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:left",
+                "source": "table",
+                "target": "smartphone",
+                "task_instruction": "Pick up the smartphone and place it on the left mat."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:right",
+                "source": "table",
+                "target": "book",
+                "task_instruction": "Pick up the book and place it on the right mat."
+              },
+              {
+                "arm": "right",
+                "destination": "zone:right",
+                "source": "table",
+                "target": "notebook",
+                "task_instruction": "Pick up the notebook and place it on the right mat."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Place electronic devices on the left mat and printed items on the right mat.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "laptop",
+                    "zone:left"
+                  ],
+                  "description": "laptop is on the left mat",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "smartphone",
+                    "zone:left"
+                  ],
+                  "description": "smartphone is on the left mat",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "book",
+                    "zone:right"
+                  ],
+                  "description": "book is on the right mat",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "notebook",
+                    "zone:right"
+                  ],
+                  "description": "notebook is on the right mat",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_SORT_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "laptop",
+                    "smartphone",
+                    "book",
+                    "notebook"
+                  ],
+                  "description": "all items are assigned",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-5",
+                  "observable": true,
+                  "predicate": "ALL_ITEMS_ASSIGNED",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "safe execution",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-6",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-0c0ff3bb89464a9e91314f50255d6025-val"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          },
+          "reobservations": [
+            {
+              "assurance": {
+                "failure": {
+                  "code": "GOAL_NOT_SATISFIED",
+                  "memory_effect": "HISTORY_ONLY",
+                  "next_action": "REOBSERVE",
+                  "observed": [],
+                  "stage": "VALIDATION",
+                  "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly."
+                },
+                "message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+                "next_action": "REOBSERVE",
+                "outcome": "FAILED",
+                "phase": "VALIDATION",
+                "proceed": false
+              },
+              "index": 1,
+              "observation": {
+                "error": null,
+                "evidence": {
+                  "attempt": 1,
+                  "physical_execution_claimed": false,
+                  "reobservation": 1,
+                  "source": "recorded_dataset"
+                },
+                "final_observation": "/workspace/RoboPref/dataset/sim_datasets/episodes/ep-2bb3dc460beee28b49e9cf46/2.png",
+                "status": "OBSERVATION_ONLY",
+                "subtask_results": [
+                  {
+                    "attempt": 1,
+                    "index": 1,
+                    "instruction": "Pick up the laptop and place it on the left mat.",
+                    "status": "RECORDED_EXTERNAL_ATTEMPT"
+                  },
+                  {
+                    "attempt": 1,
+                    "index": 2,
+                    "instruction": "Pick up the smartphone and place it on the left mat.",
+                    "status": "RECORDED_EXTERNAL_ATTEMPT"
+                  },
+                  {
+                    "attempt": 1,
+                    "index": 3,
+                    "instruction": "Pick up the book and place it on the right mat.",
+                    "status": "RECORDED_EXTERNAL_ATTEMPT"
+                  },
+                  {
+                    "attempt": 1,
+                    "index": 4,
+                    "instruction": "Pick up the notebook and place it on the right mat.",
+                    "status": "RECORDED_EXTERNAL_ATTEMPT"
+                  }
+                ]
+              },
+              "validation": {
+                "discrepancies": [],
+                "failure": {
+                  "description": "The workspace is occluded by a large object, preventing verification of all goal conditions.",
+                  "reason": "OBSERVATION_FAILURE"
+                },
+                "goal_checks": [
+                  {
+                    "evidence": "The laptop is not visible in the final image; the view is obstructed by a large grey object.",
+                    "goal_id": "goal-1",
+                    "satisfied": false
+                  },
+                  {
+                    "evidence": "The smartphone is not visible in the final image; the view is obstructed by a large grey object.",
+                    "goal_id": "goal-2",
+                    "satisfied": false
+                  },
+                  {
+                    "evidence": "The book is not visible in the final image; the view is obstructed by a large grey object.",
+                    "goal_id": "goal-3",
+                    "satisfied": false
+                  },
+                  {
+                    "evidence": "The notebook is not visible in the final image; the view is obstructed by a large grey object.",
+                    "goal_id": "goal-4",
+                    "satisfied": false
+                  },
+                  {
+                    "evidence": "None of the required items are visible to confirm assignment.",
+                    "goal_id": "goal-5",
+                    "satisfied": false
+                  },
+                  {
+                    "evidence": "Cannot evaluate safety due to total occlusion of the workspace.",
+                    "goal_id": "goal-6",
+                    "satisfied": false
+                  }
+                ],
+                "outcome": "FAILURE",
+                "recoverability": "REOBSERVE",
+                "task_complete": false,
+                "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+                "validator_confidence": 1.0
+              }
+            }
+          ],
+          "validation": {
+            "discrepancies": [],
+            "failure": {
+              "description": "The workspace is occluded by a large object, preventing verification of all goal conditions.",
+              "reason": "OBSERVATION_FAILURE"
+            },
+            "goal_checks": [
+              {
+                "evidence": "The laptop is not visible in the final image; the view is obstructed by a large grey object.",
+                "goal_id": "goal-1",
+                "satisfied": false
+              },
+              {
+                "evidence": "The smartphone is not visible in the final image; the view is obstructed by a large grey object.",
+                "goal_id": "goal-2",
+                "satisfied": false
+              },
+              {
+                "evidence": "The book is not visible in the final image; the view is obstructed by a large grey object.",
+                "goal_id": "goal-3",
+                "satisfied": false
+              },
+              {
+                "evidence": "The notebook is not visible in the final image; the view is obstructed by a large grey object.",
+                "goal_id": "goal-4",
+                "satisfied": false
+              },
+              {
+                "evidence": "None of the required items are visible to confirm assignment.",
+                "goal_id": "goal-5",
+                "satisfied": false
+              },
+              {
+                "evidence": "Cannot evaluate safety due to total occlusion of the workspace.",
+                "goal_id": "goal-6",
+                "satisfied": false
+              }
+            ],
+            "outcome": "FAILURE",
+            "recoverability": "REOBSERVE",
+            "task_complete": false,
+            "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+            "validator_confidence": 1.0
+          },
+          "validation_assurance": {
+            "failure": {
+              "code": "GOAL_NOT_SATISFIED",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "REOBSERVE",
+              "observed": [],
+              "stage": "VALIDATION",
+              "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly."
+            },
+            "message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+            "next_action": "REOBSERVE",
+            "outcome": "FAILED",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        }
+      ],
+      "failure": {
+        "code": "GOAL_NOT_SATISFIED",
+        "memory_effect": "HISTORY_ONLY",
+        "next_action": "REOBSERVE",
+        "observed": [],
+        "stage": "VALIDATION",
+        "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly."
+      },
+      "message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+      "next_action": "REOBSERVE",
+      "outcome": "FAILED",
+      "phase": "VALIDATION",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 16,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-2bb3dc460beee28b49e9cf46/attempt-a1d731e884984c6d880a663ee0c5be63/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 6,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-2bb3dc460beee28b49e9cf46/attempt-a1d731e884984c6d880a663ee0c5be63/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": null,
+  "duration_seconds": 23.078467,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates",
+    "hri_terminal_outcome",
+    "validator_outcome"
+  ],
+  "failed_checks_by_category": {
+    "HRI": [
+      "hri_terminal_outcome"
+    ],
+    "PLANNER": [
+      "planner_goal_predicates"
+    ],
+    "VALIDATOR": [
+      "validator_outcome"
+    ]
+  },
+  "failure_categories": [
+    "HRI",
+    "PLANNER",
+    "VALIDATOR"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "category_sort",
+  "finished_at": "2026-07-26T02:15:49.489696+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-39a830438213414da84431d7aec37531"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3002,
+  "outcome": "unknown",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "electronics_left",
+        "evaluated": true,
+        "expected": "electronics_left",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Place electronic devices on the left mat and printed items on the right mat.",
+        "evaluated": true,
+        "expected": "Place electronic devices on the left mat and printed items on the right mat.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_ITEMS_ASSIGNED(notebook,obj-001,obj-003,smartphone)=true",
+          "INSIDE_SORT_ZONE(notebook,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+          "INSIDE_SORT_ZONE(smartphone,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "REOBSERVE",
+        "evaluated": true,
+        "expected": "REOBSERVE",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 10,
+    "passed": false,
+    "skipped": 0,
+    "total": 13
+  },
+  "repetition": 3,
+  "scenario_id": "ep-2bb3dc460beee28b49e9cf46",
+  "scene_variant": "front_row",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "electronics_left",
+        "evaluated": true,
+        "expected": "electronics_left",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Place electronic devices on the left mat and printed items on the right mat.",
+        "evaluated": true,
+        "expected": "Place electronic devices on the left mat and printed items on the right mat.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "ALL_ITEMS_ASSIGNED(notebook,obj-001,obj-003,smartphone)=true",
+          "INSIDE_SORT_ZONE(notebook,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+          "INSIDE_SORT_ZONE(smartphone,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "ALL_ITEMS_ASSIGNED(obj-001,obj-002,obj-003,obj-004)=true",
+          "INSIDE_SORT_ZONE(obj-001,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-002,zone:right)=true",
+          "INSIDE_SORT_ZONE(obj-003,zone:left)=true",
+          "INSIDE_SORT_ZONE(obj-004,zone:left)=true",
+          "SAFE_EXECUTION(robot)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "UNKNOWN",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "REOBSERVE",
+        "evaluated": true,
+        "expected": "REOBSERVE",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 11,
+    "passed": false,
+    "skipped": 0,
+    "total": 14
+  },
+  "score_exclusions": [],
+  "seed": 2,
+  "skipped_check_names": [],
+  "started_at": "2026-07-26T02:15:26.411227+00:00",
+  "status": "COMPLETED",
+  "target_id": "electronics_left",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-2bb3dc460beee28b49e9cf46/attempt-a1d731e884984c6d880a663ee0c5be63",
+  "user_id": "evaluation-participant"
+}

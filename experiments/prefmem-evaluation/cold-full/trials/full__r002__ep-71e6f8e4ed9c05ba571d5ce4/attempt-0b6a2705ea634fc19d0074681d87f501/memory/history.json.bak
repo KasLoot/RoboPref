@@ -1,0 +1,105 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Pick up the book and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "magazine",
+          "task_instruction": "Pick up the magazine and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it in the right zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it in the right zone."
+        }
+      ],
+      "completed_at": "2026-07-26T02:08:34.131181+00:00",
+      "created_at": "2026-07-26T02:08:39.792147+00:00",
+      "episode_id": "episode-2459ff5450174e20a869f1dfecc16f76",
+      "execution": {
+        "evidence": {
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 4,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place printed items on the left side of the table and electronic devices on the right side of the table.",
+        "objects": [
+          "printed items",
+          "electronic devices"
+        ],
+        "parameters": {
+          "left_side_objects": "printed items",
+          "right_side_objects": "electronic devices"
+        },
+        "task_type": "organize_objects"
+      },
+      "session_id": "706889f4ef8f47c98eaf291b44c15046",
+      "source_fingerprint": "9ca9718ad71234c676b3c5076f6eba25d77f1079111f26d150bf3522cf4ebfa9",
+      "started_at": "2026-07-26T02:08:21.646111+00:00",
+      "summary": "The user requested to organize objects by placing printed items on the left and electronic devices on the right.",
+      "tags": [
+        "organize_objects",
+        "sorting"
+      ],
+      "user_choices": {
+        "left_side_objects": "printed items",
+        "right_side_objects": "electronic devices"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place printed items on the left and electronic devices on the right.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "goal_checks": [
+          {
+            "evidence": "All items are correctly sorted: printed items (book, magazine) on the left and electronics (laptop, tablet) on the right.",
+            "goal_id": "goal-5",
+            "satisfied": true
+          }
+        ],
+        "outcome": "SUCCESS"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

@@ -1,0 +1,89 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "destination": "zone:left",
+          "target": "laptop"
+        },
+        {
+          "destination": "zone:left",
+          "target": "tablet"
+        },
+        {
+          "destination": "zone:right",
+          "target": "red book"
+        },
+        {
+          "destination": "zone:right",
+          "target": "blue book"
+        }
+      ],
+      "completed_at": "2026-07-26T00:41:47.330187+00:00",
+      "created_at": "2026-07-26T00:41:51.616196+00:00",
+      "episode_id": "episode-5614502996aa4828955c17fa632f580f",
+      "execution": {
+        "evidence": "recorded_dataset",
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "laptop",
+          "tablet",
+          "red book",
+          "blue book"
+        ],
+        "parameters": {
+          "electronic_devices": [
+            "laptop",
+            "tablet"
+          ],
+          "layout": {
+            "left": "electronic_devices",
+            "right": "printed_items"
+          },
+          "printed_items": [
+            "red book",
+            "blue book"
+          ]
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "a3d53bbb37264bbcbebd2a6828b9dfdb",
+      "source_fingerprint": "7957d9679cf394923cfd6699a640b0e53a64a2b900126b04b1e5e8acd9998728",
+      "started_at": "2026-07-26T00:41:34.232480+00:00",
+      "summary": "The user requested to sort objects by placing electronic devices on the left and printed items on the right. The task was executed and the user reported successful completion, though the system recorded a terminal outcome of FAILED during validation.",
+      "tags": [
+        "sorting",
+        "layout_preference"
+      ],
+      "user_choices": {
+        "electronic_devices": [
+          "laptop",
+          "tablet"
+        ],
+        "layout": {
+          "left": "electronic_devices",
+          "right": "printed_items"
+        },
+        "printed_items": [
+          "red book",
+          "blue book"
+        ]
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The task was completed successfully.",
+      "validation": {
+        "note": "Validator reported terminal outcome as FAILED despite user confirmation of success.",
+        "outcome": "FAILURE",
+        "user_message": "The task was completed successfully."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

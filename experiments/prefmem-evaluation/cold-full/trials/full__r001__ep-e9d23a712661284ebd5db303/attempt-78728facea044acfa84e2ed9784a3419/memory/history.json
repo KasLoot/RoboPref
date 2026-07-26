@@ -1,0 +1,89 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "destination": "zone:left",
+          "target": "red book",
+          "task_instruction": "Move the red book to the left side of the table."
+        },
+        {
+          "destination": "zone:left",
+          "target": "blue book",
+          "task_instruction": "Move the blue book to the left side of the table."
+        },
+        {
+          "destination": "zone:right",
+          "target": "blue tablet",
+          "task_instruction": "Move the blue tablet to the right side of the table."
+        }
+      ],
+      "completed_at": "2026-07-26T00:38:30.537993+00:00",
+      "created_at": "2026-07-26T00:38:35.026940+00:00",
+      "episode_id": "episode-4c37e24f9dc04d9a8ae173e92e11e84e",
+      "execution": {
+        "error": null,
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place printed items on the left side of the table and electronic devices on the right side of the table.",
+        "objects": [
+          "red book",
+          "blue book",
+          "blue tablet"
+        ],
+        "parameters": {
+          "left_side_items": [
+            "red book",
+            "blue book"
+          ],
+          "right_side_items": [
+            "blue tablet"
+          ]
+        },
+        "task_type": "organize_items"
+      },
+      "session_id": "99189099806f47128e343bb56bcd1556",
+      "source_fingerprint": "9d6335ca612aeec0f2eed6b5d48c512a2d8aaadf4f3369957e80a73382b8837b",
+      "started_at": "2026-07-26T00:38:13.980915+00:00",
+      "summary": "The user requested to organize items by placing printed items on the left and electronic devices on the right, but the task could not be completed because the target items were not visible.",
+      "tags": [
+        "organize_items",
+        "object_not_found",
+        "blocked"
+      ],
+      "user_choices": {
+        "left_side_items": [
+          "red book",
+          "blue book"
+        ],
+        "right_side_items": [
+          "blue tablet"
+        ]
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place printed items on the left and electronic devices on the right.",
+      "user_visible_result": "I cannot proceed because the red book, blue book, and blue tablet are not visible on the table.",
+      "validation": {
+        "failure": {
+          "description": "The required items were not found in their designated zones.",
+          "type": "OBJECT_NOT_FOUND"
+        },
+        "outcome": "FAILURE",
+        "user_message": "The task failed because none of the target items (red book, blue book, blue tablet) are visible on the table in the final observation."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-4c37e24f9dc04d9a8ae173e92e11e84e"
+      ],
+      "text": "The user requested to organize items by placing printed items on the left side of the table and electronic devices on the right side, but the task failed because the target items were not visible.",
+      "updated_at": "2026-07-26T00:38:35.848959+00:00"
+    }
+  },
+  "version": 2
+}

@@ -1,0 +1,83 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Place the red block in the center of the workspace to serve as the base."
+        },
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Stack the green block on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Stack the blue block on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T01:23:44.476614+00:00",
+      "created_at": "2026-07-26T01:23:48.879230+00:00",
+      "episode_id": "episode-d578de944e804b6a91be7703170784e0",
+      "execution": {
+        "evidence": {
+          "attempt": 1,
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "796c7dad203648e883f601df68f4b8ad",
+      "source_fingerprint": "8182c98fdff7a3152395697d0e67bc752b2621ea945959111f1ba6bdd5eaa4ea",
+      "started_at": "2026-07-26T01:23:33.368325+00:00",
+      "summary": "The user requested to stack blocks in a red, green, and blue order from bottom to top, which the agent successfully executed.",
+      "tags": [
+        "stacking",
+        "blocks",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "The blocks have been successfully stacked in the correct order (red, green, blue) within the center zone."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

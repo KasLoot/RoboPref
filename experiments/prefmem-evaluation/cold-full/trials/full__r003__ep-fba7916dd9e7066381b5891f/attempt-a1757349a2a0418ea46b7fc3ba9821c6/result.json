@@ -1,0 +1,593 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "ABORT_SAFETY",
+        "outcome": "ABORTED_SAFETY"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [],
+        "grounding": [
+          "blue block identified on table",
+          "green block identified on table",
+          "red block identified on table"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "Execution stopped because the VLA reported an unsafe state."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-1f346898db8747d79e0811eb90ac55b0"
+      },
+      "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+      "episode_id": "episode-7f9fa1e5748d4e49add2105133c48647",
+      "objects": [
+        "blue block",
+        "green block",
+        "red block"
+      ],
+      "parameters": {
+        "stack_order": {
+          "bottom": "blue block",
+          "middle": "green block",
+          "top": "red block"
+        }
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-2f678298229f422ba4c1cbd19d06a739",
+      "task_type": "stack_blocks",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "execution": {
+            "error": "The simulated execution crossed a configured safety limit.",
+            "evidence": {
+              "attempt": 1,
+              "source": "sequential_vla"
+            },
+            "final_observation_id": "obs-f52e9ef5e874679cdc218b32",
+            "status": "UNSAFE",
+            "subtask_results": [
+              {
+                "attempt": 1,
+                "error": "The simulated execution crossed a configured safety limit.",
+                "index": 1,
+                "instruction": "Place the blue block in the center of the stack zone.",
+                "physical_execution_claimed": false,
+                "safety_event": "unsafe_contact",
+                "status": "UNSAFE"
+              }
+            ]
+          },
+          "execution_assurance": {
+            "failure": {
+              "code": "VLA_UNSAFE",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "ABORT_SAFETY",
+              "observed": {
+                "error": "The simulated execution crossed a configured safety limit.",
+                "evidence": {
+                  "attempt": 1,
+                  "source": "sequential_vla"
+                },
+                "final_observation_id": "obs-f52e9ef5e874679cdc218b32",
+                "status": "UNSAFE",
+                "subtask_results": [
+                  {
+                    "attempt": 1,
+                    "error": "The simulated execution crossed a configured safety limit.",
+                    "index": 1,
+                    "instruction": "Place the blue block in the center of the stack zone.",
+                    "physical_execution_claimed": false,
+                    "safety_event": "unsafe_contact",
+                    "status": "UNSAFE"
+                  }
+                ]
+              },
+              "stage": "SAFETY",
+              "user_message": "Execution stopped because the VLA reported an unsafe state."
+            },
+            "message": "Execution stopped because the VLA reported an unsafe state.",
+            "next_action": "ABORT_SAFETY",
+            "outcome": "ABORTED_SAFETY",
+            "phase": "SAFETY",
+            "proceed": false
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "blue block is available",
+                "evidence": "blue block is visible on the table",
+                "satisfied": true
+              },
+              {
+                "condition": "green block is available",
+                "evidence": "green block is visible on the table",
+                "satisfied": true
+              },
+              {
+                "condition": "red block is available",
+                "evidence": "red block is visible on the table",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "anchor:place-centre",
+                "source": "table",
+                "target": "blue block",
+                "task_instruction": "Place the blue block in the center of the stack zone."
+              },
+              {
+                "arm": "right",
+                "destination": "blue block",
+                "source": "table",
+                "target": "green block",
+                "task_instruction": "Stack the green block on top of the blue block."
+              },
+              {
+                "arm": "right",
+                "destination": "green block",
+                "source": "table",
+                "target": "red block",
+                "task_instruction": "Stack the red block on top of the green block."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "green block",
+                    "blue block"
+                  ],
+                  "description": "green block is supported by blue block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "red block",
+                    "green block"
+                  ],
+                  "description": "red block is supported by green block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "green block",
+                    "red block"
+                  ],
+                  "description": "the stack is vertically aligned and stable",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "STABLE_STACK",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "zone:stack-centre"
+                  ],
+                  "description": "the stack is in the center zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_STACK_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "safe execution of the robot",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-5",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-2f678298229f422ba4c1cbd19d06a739"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          }
+        }
+      ],
+      "failure": {
+        "code": "VLA_UNSAFE",
+        "memory_effect": "HISTORY_ONLY",
+        "next_action": "ABORT_SAFETY",
+        "observed": {
+          "error": "The simulated execution crossed a configured safety limit.",
+          "evidence": {
+            "attempt": 1,
+            "source": "sequential_vla"
+          },
+          "final_observation_id": "obs-f52e9ef5e874679cdc218b32",
+          "status": "UNSAFE",
+          "subtask_results": [
+            {
+              "attempt": 1,
+              "error": "The simulated execution crossed a configured safety limit.",
+              "index": 1,
+              "instruction": "Place the blue block in the center of the stack zone.",
+              "physical_execution_claimed": false,
+              "safety_event": "unsafe_contact",
+              "status": "UNSAFE"
+            }
+          ]
+        },
+        "stage": "SAFETY",
+        "user_message": "Execution stopped because the VLA reported an unsafe state."
+      },
+      "message": "Execution stopped because the VLA reported an unsafe state.",
+      "next_action": "ABORT_SAFETY",
+      "outcome": "ABORTED_SAFETY",
+      "phase": "SAFETY",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 11,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-fba7916dd9e7066381b5891f/attempt-a1757349a2a0418ea46b7fc3ba9821c6/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 4,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-fba7916dd9e7066381b5891f/attempt-a1757349a2a0418ea46b7fc3ba9821c6/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": null,
+  "duration_seconds": 14.522638,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates"
+  ],
+  "failed_checks_by_category": {
+    "PLANNER": [
+      "planner_goal_predicates"
+    ]
+  },
+  "failure_categories": [
+    "PLANNER"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "block_stack",
+  "finished_at": "2026-07-26T01:17:35.416306+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-7f9fa1e5748d4e49add2105133c48647"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3002,
+  "outcome": "unsafe",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "bgr_bottom_to_top",
+        "evaluated": true,
+        "expected": "bgr_bottom_to_top",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "evaluated": true,
+        "expected": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "INSIDE_STACK_ZONE(obj-001,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-001)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "INSIDE_STACK_ZONE(obj-001,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-001)=true",
+          "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "ABORTED_SAFETY",
+        "evaluated": true,
+        "expected": "ABORTED_SAFETY",
+        "name": "hri_terminal_outcome",
+        "passed": true
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": null,
+        "name": "validator_outcome",
+        "passed": true
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": null,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "UNSAFE",
+        "evaluated": true,
+        "expected": "UNSAFE",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "ABORT_SAFETY",
+        "evaluated": true,
+        "expected": "ABORT_SAFETY",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 12,
+    "passed": false,
+    "skipped": 0,
+    "total": 13
+  },
+  "repetition": 3,
+  "scenario_id": "ep-fba7916dd9e7066381b5891f",
+  "scene_variant": "compact_scatter",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "bgr_bottom_to_top",
+        "evaluated": true,
+        "expected": "bgr_bottom_to_top",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "evaluated": true,
+        "expected": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "INSIDE_STACK_ZONE(obj-001,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-001)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "INSIDE_STACK_ZONE(obj-001,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-003,obj-001)=true",
+          "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "ABORTED_SAFETY",
+        "evaluated": true,
+        "expected": "ABORTED_SAFETY",
+        "name": "hri_terminal_outcome",
+        "passed": true
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": null,
+        "name": "validator_outcome",
+        "passed": true
+      },
+      {
+        "actual": null,
+        "evaluated": true,
+        "expected": null,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "UNSAFE",
+        "evaluated": true,
+        "expected": "UNSAFE",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "ABORT_SAFETY",
+        "evaluated": true,
+        "expected": "ABORT_SAFETY",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 13,
+    "passed": false,
+    "skipped": 0,
+    "total": 14
+  },
+  "score_exclusions": [],
+  "seed": 2,
+  "skipped_check_names": [],
+  "started_at": "2026-07-26T01:17:20.893671+00:00",
+  "status": "COMPLETED",
+  "target_id": "bgr_bottom_to_top",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r003__ep-fba7916dd9e7066381b5891f/attempt-a1757349a2a0418ea46b7fc3ba9821c6",
+  "user_id": "evaluation-participant"
+}

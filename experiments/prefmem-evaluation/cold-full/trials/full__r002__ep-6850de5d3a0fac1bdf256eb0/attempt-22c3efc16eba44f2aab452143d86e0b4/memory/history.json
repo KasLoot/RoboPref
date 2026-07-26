@@ -1,0 +1,82 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "black mat",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and place it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "black mat",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T01:13:27.214590+00:00",
+      "created_at": "2026-07-26T01:13:30.942979+00:00",
+      "episode_id": "episode-c879ff97bd0e4bd6af29b15b60a94ec6",
+      "execution": {
+        "evidence": {
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "f9e1450ecf58433f87bb703fa3a5e3c8",
+      "source_fingerprint": "dbe2e67bbe88ed06e5cb28215e6447691699033137cf9c2ece92d4911aea42a5",
+      "started_at": "2026-07-26T01:13:17.149705+00:00",
+      "summary": "The user requested to stack red, green, and blue blocks in that specific order from bottom to top, which was successfully executed.",
+      "tags": [
+        "stacking",
+        "blocks",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "The blocks have been successfully stacked in the requested order: red at the bottom, green in the middle, and blue on top."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-c879ff97bd0e4bd6af29b15b60a94ec6"
+      ],
+      "text": "The user requested to stack blocks in a specific color order (red bottom, green middle, blue top), which was successfully executed.",
+      "updated_at": "2026-07-26T01:13:31.667921+00:00"
+    }
+  },
+  "version": 2
+}

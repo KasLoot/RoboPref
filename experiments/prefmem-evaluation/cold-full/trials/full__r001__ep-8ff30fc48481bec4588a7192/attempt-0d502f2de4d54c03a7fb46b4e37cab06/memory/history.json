@@ -1,0 +1,137 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Pick up the book and place it in the right zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "magazine",
+          "task_instruction": "Pick up the magazine and place it in the right zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "zone:right",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop from the right zone and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "zone:right",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet from the right zone and place it in the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "zone:left",
+          "target": "book",
+          "task_instruction": "Pick up the book from the left zone and place it in the right zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "zone:left",
+          "target": "magazine",
+          "task_instruction": "Pick up the magazine from the left zone and place it in the right zone."
+        }
+      ],
+      "completed_at": "2026-07-26T02:15:11.890349+00:00",
+      "created_at": "2026-07-26T02:15:19.877555+00:00",
+      "episode_id": "episode-80ed99cf59134ecaa77fc083f6ccd7af",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 4,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "electronic devices",
+          "printed items"
+        ],
+        "parameters": {
+          "left_side_category": "electronic devices",
+          "right_side_category": "printed items"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "1bf8730f6a8e45f5897b3204923da506",
+      "source_fingerprint": "0e70711d885ff00d7f69a9b65df77f6aa9a296bbe0a48e36a9cde7788ef3fbc1",
+      "started_at": "2026-07-26T02:14:47.029142+00:00",
+      "summary": "The user requested to sort electronic devices on the left and printed items on the right, but the task failed as items were placed in the opposite zones.",
+      "tags": [
+        "sorting",
+        "failure"
+      ],
+      "user_choices": {
+        "left_side_category": "electronic devices",
+        "right_side_category": "printed items"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The items were placed in the opposite zones of what was intended. Electronics are on the right and printed items are on the left.",
+      "validation": {
+        "discrepancies": [
+          "The laptop and tablet (electronics) are in the right zone, while the book and magazine (printed items) are in the left zone, which is the reverse of the confirmed intent."
+        ],
+        "failure": {
+          "description": "The items were sorted into the incorrect zones based on the confirmed intent.",
+          "type": "GOAL_NOT_MET"
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-80ed99cf59134ecaa77fc083f6ccd7af"
+      ],
+      "text": "The user attempted to sort electronic devices to the left zone and printed items to the right zone, but the task failed as items were placed in the incorrect zones.",
+      "updated_at": "2026-07-26T02:15:20.578193+00:00"
+    }
+  },
+  "version": 2
+}

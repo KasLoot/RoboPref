@@ -1,0 +1,105 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it on the left mat."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "table",
+          "target": "smartphone",
+          "task_instruction": "Pick up the smartphone and place it on the left mat."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Pick up the book and place it on the right mat."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "table",
+          "target": "notebook",
+          "task_instruction": "Pick up the notebook and place it on the right mat."
+        }
+      ],
+      "completed_at": "2026-07-26T02:15:43.245668+00:00",
+      "created_at": "2026-07-26T02:15:48.617800+00:00",
+      "episode_id": "episode-39a830438213414da84431d7aec37531",
+      "execution": {
+        "evidence": {
+          "attempt": 1,
+          "physical_execution_claimed": false,
+          "source": "recorded_dataset"
+        },
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left mat and printed items on the right mat.",
+        "objects": [
+          "laptop",
+          "smartphone",
+          "book",
+          "notebook"
+        ],
+        "parameters": {
+          "left_mat_contents": [
+            "electronic devices"
+          ],
+          "right_mat_contents": [
+            "printed items"
+          ]
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "dcd185e5a1c14c9f9474ccbd49dc69cc",
+      "source_fingerprint": "e653a9828aa951af7ce6e1712ba7969f5247c32cd09badc7c3e66ff1f4a7cfa9",
+      "started_at": "2026-07-26T02:15:26.572052+00:00",
+      "summary": "The user requested to sort electronic devices on the left and printed items on the right, but the task could not be verified because a large grey object obstructed the view.",
+      "tags": [
+        "sorting",
+        "occlusion",
+        "failed_verification"
+      ],
+      "user_choices": {
+        "left_mat_contents": [
+          "electronic devices"
+        ],
+        "right_mat_contents": [
+          "printed items"
+        ]
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly.",
+      "validation": {
+        "failure": {
+          "description": "The workspace is occluded by a large object, preventing verification of all goal conditions.",
+          "reason": "OBSERVATION_FAILURE"
+        },
+        "outcome": "FAILURE",
+        "user_message": "The final image is completely obstructed by a large grey object, making it impossible to verify if any items were placed correctly."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-39a830438213414da84431d7aec37531"
+      ],
+      "text": "The user requested to sort electronic devices onto the left mat and printed items onto the right mat, but the task outcome could not be verified due to visual occlusion by a large grey object.",
+      "updated_at": "2026-07-26T02:15:49.438939+00:00"
+    }
+  },
+  "version": 2
+}

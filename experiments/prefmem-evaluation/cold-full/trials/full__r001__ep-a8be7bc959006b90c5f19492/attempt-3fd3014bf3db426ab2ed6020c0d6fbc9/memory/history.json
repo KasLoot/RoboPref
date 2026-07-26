@@ -1,0 +1,102 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it in the center of the workspace to serve as the base."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T01:27:34.595030+00:00",
+      "created_at": "2026-07-26T01:27:39.923278+00:00",
+      "episode_id": "episode-e1f87c389ff94906b118dcb9f1a30d9c",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "blue",
+            "middle": "green",
+            "top": "red"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "acced5ce0c814282997da812954029e5",
+      "source_fingerprint": "a47dd78bc7c592eaa3671bc8cfb18cfce00ba07746e9a9e32065938e92a7a7eb",
+      "started_at": "2026-07-26T01:27:18.656848+00:00",
+      "summary": "The user requested to stack blue, green, and red blocks from bottom to top, but the task could not be validated because a large grey object obstructed the workspace.",
+      "tags": [
+        "stacking",
+        "blocks",
+        "failed_validation",
+        "occlusion"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "blue",
+          "middle": "green",
+          "top": "red"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "The task could not be validated because the final image is obstructed by a large grey object, hiding the workspace.",
+      "validation": {
+        "details": "The target objects (blue, green, and red blocks) are not visible in the final observation due to occlusion by a large grey object.",
+        "outcome": "FAILURE",
+        "reason": "OBSERVATION_OBSTRUCTED"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-e1f87c389ff94906b118dcb9f1a30d9c"
+      ],
+      "text": "The user requested to stack blue, green, and red blocks in that specific order from bottom to top, but the task failed validation due to a large grey object obstructing the workspace.",
+      "updated_at": "2026-07-26T01:27:41.048418+00:00"
+    }
+  },
+  "version": 2
+}

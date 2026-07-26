@@ -1,0 +1,71 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "destination": "zone:left",
+          "target": "laptop"
+        },
+        {
+          "destination": "zone:left",
+          "target": "tablet"
+        },
+        {
+          "destination": "zone:right",
+          "target": "red book"
+        },
+        {
+          "destination": "zone:right",
+          "target": "blue book"
+        }
+      ],
+      "completed_at": "2026-07-26T00:44:25.071898+00:00",
+      "created_at": "2026-07-26T00:44:29.050287+00:00",
+      "episode_id": "episode-67997e84fcfa443d80fdb3e5a810d959",
+      "execution": {
+        "error": null,
+        "status": "OBSERVED_RECORDED_ATTEMPT"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Move all electronic devices to the left side of the table and all printed items to the right side of the table.",
+        "objects": [
+          "electronic devices",
+          "printed items"
+        ],
+        "parameters": {
+          "electronic_devices_location": "left",
+          "printed_items_location": "right"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "37330b07425c402f82f7653b28643089",
+      "source_fingerprint": "815ea3db757fa5db42b01fc3bd631c27ecc051d63c12ade1fe0fac9a95fde425",
+      "started_at": "2026-07-26T00:44:04.108346+00:00",
+      "summary": "The user requested to sort electronic devices to the left and printed items to the right, but the task could not be completed because the required objects were not visible on the table.",
+      "tags": [
+        "sorting",
+        "failed_task",
+        "missing_objects"
+      ],
+      "user_choices": {
+        "electronic_devices_location": "left",
+        "printed_items_location": "right"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "I cannot proceed with the sorting task because the required objects (laptop, tablet, red book, and blue book) are not visible on the table.",
+      "validation": {
+        "failure": {
+          "description": "The target objects were not found in their required locations on the table.",
+          "type": "MISSING_OBJECTS"
+        },
+        "outcome": "FAILURE",
+        "user_message": "The task failed because none of the items (laptop, tablet, red book, blue book) are visible on the table in the final observation."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

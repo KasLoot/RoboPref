@@ -1,0 +1,125 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "center of table",
+          "target": "laptop",
+          "task_instruction": "Move the laptop to the left side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "center of table",
+          "target": "tablet",
+          "task_instruction": "Move the tablet to the left side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "center of table",
+          "target": "book",
+          "task_instruction": "Move the book to the right side of the table."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "zone:right",
+          "target": "laptop",
+          "task_instruction": "Move the laptop from the right zone to the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:left",
+          "source": "zone:right",
+          "target": "tablet",
+          "task_instruction": "Move the tablet from the right zone to the left zone."
+        },
+        {
+          "arm": "right",
+          "destination": "zone:right",
+          "source": "zone:left",
+          "target": "book",
+          "task_instruction": "Move the book from the left zone to the right zone."
+        }
+      ],
+      "completed_at": "2026-07-26T02:44:31.458416+00:00",
+      "created_at": "2026-07-26T02:44:38.383927+00:00",
+      "episode_id": "episode-b8321376ef4e42cc97f319135e049560",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place electronic devices on the left side of the table and printed items on the right side of the table.",
+        "objects": [
+          "laptop",
+          "tablet",
+          "book"
+        ],
+        "parameters": {
+          "grouping": {
+            "left": [
+              "laptop",
+              "tablet"
+            ],
+            "right": [
+              "book"
+            ]
+          }
+        },
+        "task_type": "organize_items"
+      },
+      "session_id": "bce576a52f474d599680afc99b246980",
+      "source_fingerprint": "f4447546f4377af3da8fad1ad8fc8d9535a0e1668cb3207b54d0c5e4f3443573",
+      "started_at": "2026-07-26T02:44:08.276068+00:00",
+      "summary": "The user requested to place electronic devices on the left and printed items on the right, but the task failed as items were placed in the opposite zones.",
+      "tags": [
+        "organize_items",
+        "failed_task",
+        "sorting"
+      ],
+      "user_choices": {
+        "grouping": {
+          "left": [
+            "laptop",
+            "tablet"
+          ],
+          "right": [
+            "book"
+          ]
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place electronic devices on the left and printed items on the right.",
+      "user_visible_result": "The items were placed in the wrong zones. The electronics are on the right and the book is on the left.",
+      "validation": {
+        "discrepancies": [
+          "Laptop and tablet are in the right zone instead of the left zone.",
+          "Book is in the left zone instead of the right zone."
+        ],
+        "outcome": "FAILURE",
+        "user_message": "The items were placed in the wrong zones. The electronics are on the right and the book is on the left."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

@@ -1,0 +1,96 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "zone:stack-centre",
+          "source": "red block",
+          "target": "red block",
+          "task_instruction": "Pick up the red block and place it in the center of the stack zone."
+        },
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "green block",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and stack it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "blue block",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and stack it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T02:49:32.312959+00:00",
+      "created_at": "2026-07-26T02:49:37.996343+00:00",
+      "episode_id": "episode-f5fafb9e2c004d4e8df4b72fd8b99733",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "f1896f6131784faa9563961ae8c9a414",
+      "source_fingerprint": "fb8a038f9244fde3b00c13b770f98928545bd47a4df38cd8bd4bbb10b6b6c924",
+      "started_at": "2026-07-26T02:49:17.558385+00:00",
+      "summary": "The user requested to stack red, green, and blue blocks in that specific order from bottom to top, but the final result could not be verified due to a large grey visual overlay.",
+      "tags": [
+        "stacking",
+        "occlusion",
+        "unverified"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "The final observation is obscured by a large grey overlay, preventing verification of the stack.",
+      "validation": {
+        "failure": {
+          "reason": "Visual occlusion prevents verification of all goal conditions.",
+          "type": "OBSERVATION_FAILURE"
+        },
+        "outcome": "UNKNOWN",
+        "user_message": "The final observation is obscured by a large grey overlay, preventing verification of the stack."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

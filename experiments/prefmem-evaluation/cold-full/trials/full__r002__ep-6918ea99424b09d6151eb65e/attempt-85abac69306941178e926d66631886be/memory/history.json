@@ -1,0 +1,94 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "red block",
+          "source": "black mat",
+          "target": "green block",
+          "task_instruction": "Pick up the green block and place it on top of the red block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "black mat",
+          "target": "blue block",
+          "task_instruction": "Pick up the blue block and place it on top of the green block."
+        }
+      ],
+      "completed_at": "2026-07-26T01:24:08.565174+00:00",
+      "created_at": "2026-07-26T01:24:13.337762+00:00",
+      "episode_id": "episode-9cb2a3d91a7f44af9c6b221fecb5dee8",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "21dc0672145546c8a12bce3b00b13c6f",
+      "source_fingerprint": "a2b9842bfebabfded1d80f13791d332d96c977e5402974244214b6a82b33be3c",
+      "started_at": "2026-07-26T01:23:50.045819+00:00",
+      "summary": "The user requested to stack red, green, and blue blocks from bottom to top, but the task failed because the blue block was left on the mat instead of being placed on the green block.",
+      "tags": [
+        "stacking",
+        "failure",
+        "blocks"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "The stack is incomplete. The blue block is sitting on the mat instead of on top of the green block.",
+      "validation": {
+        "discrepancies": [
+          "The blue block was not placed on top of the green block as required by the intent."
+        ],
+        "failure": {
+          "description": "The blue block is not on top of the green block, failing the stacking requirement."
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-9cb2a3d91a7f44af9c6b221fecb5dee8"
+      ],
+      "text": "The user attempted to stack red, green, and blue blocks in that order from bottom to top, but the task failed because the blue block was not placed on the green block.",
+      "updated_at": "2026-07-26T01:24:14.271783+00:00"
+    }
+  },
+  "version": 2
+}

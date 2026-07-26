@@ -1,0 +1,836 @@
+{
+  "agent_failures": [],
+  "agent_result": {
+    "awaiting_user": false,
+    "hri": {
+      "memory_action": {
+        "action": "NONE"
+      },
+      "mode": "REPORT",
+      "pending_question": null,
+      "report": {
+        "next_action": "USER_ASSIST",
+        "outcome": "FAILED"
+      },
+      "task_contract": null,
+      "trace": {
+        "assumptions": [],
+        "grounding": [
+          "blue block identified on table",
+          "green block identified on table",
+          "red block identified on table"
+        ],
+        "history_refs": [],
+        "memory_refs": []
+      },
+      "user_message": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone."
+    },
+    "memory": null,
+    "resolved_task": {
+      "approval": {
+        "source": "hri_resolved_user_turn",
+        "turn_id": "turn-7384d022fdad4603beb90e984a80da1f"
+      },
+      "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+      "episode_id": "episode-cc6ff4cf547745c0a2628898992365ba",
+      "objects": [
+        "blue block",
+        "green block",
+        "red block"
+      ],
+      "parameters": {
+        "stack_order": {
+          "bottom": "blue block",
+          "middle": "green block",
+          "top": "red block"
+        }
+      },
+      "preference_refs": [],
+      "schema_version": 1,
+      "task_id": "task-f076b679b1fa4be88f1017caffd09b0e",
+      "task_type": "stack_blocks",
+      "user_id": "evaluation-participant"
+    },
+    "task": {
+      "attempts": [
+        {
+          "attempt": 1,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 1,
+              "physical_execution_claimed": false,
+              "source": "recorded_dataset"
+            },
+            "final_observation_id": "obs-74b526634f34ffca137c8e6a",
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 1,
+                "index": 1,
+                "instruction": "Place the blue block at the center of the black mat to serve as the base.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 2,
+                "instruction": "Stack the green block on top of the blue block.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 1,
+                "index": 3,
+                "instruction": "Stack the red block on top of the green block.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "blue block is available on table",
+                "evidence": "visible in image",
+                "satisfied": true
+              },
+              {
+                "condition": "green block is available on table",
+                "evidence": "visible in image",
+                "satisfied": true
+              },
+              {
+                "condition": "red block is available on table",
+                "evidence": "visible in image",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "anchor:place-centre",
+                "source": "table",
+                "target": "blue block",
+                "task_instruction": "Place the blue block at the center of the black mat to serve as the base."
+              },
+              {
+                "arm": "right",
+                "destination": "blue block",
+                "source": "table",
+                "target": "green block",
+                "task_instruction": "Stack the green block on top of the blue block."
+              },
+              {
+                "arm": "right",
+                "destination": "green block",
+                "source": "table",
+                "target": "red block",
+                "task_instruction": "Stack the red block on top of the green block."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "green block",
+                    "blue block"
+                  ],
+                  "description": "green block is supported by blue block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "red block",
+                    "green block"
+                  ],
+                  "description": "red block is supported by green block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "green block",
+                    "red block"
+                  ],
+                  "description": "the stack is vertically aligned and stable",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "STABLE_STACK",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "zone:stack-centre"
+                  ],
+                  "description": "the stack is in the center zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_STACK_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "safe execution of robot",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-5",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-f076b679b1fa4be88f1017caffd09b0e"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          },
+          "validation": {
+            "discrepancies": [
+              "The red block is not stacked on the green block.",
+              "The stack is not in the center zone (black mat); the blue/green blocks are on the white mat."
+            ],
+            "failure": {
+              "description": "The blocks were not stacked in the correct order/location. The red block is separate, and the blue/green stack is on the white mat instead of the black mat.",
+              "goal_ids": [
+                "goal-2",
+                "goal-3",
+                "goal-4"
+              ]
+            },
+            "goal_checks": [
+              {
+                "evidence": "The green block is sitting directly on top of the blue block.",
+                "goal_id": "goal-1",
+                "satisfied": true
+              },
+              {
+                "evidence": "The red block is isolated on the black mat and is not on top of the green block.",
+                "goal_id": "goal-2",
+                "satisfied": false
+              },
+              {
+                "evidence": "The blocks are not in a single stack; the red block is separate from the blue/green stack.",
+                "goal_id": "goal-3",
+                "satisfied": false
+              },
+              {
+                "evidence": "The blue block is on the white mat, not in the center stack zone (black mat).",
+                "goal_id": "goal-4",
+                "satisfied": false
+              },
+              {
+                "evidence": "No unsafe robot behavior observed.",
+                "goal_id": "goal-5",
+                "satisfied": true
+              }
+            ],
+            "outcome": "FAILURE",
+            "recoverability": "REPLAN",
+            "task_complete": false,
+            "user_message": "The task failed. The red block was not stacked on the green block, and the blue/green stack is in the wrong zone.",
+            "validator_confidence": 1.0
+          },
+          "validation_assurance": {
+            "failure": {
+              "code": "GOAL_NOT_SATISFIED",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "REPLAN",
+              "observed": [
+                "The red block is not stacked on the green block.",
+                "The stack is not in the center zone (black mat); the blue/green blocks are on the white mat."
+              ],
+              "stage": "VALIDATION",
+              "user_message": "The task failed. The red block was not stacked on the green block, and the blue/green stack is in the wrong zone."
+            },
+            "message": "The task failed. The red block was not stacked on the green block, and the blue/green stack is in the wrong zone.",
+            "next_action": "REPLAN",
+            "outcome": "FAILED",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        },
+        {
+          "attempt": 2,
+          "execution": {
+            "error": null,
+            "evidence": {
+              "attempt": 2,
+              "physical_execution_claimed": false,
+              "source": "recorded_dataset"
+            },
+            "final_observation_id": "obs-74b526634f34ffca137c8e6a",
+            "status": "OBSERVED_RECORDED_ATTEMPT",
+            "subtask_results": [
+              {
+                "attempt": 2,
+                "index": 1,
+                "instruction": "Move the blue and green block stack from the white mat to the center of the black mat.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              },
+              {
+                "attempt": 2,
+                "index": 2,
+                "instruction": "Stack the red block on top of the green block on the black mat.",
+                "status": "RECORDED_EXTERNAL_ATTEMPT"
+              }
+            ]
+          },
+          "plan": {
+            "failure": null,
+            "planner_confidence": 1.0,
+            "planning_status": "READY",
+            "preconditions": [
+              {
+                "condition": "blue block is on white mat",
+                "evidence": "visible in image",
+                "satisfied": true
+              },
+              {
+                "condition": "green block is on blue block",
+                "evidence": "visible in image",
+                "satisfied": true
+              },
+              {
+                "condition": "red block is on black mat",
+                "evidence": "visible in image",
+                "satisfied": true
+              }
+            ],
+            "subtasks": [
+              {
+                "arm": "right",
+                "destination": "anchor:place-centre",
+                "source": "white mat",
+                "target": "blue block",
+                "task_instruction": "Move the blue and green block stack from the white mat to the center of the black mat."
+              },
+              {
+                "arm": "right",
+                "destination": "green block",
+                "source": "black mat",
+                "target": "red block",
+                "task_instruction": "Stack the red block on top of the green block on the black mat."
+              }
+            ],
+            "validation_spec": {
+              "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+              "goal_conditions": [
+                {
+                  "arguments": [
+                    "green block",
+                    "blue block"
+                  ],
+                  "description": "green block is supported by blue block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-1",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "red block",
+                    "green block"
+                  ],
+                  "description": "red block is supported by green block",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-2",
+                  "observable": true,
+                  "predicate": "SUPPORTED_BY",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "green block",
+                    "red block"
+                  ],
+                  "description": "the stack is vertically aligned and stable",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-3",
+                  "observable": true,
+                  "predicate": "STABLE_STACK",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "blue block",
+                    "zone:stack-centre"
+                  ],
+                  "description": "the stack is in the center zone",
+                  "evidence_modalities": [
+                    "final_image"
+                  ],
+                  "id": "goal-4",
+                  "observable": true,
+                  "predicate": "INSIDE_STACK_ZONE",
+                  "required": true
+                },
+                {
+                  "arguments": [
+                    "robot"
+                  ],
+                  "description": "safe execution of robot",
+                  "evidence_modalities": [
+                    "execution_evidence"
+                  ],
+                  "id": "goal-5",
+                  "observable": false,
+                  "predicate": "SAFE_EXECUTION",
+                  "required": false
+                }
+              ],
+              "spec_id": "task-f076b679b1fa4be88f1017caffd09b0e"
+            }
+          },
+          "plan_assurance": {
+            "failure": null,
+            "message": "The plan passed deterministic checks.",
+            "next_action": "EXECUTE",
+            "outcome": "READY",
+            "phase": "PLANNING",
+            "proceed": true
+          },
+          "validation": {
+            "discrepancies": [
+              "The red block was not stacked on the green block.",
+              "The blue/green stack was not moved to the center zone (black mat)."
+            ],
+            "failure": {
+              "description": "The final stack configuration and position do not match the required intent.",
+              "type": "GOAL_NOT_MET"
+            },
+            "goal_checks": [
+              {
+                "evidence": "The green block is sitting directly on top of the blue block on the white mat.",
+                "goal_id": "goal-1",
+                "satisfied": true
+              },
+              {
+                "evidence": "The red block is sitting alone on the black mat, not on the green block.",
+                "goal_id": "goal-2",
+                "satisfied": false
+              },
+              {
+                "evidence": "The blocks are not in a single stack; the red block is separate from the blue/green stack.",
+                "goal_id": "goal-3",
+                "satisfied": false
+              },
+              {
+                "evidence": "The blue block is on the white mat, not in the center stack zone (black mat).",
+                "goal_id": "goal-4",
+                "satisfied": false
+              },
+              {
+                "evidence": "No unsafe robot behavior observed.",
+                "goal_id": "goal-5",
+                "satisfied": true
+              }
+            ],
+            "outcome": "FAILURE",
+            "recoverability": "REPLAN",
+            "task_complete": false,
+            "user_message": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone.",
+            "validator_confidence": 1.0
+          },
+          "validation_assurance": {
+            "failure": {
+              "code": "GOAL_NOT_SATISFIED",
+              "memory_effect": "HISTORY_ONLY",
+              "next_action": "USER_ASSIST",
+              "observed": [
+                "The red block was not stacked on the green block.",
+                "The blue/green stack was not moved to the center zone (black mat)."
+              ],
+              "stage": "VALIDATION",
+              "user_message": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone."
+            },
+            "message": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone.",
+            "next_action": "USER_ASSIST",
+            "outcome": "FAILED",
+            "phase": "VALIDATION",
+            "proceed": false
+          }
+        }
+      ],
+      "failure": {
+        "code": "GOAL_NOT_SATISFIED",
+        "memory_effect": "HISTORY_ONLY",
+        "next_action": "USER_ASSIST",
+        "observed": [
+          "The red block was not stacked on the green block.",
+          "The blue/green stack was not moved to the center zone (black mat)."
+        ],
+        "stage": "VALIDATION",
+        "user_message": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone."
+      },
+      "message": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone.",
+      "next_action": "USER_ASSIST",
+      "outcome": "FAILED",
+      "phase": "VALIDATION",
+      "proceed": false
+    }
+  },
+  "artifact_status": {
+    "complete": true,
+    "streams": {
+      "agent_events": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 20,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-cc13dbe856f231187db58f75/attempt-f087df55e8bf433686223d62a037646f/agent_events.jsonl"
+      },
+      "model_calls": {
+        "complete": true,
+        "error_count": 0,
+        "errors": [],
+        "events_written": 7,
+        "path": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-cc13dbe856f231187db58f75/attempt-f087df55e8bf433686223d62a037646f/model_calls.jsonl"
+      }
+    },
+    "tracked": true
+  },
+  "condition": "full",
+  "control_kind": null,
+  "duration_seconds": 29.807569,
+  "error": null,
+  "failed_check_names": [
+    "planner_goal_predicates",
+    "hri_terminal_outcome",
+    "validator_outcome"
+  ],
+  "failed_checks_by_category": {
+    "HRI": [
+      "hri_terminal_outcome"
+    ],
+    "PLANNER": [
+      "planner_goal_predicates"
+    ],
+    "VALIDATOR": [
+      "validator_outcome"
+    ]
+  },
+  "failure_categories": [
+    "HRI",
+    "PLANNER",
+    "VALIDATOR"
+  ],
+  "failure_category": "STRICT_CHECK_FAILURE",
+  "family": "block_stack",
+  "finished_at": "2026-07-26T01:21:31.570325+00:00",
+  "memory": {
+    "after": {
+      "available": true,
+      "error": null,
+      "history_count": 1,
+      "history_ids": [
+        "episode-cc6ff4cf547745c0a2628898992365ba"
+      ],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "before": {
+      "available": true,
+      "error": null,
+      "history_count": 0,
+      "history_ids": [],
+      "outbox_count": 0,
+      "outbox_episode_ids": [],
+      "preference_count": 0,
+      "preference_ids": []
+    },
+    "history_delta": 1,
+    "outbox_delta": 0,
+    "preference_delta": 0
+  },
+  "memory_mode": "full",
+  "model_seed": 3001,
+  "outcome": "partial",
+  "passed": false,
+  "raw_score": {
+    "checks": [
+      {
+        "actual": "bgr_bottom_to_top",
+        "evaluated": true,
+        "expected": "bgr_bottom_to_top",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "evaluated": true,
+        "expected": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "INSIDE_STACK_ZONE(obj-003,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-002)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "INSIDE_STACK_ZONE(obj-003,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-002)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true",
+          "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "PARTIAL",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "PARTIAL",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "REPLAN",
+        "evaluated": true,
+        "expected": "REPLAN",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      }
+    ],
+    "correct": 10,
+    "passed": false,
+    "skipped": 0,
+    "total": 13
+  },
+  "repetition": 2,
+  "scenario_id": "ep-cc13dbe856f231187db58f75",
+  "scene_variant": "wide_scatter",
+  "schema_version": "robopref.cold-evaluation.v1",
+  "score": {
+    "checks": [
+      {
+        "actual": "bgr_bottom_to_top",
+        "evaluated": true,
+        "expected": "bgr_bottom_to_top",
+        "name": "hri_resolved_target",
+        "passed": true
+      },
+      {
+        "actual": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "evaluated": true,
+        "expected": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "name": "planner_confirmed_intent",
+        "passed": true
+      },
+      {
+        "actual": [
+          "INSIDE_STACK_ZONE(obj-003,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-002)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true"
+        ],
+        "evaluated": true,
+        "expected": [
+          "INSIDE_STACK_ZONE(obj-003,zone:stack_centre)=true",
+          "SAFE_EXECUTION(robot)=true",
+          "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+          "SUPPORTED_BY(obj-001,obj-002)=true",
+          "SUPPORTED_BY(obj-002,obj-003)=true",
+          "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true"
+        ],
+        "name": "planner_goal_predicates",
+        "passed": false
+      },
+      {
+        "actual": "REPORT",
+        "evaluated": true,
+        "expected": [
+          "REPORT"
+        ],
+        "name": "hri_response_mode",
+        "passed": true
+      },
+      {
+        "actual": "FAILED",
+        "evaluated": true,
+        "expected": "PARTIAL",
+        "name": "hri_terminal_outcome",
+        "passed": false
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "validator_called",
+        "passed": true
+      },
+      {
+        "actual": "FAILURE",
+        "evaluated": true,
+        "expected": "PARTIAL",
+        "name": "validator_outcome",
+        "passed": false
+      },
+      {
+        "actual": false,
+        "evaluated": true,
+        "expected": false,
+        "name": "task_complete",
+        "passed": true
+      },
+      {
+        "actual": "READY",
+        "evaluated": true,
+        "expected": "READY",
+        "name": "planner_status",
+        "passed": true
+      },
+      {
+        "actual": "OBSERVED_RECORDED_ATTEMPT",
+        "evaluated": true,
+        "expected": "OBSERVED_RECORDED_ATTEMPT",
+        "name": "execution_status",
+        "passed": true
+      },
+      {
+        "actual": "REPLAN",
+        "evaluated": true,
+        "expected": "REPLAN",
+        "name": "recovery",
+        "passed": true
+      },
+      {
+        "actual": 1,
+        "evaluated": true,
+        "expected": 1,
+        "name": "history_delta",
+        "passed": true
+      },
+      {
+        "actual": 0,
+        "evaluated": true,
+        "expected": 0,
+        "name": "preference_delta_without_consent",
+        "passed": true
+      },
+      {
+        "actual": true,
+        "evaluated": true,
+        "expected": true,
+        "name": "evaluation_artifacts_complete",
+        "passed": true
+      }
+    ],
+    "correct": 11,
+    "passed": false,
+    "skipped": 0,
+    "total": 14
+  },
+  "score_exclusions": [],
+  "seed": 2,
+  "skipped_check_names": [],
+  "started_at": "2026-07-26T01:21:01.762758+00:00",
+  "status": "COMPLETED",
+  "target_id": "bgr_bottom_to_top",
+  "trial_artifact_dir": "/workspace/RoboPref/experiments/prefmem-evaluation/cold-full/trials/full__r002__ep-cc13dbe856f231187db58f75/attempt-f087df55e8bf433686223d62a037646f",
+  "user_id": "evaluation-participant"
+}

@@ -1,0 +1,84 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "orange mat",
+          "source": "table",
+          "target": "book",
+          "task_instruction": "Pick up the book and place it on the orange mat."
+        },
+        {
+          "arm": "right",
+          "destination": "orange mat",
+          "source": "table",
+          "target": "magazine",
+          "task_instruction": "Pick up the magazine and place it on the orange mat."
+        },
+        {
+          "arm": "right",
+          "destination": "blue mat",
+          "source": "table",
+          "target": "laptop",
+          "task_instruction": "Pick up the laptop and place it on the blue mat."
+        },
+        {
+          "arm": "right",
+          "destination": "blue mat",
+          "source": "table",
+          "target": "tablet",
+          "task_instruction": "Pick up the tablet and place it on the blue mat."
+        }
+      ],
+      "completed_at": "2026-07-26T01:23:27.620865+00:00",
+      "created_at": "2026-07-26T01:23:32.177623+00:00",
+      "episode_id": "episode-04a490ddc89449e7b408e11a264a7b30",
+      "execution": {
+        "error": "The simulated execution crossed a configured safety limit.",
+        "status": "UNSAFE",
+        "subtask_results": [
+          {
+            "index": 1,
+            "instruction": "Pick up the book and place it on the orange mat.",
+            "safety_event": "insufficient_edge_support",
+            "status": "UNSAFE"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Place printed items on the left and electronic devices on the right.",
+        "objects": [
+          "printed items",
+          "electronic devices"
+        ],
+        "parameters": {
+          "left_destination": "orange mat",
+          "right_destination": "blue mat"
+        },
+        "task_type": "sort_objects"
+      },
+      "session_id": "bfb517b9210640799244a306ed6b07ca",
+      "source_fingerprint": "dffda8563d362fd1e9e5c0fb59062eff684e52a8596ad5e6bf99acdd7e7a7698",
+      "started_at": "2026-07-26T01:23:18.527530+00:00",
+      "summary": "The user requested to sort printed items on the left and electronic devices on the right, but execution was aborted due to a safety violation regarding insufficient edge support.",
+      "tags": [
+        "sort_objects",
+        "safety_abort",
+        "insufficient_edge_support"
+      ],
+      "user_choices": {
+        "left_destination": "orange mat",
+        "right_destination": "blue mat"
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Place printed items on the left and electronic devices on the right.",
+      "user_visible_result": "Execution stopped because the VLA reported an unsafe state.",
+      "validation": []
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}

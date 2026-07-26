@@ -1,0 +1,65 @@
+{
+  "episodes": [
+    {
+      "actions": [],
+      "completed_at": "2026-07-26T01:11:22.463255+00:00",
+      "created_at": "2026-07-26T01:11:25.283954+00:00",
+      "episode_id": "episode-ac1c3127a90c44f39e5c23c70039c7de",
+      "execution": {
+        "evidence": "planner_already_satisfied_claim",
+        "status": "OBSERVATION_ONLY"
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the red, green, and blue blocks with red at the bottom, green in the middle, and blue on top.",
+        "objects": [
+          "red block",
+          "green block",
+          "blue block"
+        ],
+        "parameters": {
+          "color_positions": {
+            "bottom": "red",
+            "middle": "green",
+            "top": "blue"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "d7f840e2e5fd452ba5c2d65d1b44f8a7",
+      "source_fingerprint": "d6bb278c37ddea3ab7d00a2521ea4f5e0c9637f73a7c68ba1dff79fc2201309e",
+      "started_at": "2026-07-26T01:11:12.834053+00:00",
+      "summary": "The user requested to stack red, green, and blue blocks in that specific order from bottom to top, which was successfully completed.",
+      "tags": [
+        "stacking",
+        "blocks",
+        "color_order"
+      ],
+      "user_choices": {
+        "color_positions": {
+          "bottom": "red",
+          "middle": "green",
+          "top": "blue"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in red, green, blue order from bottom to top.",
+      "user_visible_result": "Task Complete.",
+      "validation": {
+        "outcome": "SUCCESS",
+        "user_message": "The blocks have been successfully stacked with red at the bottom, green in the middle, and blue on top."
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {
+    "evaluation-participant": {
+      "source_episode_ids": [
+        "episode-ac1c3127a90c44f39e5c23c70039c7de"
+      ],
+      "text": "The user requested to stack red, green, and blue blocks in a specific order from bottom to top (red, green, blue).",
+      "updated_at": "2026-07-26T01:11:25.977881+00:00"
+    }
+  },
+  "version": 2
+}

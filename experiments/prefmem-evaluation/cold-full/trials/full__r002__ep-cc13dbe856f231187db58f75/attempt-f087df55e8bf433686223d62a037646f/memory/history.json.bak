@@ -1,0 +1,112 @@
+{
+  "episodes": [
+    {
+      "actions": [
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "table",
+          "target": "blue block",
+          "task_instruction": "Place the blue block at the center of the black mat to serve as the base."
+        },
+        {
+          "arm": "right",
+          "destination": "blue block",
+          "source": "table",
+          "target": "green block",
+          "task_instruction": "Stack the green block on top of the blue block."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "table",
+          "target": "red block",
+          "task_instruction": "Stack the red block on top of the green block."
+        },
+        {
+          "arm": "right",
+          "destination": "anchor:place-centre",
+          "source": "white mat",
+          "target": "blue block",
+          "task_instruction": "Move the blue and green block stack from the white mat to the center of the black mat."
+        },
+        {
+          "arm": "right",
+          "destination": "green block",
+          "source": "black mat",
+          "target": "red block",
+          "task_instruction": "Stack the red block on top of the green block on the black mat."
+        }
+      ],
+      "completed_at": "2026-07-26T01:21:23.734402+00:00",
+      "created_at": "2026-07-26T01:21:30.610427+00:00",
+      "episode_id": "episode-cc6ff4cf547745c0a2628898992365ba",
+      "execution": {
+        "status": "OBSERVED_RECORDED_ATTEMPT",
+        "subtask_results": [
+          {
+            "index": 1,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 2,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          },
+          {
+            "index": 3,
+            "status": "RECORDED_EXTERNAL_ATTEMPT"
+          }
+        ]
+      },
+      "memory_events": [],
+      "resolved_task": {
+        "confirmed_intent": "Stack the blue, green, and red blocks with blue at the bottom, green in the middle, and red on top.",
+        "objects": [
+          "blue block",
+          "green block",
+          "red block"
+        ],
+        "parameters": {
+          "stack_order": {
+            "bottom": "blue block",
+            "middle": "green block",
+            "top": "red block"
+          }
+        },
+        "task_type": "stack_blocks"
+      },
+      "session_id": "aca22d0dbf9f41dcaab1ab152e837b27",
+      "source_fingerprint": "e19ad3dc6eda8d4b1da0ad02cb09c4d3d6a4db24e5d5e215753f10a96de525f4",
+      "started_at": "2026-07-26T01:21:01.890097+00:00",
+      "summary": "The user requested to stack blue, green, and red blocks in that order from bottom to top, but the task failed as the red block remained separate and the blue/green stack was not moved to the center black mat.",
+      "tags": [
+        "stacking",
+        "failure",
+        "blocks"
+      ],
+      "user_choices": {
+        "stack_order": {
+          "bottom": "blue block",
+          "middle": "green block",
+          "top": "red block"
+        }
+      },
+      "user_id": "evaluation-participant",
+      "user_request": "Stack the blocks in blue, green, red order from bottom to top.",
+      "user_visible_result": "The blocks were not stacked correctly. The red block is separate, and the blue/green stack is still on the white mat instead of the center zone.",
+      "validation": {
+        "discrepancies": [
+          "The red block is not stacked on the green block.",
+          "The stack is not in the center zone (black mat); the blue/green blocks are on the white mat."
+        ],
+        "failure": {
+          "description": "The blocks were not stacked in the correct order/location. The red block is separate, and the blue/green stack is on the white mat instead of the black mat."
+        },
+        "outcome": "FAILURE"
+      }
+    }
+  ],
+  "schema_version": 2,
+  "summaries": {},
+  "version": 1
+}
