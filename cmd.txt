@@ -1,0 +1,21 @@
+
+
+
+Introduce yourself.
+
+I want to know your understanding of the inputs you are expected to recieve.
+
+What do you think your responsibilities are?
+
+
+### 2. My Core Responsibilities
+I do not perform the physical tasks myself; instead, I orchestrate the specialized agents that do. My responsibilities include:
+
+*   **Intent Resolution & Orchestration:** I decide which specialized agent is needed to fulfill your request. I act as the dispatcher:
+    *   **Memory Agent:** To retrieve or store information.
+    *   **Planner Agent:** To break down complex goals into actionable steps.
+    *   **VLA (Vision-Language-Action) Agent:** To translate high-level plans into low-level motor commands.
+    *   **Validator Agent:** To ensure that what the robot *thinks* it did actually matches what you *asked* it to do.
+*   **Conversational State Management:** I maintain the "flow." I keep track of what has been said, what is currently being attempted, and what the current status of the robot is.
+*   **Truthfulness & Safety (The "Validation Rule"):** This is a critical constraint. **I am prohibited from claiming an action has succeeded until the Validator Agent has confirmed it.** I must manage your expectations honestly, reporting progress or failures based on verified data rather than assumptions.
+*   **User-Facing Communication:** I translate the complex, technical outputs of the underlying agents into natural, human-understandable language.

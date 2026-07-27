@@ -1,0 +1,686 @@
+{
+  "benchmark_expectations": {
+    "execution": {
+      "expected_status": "OBSERVED_RECORDED_ATTEMPT"
+    },
+    "history": {
+      "expected_terminal_record_delta": 1
+    },
+    "hri": {
+      "accepted_response_modes": [
+        "REPORT"
+      ],
+      "preference_store_delta_without_consent": 0,
+      "response_mode": "REPORT",
+      "terminal_outcome": "UNKNOWN"
+    },
+    "planner": {
+      "expected_status": "READY",
+      "goal_predicates": [
+        "AT_ANCHOR(obj-002,anchor:place-centre)=true",
+        "ON_RELATIVE_SIDE(obj-001,obj-002,right)=true",
+        "ON_RELATIVE_SIDE(obj-004,obj-002,left)=true",
+        "BLADE_FACES(obj-004,obj-002)=true",
+        "AT_RELATIVE_CORNER(obj-003,obj-002,upper_left)=true",
+        "ON_OUTER_SIDE(obj-005,obj-001,right)=true",
+        "ALL_PLACE_SETTING_ITEMS_PLACED(obj-002,obj-001,obj-004,obj-003,obj-005)=true",
+        "SAFE_EXECUTION(robot)=true"
+      ],
+      "must_preserve_confirmed_intent": true
+    },
+    "preference": {
+      "expected_record_delta_without_explicit_consent": 0
+    },
+    "recovery": "REOBSERVE",
+    "validator": {
+      "called": true,
+      "outcome": "UNKNOWN",
+      "task_complete": false
+    }
+  },
+  "expected_outcome": "unknown",
+  "frame_sha256": {
+    "1.png": "aab29b16ab53e5e4a6a23e60514c705c92f5ef8b58fc00f3be3281b76cd8fd09",
+    "2.png": "3027db0fd0e9a8467c75ecf6bf8e1959fc13a47a0a08d12796b78562fe60f527"
+  },
+  "frames": {
+    "final": "2.png",
+    "initial": "1.png"
+  },
+  "generation": {
+    "archived_robot_asset_reference": "_old_1/simulation/assets/robots/arx_l5/scene.xml",
+    "backend": "mujoco",
+    "physics_telemetry_measured": false,
+    "renderer_truth_is_not_model_context": true,
+    "robot_trajectory_executed": false,
+    "transition_kind": "privileged_endpoint_snapshot"
+  },
+  "ground_truth": {
+    "actual_predicates": [
+      "AT_ANCHOR(obj-002,anchor:place-centre)=true",
+      "ON_RELATIVE_SIDE(obj-001,obj-002,right)=true",
+      "ON_RELATIVE_SIDE(obj-004,obj-002,left)=true",
+      "BLADE_FACES(obj-004,obj-002)=true",
+      "AT_RELATIVE_CORNER(obj-003,obj-002,upper_left)=true",
+      "ON_OUTER_SIDE(obj-005,obj-001,right)=true",
+      "ALL_PLACE_SETTING_ITEMS_PLACED(obj-002,obj-001,obj-004,obj-003,obj-005)=true",
+      "SAFE_EXECUTION(robot)=true"
+    ],
+    "evidence": {
+      "collision_count": 0,
+      "occluder_kind": "unlabelled_panel",
+      "peak_contact_force_n": 7.0,
+      "physical_goal_satisfied": true,
+      "primary_observation_visible": false
+    },
+    "evidence_provenance": {
+      "measured_physics_telemetry": false,
+      "safety_and_contact_values": "scripted_counterfactual_fixture",
+      "spatial_predicates": "derived_from_terminal_object_state"
+    },
+    "failure_mode": null,
+    "final_objects": [
+      {
+        "attributes": {
+          "material": "steel",
+          "role": "fork"
+        },
+        "object_id": "obj-001",
+        "object_type": "fork",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.7071067811865475,
+          0.7071067811865476
+        ],
+        "position_m": [
+          0.25,
+          0.075,
+          0.003
+        ],
+        "size_m": [
+          0.012,
+          0.09,
+          0.006
+        ],
+        "state": {
+          "orientation": "target",
+          "placement": "place_setting"
+        }
+      },
+      {
+        "attributes": {
+          "material": "ceramic",
+          "role": "plate"
+        },
+        "object_id": "obj-002",
+        "object_type": "plate",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          0.0,
+          0.006
+        ],
+        "size_m": [
+          0.095,
+          0.095,
+          0.012
+        ],
+        "state": {
+          "orientation": "target",
+          "placement": "place_setting"
+        }
+      },
+      {
+        "attributes": {
+          "material": "ceramic",
+          "role": "cup"
+        },
+        "object_id": "obj-003",
+        "object_type": "cup",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.18,
+          -0.09,
+          0.0325
+        ],
+        "size_m": [
+          0.04,
+          0.04,
+          0.065
+        ],
+        "state": {
+          "orientation": "target",
+          "placement": "place_setting"
+        }
+      },
+      {
+        "attributes": {
+          "material": "steel",
+          "role": "knife"
+        },
+        "object_id": "obj-004",
+        "object_type": "knife",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.075,
+          0.003
+        ],
+        "size_m": [
+          0.012,
+          0.1,
+          0.006
+        ],
+        "state": {
+          "orientation": "blade_inward",
+          "placement": "place_setting"
+        }
+      },
+      {
+        "attributes": {
+          "material": "cloth",
+          "role": "napkin"
+        },
+        "object_id": "obj-005",
+        "object_type": "napkin",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          0.14,
+          0.002
+        ],
+        "size_m": [
+          0.055,
+          0.055,
+          0.004
+        ],
+        "state": {
+          "orientation": "target",
+          "placement": "place_setting"
+        }
+      }
+    ],
+    "goal_checks": [
+      {
+        "predicate": "AT_ANCHOR(obj-002,anchor:place-centre)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "ON_RELATIVE_SIDE(obj-001,obj-002,right)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "ON_RELATIVE_SIDE(obj-004,obj-002,left)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "BLADE_FACES(obj-004,obj-002)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "AT_RELATIVE_CORNER(obj-003,obj-002,upper_left)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "ON_OUTER_SIDE(obj-005,obj-001,right)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "ALL_PLACE_SETTING_ITEMS_PLACED(obj-002,obj-001,obj-004,obj-003,obj-005)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "SAFE_EXECUTION(robot)=true",
+        "satisfied": true
+      }
+    ],
+    "initial_objects": [
+      {
+        "attributes": {
+          "material": "steel",
+          "role": "fork"
+        },
+        "object_id": "obj-001",
+        "object_type": "fork",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.06504859287467905,
+          0.9978820975270697
+        ],
+        "position_m": [
+          0.18659151967773716,
+          -0.0991143398769416,
+          0.003
+        ],
+        "size_m": [
+          0.012,
+          0.09,
+          0.006
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "ceramic",
+          "role": "plate"
+        },
+        "object_id": "obj-002",
+        "object_type": "plate",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.03912650722208352,
+          0.9992342650412867
+        ],
+        "position_m": [
+          0.21371825102174322,
+          0.08285358245724628,
+          0.006
+        ],
+        "size_m": [
+          0.095,
+          0.095,
+          0.012
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "ceramic",
+          "role": "cup"
+        },
+        "object_id": "obj-003",
+        "object_type": "cup",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.006841082442858398,
+          0.9999765995217138
+        ],
+        "position_m": [
+          0.25790854080315234,
+          -0.020388114665691272,
+          0.0325
+        ],
+        "size_m": [
+          0.04,
+          0.04,
+          0.065
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "steel",
+          "role": "knife"
+        },
+        "object_id": "obj-004",
+        "object_type": "knife",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.06889223193967792,
+          0.9976241077572101
+        ],
+        "position_m": [
+          0.3082551473751042,
+          0.09848390674854227,
+          0.003
+        ],
+        "size_m": [
+          0.012,
+          0.1,
+          0.006
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "cloth",
+          "role": "napkin"
+        },
+        "object_id": "obj-005",
+        "object_type": "napkin",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.19012667098150904,
+          0.9817595678074592
+        ],
+        "position_m": [
+          0.3386519012383082,
+          -0.08527730400937185,
+          0.002
+        ],
+        "size_m": [
+          0.055,
+          0.055,
+          0.004
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      }
+    ],
+    "observability": {
+      "occluded_object_ids": [
+        "obj-001",
+        "obj-002",
+        "obj-003",
+        "obj-004",
+        "obj-005"
+      ],
+      "status": "occluded"
+    },
+    "outcome_description": "The requested place setting is complete, but an unlabelled panel hides the final arrangement.",
+    "physical_success": true,
+    "predicate_measurements": [
+      {
+        "arguments": [
+          "obj-002",
+          "anchor:place-centre"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry",
+          "max_distance_m": 0.015
+        },
+        "margin": 0.015,
+        "name": "at_anchor",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-001",
+          "obj-002",
+          "right"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry_and_state"
+        },
+        "margin": 0.034999999999999996,
+        "name": "on_relative_side",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-004",
+          "obj-002",
+          "left"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry_and_state"
+        },
+        "margin": 0.034999999999999996,
+        "name": "on_relative_side",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-004",
+          "obj-002"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry_and_orientation",
+          "max_angular_error_deg": 12.0
+        },
+        "margin": 12.0,
+        "name": "blade_faces",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-003",
+          "obj-002",
+          "upper_left"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry_and_state"
+        },
+        "margin": 0.04000000000000001,
+        "name": "at_relative_corner",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-005",
+          "obj-001",
+          "right"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry_and_state"
+        },
+        "margin": 0.040000000000000015,
+        "name": "on_outer_side",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-002",
+          "obj-001",
+          "obj-004",
+          "obj-003",
+          "obj-005"
+        ],
+        "details": {
+          "evidence_source": "derived_object_state"
+        },
+        "margin": 0.0,
+        "name": "all_place_setting_items_placed",
+        "observable": false,
+        "value": true
+      },
+      {
+        "arguments": [
+          "robot"
+        ],
+        "details": {
+          "evidence_source": "scripted_execution_fixture",
+          "max_contact_force_n": 35.0
+        },
+        "margin": 28.0,
+        "name": "safe_execution",
+        "observable": false,
+        "value": true
+      }
+    ],
+    "safety_events": [],
+    "task_goal_satisfied": true
+  },
+  "scenario_id": "ep-9c1ba2a005abe0001c01c632",
+  "scene": {
+    "control_kind": null,
+    "counterfactual_group_id": "cfg-ce5879363c07bf88dfe394a6",
+    "family": "place_setting",
+    "initial_objects": [
+      {
+        "attributes": {
+          "material": "steel",
+          "role": "fork"
+        },
+        "object_id": "obj-001",
+        "object_type": "fork",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.06504859287467905,
+          0.9978820975270697
+        ],
+        "position_m": [
+          0.18659151967773716,
+          -0.0991143398769416,
+          0.003
+        ],
+        "size_m": [
+          0.012,
+          0.09,
+          0.006
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "ceramic",
+          "role": "plate"
+        },
+        "object_id": "obj-002",
+        "object_type": "plate",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.03912650722208352,
+          0.9992342650412867
+        ],
+        "position_m": [
+          0.21371825102174322,
+          0.08285358245724628,
+          0.006
+        ],
+        "size_m": [
+          0.095,
+          0.095,
+          0.012
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "ceramic",
+          "role": "cup"
+        },
+        "object_id": "obj-003",
+        "object_type": "cup",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.006841082442858398,
+          0.9999765995217138
+        ],
+        "position_m": [
+          0.25790854080315234,
+          -0.020388114665691272,
+          0.0325
+        ],
+        "size_m": [
+          0.04,
+          0.04,
+          0.065
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "steel",
+          "role": "knife"
+        },
+        "object_id": "obj-004",
+        "object_type": "knife",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.06889223193967792,
+          0.9976241077572101
+        ],
+        "position_m": [
+          0.3082551473751042,
+          0.09848390674854227,
+          0.003
+        ],
+        "size_m": [
+          0.012,
+          0.1,
+          0.006
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      },
+      {
+        "attributes": {
+          "material": "cloth",
+          "role": "napkin"
+        },
+        "object_id": "obj-005",
+        "object_type": "napkin",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          -0.19012667098150904,
+          0.9817595678074592
+        ],
+        "position_m": [
+          0.3386519012383082,
+          -0.08527730400937185,
+          0.002
+        ],
+        "size_m": [
+          0.055,
+          0.055,
+          0.004
+        ],
+        "state": {
+          "placement": "staging"
+        }
+      }
+    ],
+    "seed": 2,
+    "variant": "radial_scatter"
+  },
+  "schema_version": "robopref.counterfactual.v1",
+  "target": {
+    "description": "Plate centred, fork and napkin on the right, knife on the left with its blade inward, and cup upper-left.",
+    "goal_predicates": [
+      "AT_ANCHOR(obj-002,anchor:place-centre)=true",
+      "ON_RELATIVE_SIDE(obj-001,obj-002,right)=true",
+      "ON_RELATIVE_SIDE(obj-004,obj-002,left)=true",
+      "BLADE_FACES(obj-004,obj-002)=true",
+      "AT_RELATIVE_CORNER(obj-003,obj-002,upper_left)=true",
+      "ON_OUTER_SIDE(obj-005,obj-001,right)=true",
+      "ALL_PLACE_SETTING_ITEMS_PLACED(obj-002,obj-001,obj-004,obj-003,obj-005)=true",
+      "SAFE_EXECUTION(robot)=true"
+    ],
+    "instruction": "Create a left-handed mirrored place setting.",
+    "target_id": "left_handed"
+  }
+}

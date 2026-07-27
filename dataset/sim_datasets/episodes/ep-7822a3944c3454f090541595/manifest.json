@@ -1,0 +1,483 @@
+{
+  "benchmark_expectations": {
+    "execution": {
+      "expected_status": "OBSERVATION_ONLY",
+      "expected_vla_dispatches": 0
+    },
+    "history": {
+      "expected_terminal_record_delta": 1
+    },
+    "hri": {
+      "accepted_response_modes": [
+        "REPORT",
+        "MEMORY_CONFIRM"
+      ],
+      "preference_store_delta_without_consent": 0,
+      "response_mode": "REPORT",
+      "terminal_outcome": "SUCCESS"
+    },
+    "planner": {
+      "expected_status": "ALREADY_SATISFIED",
+      "goal_predicates": [
+        "SUPPORTED_BY(obj-002,obj-001)=true",
+        "SUPPORTED_BY(obj-003,obj-002)=true",
+        "INSIDE_STACK_ZONE(obj-001,zone:stack-centre)=true",
+        "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true",
+        "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+        "SAFE_EXECUTION(robot)=true"
+      ],
+      "must_preserve_confirmed_intent": true
+    },
+    "preference": {
+      "expected_record_delta_without_explicit_consent": 0
+    },
+    "recovery": "NONE",
+    "validator": {
+      "called": true,
+      "outcome": "SUCCESS",
+      "task_complete": true
+    }
+  },
+  "expected_outcome": "success",
+  "frame_sha256": {
+    "1.png": "635ee313da29f2435e37265d6c601aea2f69cca916101d1b44330f6f0e4844b0",
+    "2.png": "c5288d22e3b66379920c3142285ddc198cd65ef37c564687d236edafc8135695"
+  },
+  "frames": {
+    "final": "2.png",
+    "initial": "1.png"
+  },
+  "generation": {
+    "archived_robot_asset_reference": "_old_1/simulation/assets/robots/arx_l5/scene.xml",
+    "backend": "mujoco",
+    "physics_telemetry_measured": false,
+    "renderer_truth_is_not_model_context": true,
+    "robot_trajectory_executed": false,
+    "transition_kind": "privileged_endpoint_snapshot"
+  },
+  "ground_truth": {
+    "actual_predicates": [
+      "SUPPORTED_BY(obj-002,obj-001)=true",
+      "SUPPORTED_BY(obj-003,obj-002)=true",
+      "INSIDE_STACK_ZONE(obj-001,zone:stack-centre)=true",
+      "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true",
+      "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+      "SAFE_EXECUTION(robot)=true"
+    ],
+    "evidence": {
+      "collision_count": 0,
+      "initial_goal_satisfied": true,
+      "occluder_kind": "none",
+      "peak_contact_force_n": 6.0,
+      "physical_goal_satisfied": true,
+      "primary_observation_visible": true,
+      "stability_margin_m": 0.012
+    },
+    "evidence_provenance": {
+      "measured_physics_telemetry": false,
+      "safety_and_contact_values": "scripted_counterfactual_fixture",
+      "spatial_predicates": "derived_from_terminal_object_state"
+    },
+    "failure_mode": null,
+    "final_objects": [
+      {
+        "attributes": {
+          "colour": "red",
+          "material": "wood"
+        },
+        "object_id": "obj-001",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.0175
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 0
+        }
+      },
+      {
+        "attributes": {
+          "colour": "green",
+          "material": "wood"
+        },
+        "object_id": "obj-002",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.052500000000000005
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 1
+        }
+      },
+      {
+        "attributes": {
+          "colour": "blue",
+          "material": "wood"
+        },
+        "object_id": "obj-003",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.08750000000000001
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 2
+        }
+      }
+    ],
+    "goal_checks": [
+      {
+        "predicate": "SUPPORTED_BY(obj-002,obj-001)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "SUPPORTED_BY(obj-003,obj-002)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "INSIDE_STACK_ZONE(obj-001,zone:stack-centre)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+        "satisfied": true
+      },
+      {
+        "predicate": "SAFE_EXECUTION(robot)=true",
+        "satisfied": true
+      }
+    ],
+    "initial_objects": [
+      {
+        "attributes": {
+          "colour": "red",
+          "material": "wood"
+        },
+        "object_id": "obj-001",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.0175
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 0
+        }
+      },
+      {
+        "attributes": {
+          "colour": "green",
+          "material": "wood"
+        },
+        "object_id": "obj-002",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.052500000000000005
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 1
+        }
+      },
+      {
+        "attributes": {
+          "colour": "blue",
+          "material": "wood"
+        },
+        "object_id": "obj-003",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.08750000000000001
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 2
+        }
+      }
+    ],
+    "observability": {
+      "occluded_object_ids": [],
+      "status": "observable"
+    },
+    "outcome_description": "The requested goal is already satisfied in the initial observation; no manipulation is required.",
+    "physical_success": true,
+    "predicate_measurements": [
+      {
+        "arguments": [
+          "obj-002",
+          "obj-001"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry",
+          "max_xy_offset_m": 0.012
+        },
+        "margin": 0.008,
+        "name": "supported_by",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-003",
+          "obj-002"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry",
+          "max_xy_offset_m": 0.012
+        },
+        "margin": 0.008,
+        "name": "supported_by",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-001",
+          "zone:stack-centre"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry",
+          "radius_m": 0.04
+        },
+        "margin": 0.04,
+        "name": "inside_stack_zone",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-001",
+          "obj-002",
+          "obj-003"
+        ],
+        "details": {
+          "evidence_source": "derived_object_geometry",
+          "max_axis_deviation_m": 0.012
+        },
+        "margin": 0.012,
+        "name": "vertically_aligned",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "obj-001",
+          "obj-002",
+          "obj-003"
+        ],
+        "details": {
+          "evidence_source": "derived_quasistatic_geometry"
+        },
+        "margin": 0.008,
+        "name": "stable_stack",
+        "observable": true,
+        "value": true
+      },
+      {
+        "arguments": [
+          "robot"
+        ],
+        "details": {
+          "evidence_source": "scripted_execution_fixture",
+          "max_contact_force_n": 35.0
+        },
+        "margin": 29.0,
+        "name": "safe_execution",
+        "observable": false,
+        "value": true
+      }
+    ],
+    "safety_events": [],
+    "task_goal_satisfied": true
+  },
+  "scenario_id": "ep-7822a3944c3454f090541595",
+  "scene": {
+    "control_kind": "already_satisfied",
+    "counterfactual_group_id": "cfg-0f0c49139e988faffa589270",
+    "family": "block_stack",
+    "initial_objects": [
+      {
+        "attributes": {
+          "colour": "red",
+          "material": "wood"
+        },
+        "object_id": "obj-001",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.0175
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 0
+        }
+      },
+      {
+        "attributes": {
+          "colour": "green",
+          "material": "wood"
+        },
+        "object_id": "obj-002",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.052500000000000005
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 1
+        }
+      },
+      {
+        "attributes": {
+          "colour": "blue",
+          "material": "wood"
+        },
+        "object_id": "obj-003",
+        "object_type": "cube",
+        "orientation_xyzw": [
+          0.0,
+          0.0,
+          0.0,
+          1.0
+        ],
+        "position_m": [
+          0.25,
+          -0.12,
+          0.08750000000000001
+        ],
+        "size_m": [
+          0.035,
+          0.035,
+          0.035
+        ],
+        "state": {
+          "placement": "stacked",
+          "stack_level": 2
+        }
+      }
+    ],
+    "seed": 2,
+    "variant": "control_already_satisfied"
+  },
+  "schema_version": "robopref.counterfactual.v1",
+  "target": {
+    "description": "Red is the bottom cube, green is the middle cube, and blue is the top cube.",
+    "goal_predicates": [
+      "SUPPORTED_BY(obj-002,obj-001)=true",
+      "SUPPORTED_BY(obj-003,obj-002)=true",
+      "INSIDE_STACK_ZONE(obj-001,zone:stack-centre)=true",
+      "VERTICALLY_ALIGNED(obj-001,obj-002,obj-003)=true",
+      "STABLE_STACK(obj-001,obj-002,obj-003)=true",
+      "SAFE_EXECUTION(robot)=true"
+    ],
+    "instruction": "Stack the blocks in red, green, blue order from bottom to top.",
+    "target_id": "rgb_bottom_to_top"
+  }
+}
