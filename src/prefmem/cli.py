@@ -145,4 +145,4 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     print("\n\n\n" + "="*20 + f" PrefMem Conversation Starts | Think: {args.think} " + "="*20 + "\n\n\n")
 
-    hri_agent.run(args)
+    hri_agent.run()

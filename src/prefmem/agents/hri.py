@@ -2,7 +2,7 @@ from langchain.tools import tool
 from langchain.chat_models import init_chat_model
 import os
 from langchain.messages import AIMessage, AnyMessage
-from typing_extensions import TypedDict, Annotated
+from typing_extensions import TypedDict, Annotated, Literal
 from prefmem.agents.config import HRI_Config
 from langchain.messages import ToolMessage
 
@@ -12,12 +12,15 @@ from langchain.messages import SystemMessage, HumanMessage
 
 from langchain_openai import ChatOpenAI
 
+from langchain_core.tools import StructuredTool
+
 from IPython.display import Image, display
 from pathlib import Path
 from pydantic import BaseModel, Field
 from langgraph.checkpoint.memory import InMemorySaver  
 from langgraph.runtime import Runtime
-from prefmem.agents.vision import image_data_url
+from prefmem.agents.vision import image_data_url, get_start_end_frames
+from prefmem.agents.planner import Planner_Agent
 import json
 
 
@@ -25,29 +28,7 @@ from colorama import init
 from termcolor import colored
 init()
 
-@tool
-def call_sub_agent(sub_agent_name: str, sub_agent_input: str) -> str:
-    """Call a sub-agent with the given name and input.
 
-    Args:
-        sub_agent_name: Name of the sub-agent to call.
-        sub_agent_input: Input to provide to the sub-agent.
-
-    Returns:
-        The output from the sub-agent.
-    """
-    # Placeholder implementation; replace with actual sub-agent invocation logic.
-
-    if sub_agent_name == "Planner":
-        return f"Finished: Stack the blocks in the order: red, blue, green."
-    if sub_agent_name == "Memory":
-        return f"Finished: The robot has seen a red block, a blue block, and a green block."
-    if sub_agent_name == "VLA":
-        return f"Finished: The robot can pick up blocks and stack them."
-    if sub_agent_name == "Validator":
-        return f"Finished: The blocks are in the correct order."
-    else:
-        raise ValueError(f"Unknown sub-agent name: {sub_agent_name}")
 
 
 
@@ -56,7 +37,7 @@ class MessagesState(TypedDict):
     llm_calls: int
 
 
-class HRIContext(TypedDict):
+class CurrentFrameContext(TypedDict):
     current_frame: dict
 
 
@@ -88,7 +69,9 @@ class VLLMChatOpenAI(ChatOpenAI):
 class HRI_Agent:
     def __init__(self, model_config, args):
         self.config = HRI_Config(model_config)
-        self.llm = VLLMChatOpenAI(
+        self.args = args
+        
+        self.hri_llm = VLLMChatOpenAI(
             model=self.config.model,
             api_key="EMPTY",
             base_url=self.config.model_base_url,
@@ -97,16 +80,54 @@ class HRI_Agent:
             streaming=True,
             timeout=300,
         )
-        self.TOOLS = [call_sub_agent]
+        self.call_sub_agent_tool = StructuredTool.from_function(
+            func=self.call_sub_agent
+        )
+        self.TOOLS = [self.call_sub_agent_tool]
+        self.hri_llm = self.hri_llm.bind_tools(self.TOOLS)
         self.TOOLS_BY_NAME = {tool.name: tool for tool in self.TOOLS}
-        self.llm = self.llm.bind_tools(self.TOOLS)
-        self.agent = self.build_agent()
+        self.hri_agent = self.build_agent()
         self.system_prompt = self.config.system_prompt
-        self.thinking_enabled = bool(args.think and (args.think == "all" or "HRI" in args.think))
-        self.print_raw = bool(getattr(args, "print_raw", False))
+        self.thinking_enabled = bool(self.args.think and (self.args.think == "all" or "HRI" in self.args.think))
+
+        self.planner_agent = Planner_Agent(model_config=model_config, args=args)
+
+    def call_sub_agent(
+        self,
+        sub_agent_name:  Literal["PLANNER_AGENT"], 
+        message: str
+        ) -> str:
+        """Call a sub-agent by providing the agent name and a request.
+
+        Args:
+            sub_agent_name: Name of the sub-agent to call.
+            message: Natural language message to the sub-agent.
+
+        Returns:
+            The output from the sub-agent.
+        """
+        # Placeholder implementation; replace with actual sub-agent invocation logic.
+
+        message = [HumanMessage(content=message)]
+
+        if sub_agent_name == "PLANNER_AGENT":
+            return self.planner_agent.run(messages=message)
+
+            
+        if sub_agent_name == "MEMORY_AGENT":
+            return f"Finished: The robot has seen a red block, a blue block, and a green block."
+        if sub_agent_name == "EXECUTION_AGENT":
+            return f"Finished: The robot can pick up blocks and stack them."
+        if sub_agent_name == "VALIDATOR_AGENT":
+            return f"Finished: The blocks are in the correct order."
+        else:
+            raise ValueError(f"Unknown sub-agent name: {sub_agent_name}")
 
     def build_agent(self):
-        agent_builder = StateGraph(MessagesState, context_schema=HRIContext)
+        agent_builder = StateGraph(
+            MessagesState, 
+            context_schema=CurrentFrameContext
+        )
         agent_builder.add_node("HRI Agent", self.llm_call)
         agent_builder.add_node("Tool Node", self.tool_node)
 
@@ -142,7 +163,7 @@ class HRI_Agent:
         return {"messages": result}
 
 
-    def llm_call(self, state: dict, runtime: Runtime[HRIContext]):
+    def llm_call(self, state: dict, runtime: Runtime[CurrentFrameContext]):
         """LLM decides whether to call a tool or not"""
 
         model_messages = list(state["messages"])
@@ -166,7 +187,7 @@ class HRI_Agent:
 
         return {
             "messages": [
-                self.llm.invoke(
+                self.hri_llm.invoke(
                     [
                         SystemMessage(
                             content=getattr(
@@ -197,28 +218,6 @@ class HRI_Agent:
         # Otherwise, we stop (reply to the user)
         return END
 
-    def get_start_end_frames(self, args):
-        if args.dataset:
-            dataset_path = Path(args.dataset)
-            if not dataset_path.exists():
-                raise FileNotFoundError(f"Dataset path {dataset_path} does not exist.")
-
-            # sort the files in the dataset directory to ensure consistent ordering
-            image_files = sorted(dataset_path.glob("*.png"))
-            if not image_files:
-                raise FileNotFoundError(f"No PNG files found in dataset path {dataset_path}. Convert to PNG or provide a valid dataset.")
-            
-            start_frame = {
-                "type": "image_url",
-                "image_url": {"url": image_data_url(image_files[0].read_bytes())},
-            }
-            last_frame = {
-                "type": "image_url",
-                "image_url": {"url": image_data_url(image_files[-1].read_bytes())},
-            }
-
-            return start_frame, last_frame
-
         
     def invoke_agent(self, messages, current_frame) -> dict:
         config = {
@@ -242,7 +241,7 @@ class HRI_Agent:
             print(colored(f"{label}:", "black", "on_white"), flush=True)
             active_section = label
 
-        for part in self.agent.stream(
+        for part in self.hri_agent.stream(
             input={"messages": messages},
             config=config,
             context={"current_frame": current_frame},
@@ -251,6 +250,13 @@ class HRI_Agent:
         ):
             if part["type"] == "messages":
                 chunk, metadata = part["data"]
+
+                # Ignore Planner and tool-message chunks in the HRI renderer.
+                if not isinstance(chunk, AIMessage):
+                    continue
+
+                if metadata.get("langgraph_node") != "HRI Agent":
+                    continue
 
                 reasoning = chunk.additional_kwargs.get("reasoning")
                 if reasoning:
@@ -318,7 +324,7 @@ class HRI_Agent:
                                 start_section("HRI Agent Response")
                                 print(message.content, end="", flush=True)
 
-                            if getattr(self, "print_raw", False):
+                            if self.args.print_raw:
                                 raw_response_count += 1
                                 start_section(
                                     "HRI Agent Raw Response "
@@ -353,14 +359,14 @@ class HRI_Agent:
 
         if active_section is not None:
             print()
-        return self.agent.get_state(config).values
+        return self.hri_agent.get_state(config).values
         
 
 
-    def run(self, args):
+    def run(self):
 
-        if args.query_file:
-            with open(args.query_file, 'r') as f:
+        if self.args.query_file:
+            with open(self.args.query_file, 'r') as f:
                 queries = json.load(f)
         query_index = 0
         response = None
@@ -369,7 +375,7 @@ class HRI_Agent:
 
             print(colored("User:", "black", "on_white"))
             user_input = input()
-            if user_input == "" and args.query_file:
+            if user_input == "" and self.args.query_file:
                 if query_index < len(queries):
                     user_input = queries[query_index]
                     print(f"Using query idx={query_index} from query file: \n{user_input}")
@@ -388,7 +394,7 @@ class HRI_Agent:
                         m.pretty_print()
                 continue
 
-            start_frame, last_frame = self.get_start_end_frames(args)
+            start_frame, last_frame = get_start_end_frames(self.args)
             
             # build message
             messages = [
@@ -400,11 +406,11 @@ class HRI_Agent:
 
 
     def get_agent_graph(self):
-        display(Image(self.agent.get_graph(xray=True).draw_mermaid_png()))
+        display(Image(self.hri_agent.get_graph(xray=True).draw_mermaid_png()))
 
         graph_path = Path("artifacts/prefmem-graph.png")
         graph_path.parent.mkdir(parents=True, exist_ok=True)
         graph_path.write_bytes(
-            self.agent.get_graph(xray=True).draw_mermaid_png()
+            self.hri_agent.get_graph(xray=True).draw_mermaid_png()
         )
         print(f"Graph saved to {graph_path}")
