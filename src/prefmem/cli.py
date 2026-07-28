@@ -9,8 +9,6 @@ from langchain.messages import SystemMessage, HumanMessage
 
 
 
-DEFAULT_DATASET = Path("dataset/v3")
-DEFAULT_TRANSCRIPT = Path("experiments/record.txt")
 DEFAULT_MODEL = "gemma4:31b-cloud"
 DEFAULT_MODEL_PROVIDER = "ollama"
 DEFAULT_VLLM_BASE_URL = "http://localhost:8000/v1"
@@ -25,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=DEFAULT_DATASET,
+        default="dataset/v3",
         metavar="PATH",
         help=(
             "Episode directory containing numbered frames such as 1.png and "
@@ -65,8 +63,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--transcript",
-        type=Path,
-        default=DEFAULT_TRANSCRIPT,
+        type=str,
+        default="transcripts/transcript.txt",
         metavar="PATH",
         help=(
             "Terminal-session output path. Parent directories are created by "
@@ -103,6 +101,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run PrefMem in interactive mode.",
     )
 
+    parser.add_argument(
+        "--query-file",
+        type=Path,
+        default=None,
+        help="Path to a JSON file containing queries for the agent.",
+    )
+
+    parser.add_argument(
+        "--think",
+        default=None,
+        help="Enable thinking model. Provide a list of agents to enable thinking. e.g. [all] | [HRI, Memory, Planner, Validator]",
+    )
+
+    parser.add_argument(
+        "--print-raw",
+        action="store_true",
+        help="Print each complete model response object as formatted JSON.",
+    )
+
     return parser
 
 
@@ -117,13 +134,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 def main(argv: Sequence[str] | None = None) -> None:
     args = parse_args(argv)
     print(f"PrefMem {version('robopref')}")
+    # print the parsed arguments for debugging
+    print(f"Parsed arguments: {args}")
 
     from prefmem.agents.hri import HRI_Agent
 
-    hri_agent = HRI_Agent(model_config=args.model_config)
+    hri_agent = HRI_Agent(model_config=args.model_config, args=args)
 
     hri_agent.get_agent_graph()
 
-    print("\n\n\n" + "="*20 + " PrefMem Conversation Starts " + "="*20 + "\n\n\n")
+    print("\n\n\n" + "="*20 + f" PrefMem Conversation Starts | Think: {args.think} " + "="*20 + "\n\n\n")
 
     hri_agent.run(args)
