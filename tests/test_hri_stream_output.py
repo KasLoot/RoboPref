@@ -42,11 +42,11 @@ def update_part(node_name: str, messages: list) -> dict:
 class HRIStreamOutputTests(unittest.TestCase):
     def make_hri(self, parts: list[dict], final_message: AIMessage, *, print_raw=False):
         hri = object.__new__(HRI_Agent)
-        hri.agent = FakeStreamingAgent(
+        hri.hri_agent = FakeStreamingAgent(
             parts,
             {"messages": [final_message], "llm_calls": 1},
         )
-        hri.print_raw = print_raw
+        hri.args = SimpleNamespace(print_raw=print_raw)
         return hri
 
     def test_reasoning_and_response_use_separate_sections(self) -> None:

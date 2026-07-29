@@ -22,9 +22,11 @@ class HRIImageHistoryTests(unittest.TestCase):
         model = RecordingModel()
         hri = object.__new__(HRI_Agent)
         hri.config = SimpleNamespace(system_prompt="test system prompt")
-        hri.llm = model
+        hri.args = SimpleNamespace(print_raw=False)
+        hri.hri_llm = model
+        hri.metrics = None
         hri.TOOLS_BY_NAME = {}
-        hri.agent = hri.build_agent()
+        hri.hri_agent = hri.build_agent()
 
         first_frame = {
             "type": "image_url",

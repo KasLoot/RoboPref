@@ -23,6 +23,12 @@ from prefmem.agents.vision import image_data_url, get_start_end_frames
 from prefmem.agents.planner import Planner_Agent
 import json
 
+from time import perf_counter
+
+from prefmem.agents.metrics import (
+    TurnMetrics,
+    VLLMTokenCounter,
+)
 
 from colorama import init
 from termcolor import colored
@@ -63,6 +69,15 @@ class VLLMChatOpenAI(ChatOpenAI):
             if reasoning:
                 generation.message.additional_kwargs["reasoning"] = reasoning
 
+        request_metrics = (
+            chunk.get("metrics")
+            or chunk.get("chunk", {}).get("metrics")
+        )
+        if generation is not None and request_metrics:
+            generation.message.response_metadata[
+                "vllm_metrics"
+            ] = request_metrics
+
         return generation
 
 
@@ -78,6 +93,7 @@ class HRI_Agent:
             max_tokens=2048,  # Smaller while debugging
             temperature=0,
             streaming=True,
+            stream_usage=True,
             timeout=300,
         )
         self.call_sub_agent_tool = StructuredTool.from_function(
@@ -90,7 +106,20 @@ class HRI_Agent:
         self.system_prompt = self.config.system_prompt
         self.thinking_enabled = bool(self.args.think and (self.args.think == "all" or "HRI" in self.args.think))
 
-        self.planner_agent = Planner_Agent(model_config=model_config, args=args)
+        self.metrics = TurnMetrics(
+            VLLMTokenCounter(
+                base_url=self.config.model_base_url,
+                model=self.config.model,
+            )
+            if model_config == "vllm"
+            else None
+        )
+
+        self.planner_agent = Planner_Agent(
+            model_config=model_config,
+            args=args,
+            metrics=self.metrics,
+        )
 
     def call_sub_agent(
         self,
@@ -111,7 +140,15 @@ class HRI_Agent:
         message = [HumanMessage(content=message)]
 
         if sub_agent_name == "PLANNER_AGENT":
-            return self.planner_agent.run(messages=message)
+            planner_state = self.planner_agent.run(messages=message)
+            planner_output = planner_state["messages"][-1].content
+            if isinstance(planner_output, str):
+                return planner_output
+            return json.dumps(
+                planner_output,
+                ensure_ascii=False,
+                default=str,
+            )
 
             
         if sub_agent_name == "MEMORY_AGENT":
@@ -185,23 +222,35 @@ class HRI_Agent:
                 )
                 break
 
-        return {
-            "messages": [
-                self.hri_llm.invoke(
-                    [
-                        SystemMessage(
-                            content=getattr(
-                                self,
-                                "system_prompt",
-                                self.config.system_prompt,
-                            )
-                        )
-                    ]
-                    + model_messages,
-                    **request_options
+        prompt_messages = [
+            SystemMessage(
+                content=getattr(
+                    self,
+                    "system_prompt",
+                    self.config.system_prompt,
                 )
-            ],
-            "llm_calls": state.get('llm_calls', 0) + 1
+            )
+        ] + model_messages
+
+        started = perf_counter()
+        answer = self.hri_llm.invoke(
+            prompt_messages,
+            **request_options,
+        )
+        elapsed_seconds = perf_counter() - started
+
+        metrics = getattr(self, "metrics", None)
+        if metrics is not None:
+            metrics.record(
+                agent="HRI Agent",
+                prompt_messages=prompt_messages,
+                response=answer,
+                elapsed_seconds=elapsed_seconds,
+            )
+
+        return {
+            "messages": [answer],
+            "llm_calls": state.get("llm_calls", 0) + 1,
         }
 
 
@@ -402,7 +451,18 @@ class HRI_Agent:
             ]
 
             print(colored(f"\nHRI Agent:", "white", "on_green"))
+            self.metrics.reset()
+            turn_started = perf_counter()
             response = self.invoke_agent(messages, current_frame=start_frame)
+            turn_seconds = perf_counter() - turn_started
+
+            print(colored("Token Metrics:", "black", "on_white"))
+            print(
+                json.dumps(
+                    self.metrics.summary(turn_seconds=turn_seconds),
+                    indent=2,
+                )
+            )
 
 
     def get_agent_graph(self):

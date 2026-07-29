@@ -19,6 +19,9 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.runtime import Runtime
 from prefmem.agents.vision import image_data_url, get_start_end_frames
 import json
+from time import perf_counter
+
+from prefmem.agents.metrics import TurnMetrics
 
 
 from colorama import init
@@ -58,6 +61,15 @@ class VLLMChatOpenAI(ChatOpenAI):
             if reasoning:
                 generation.message.additional_kwargs["reasoning"] = reasoning
 
+        request_metrics = (
+            chunk.get("metrics")
+            or chunk.get("chunk", {}).get("metrics")
+        )
+        if generation is not None and request_metrics:
+            generation.message.response_metadata[
+                "vllm_metrics"
+            ] = request_metrics
+
         return generation
 
 
@@ -65,9 +77,15 @@ class VLLMChatOpenAI(ChatOpenAI):
 
 
 class Planner_Agent:
-    def __init__(self, model_config: str = "vllm", args=None):
+    def __init__(
+        self,
+        model_config: str = "vllm",
+        args=None,
+        metrics: TurnMetrics | None = None,
+    ):
         self.config = Planner_Config(model_config)
         self.args = args
+        self.metrics = metrics
         self.llm = VLLMChatOpenAI(
             model=self.config.model,
             api_key="EMPTY",
@@ -75,6 +93,7 @@ class Planner_Agent:
             max_tokens=2048,  # Smaller while debugging
             temperature=0,
             streaming=True,
+            stream_usage=True,
             timeout=300,
         )
         # self.TOOLS = []
@@ -146,23 +165,34 @@ class Planner_Agent:
                 )
                 break
 
-        return {
-            "messages": [
-                self.llm.invoke(
-                    [
-                        SystemMessage(
-                            content=getattr(
-                                self,
-                                "system_prompt",
-                                self.config.system_prompt,
-                            )
-                        )
-                    ]
-                    + model_messages,
-                    **request_options
+        prompt_messages = [
+            SystemMessage(
+                content=getattr(
+                    self,
+                    "system_prompt",
+                    self.config.system_prompt,
                 )
-            ],
-            "llm_calls": state.get('llm_calls', 0) + 1
+            )
+        ] + model_messages
+
+        started = perf_counter()
+        answer = self.llm.invoke(
+            prompt_messages,
+            **request_options,
+        )
+        elapsed_seconds = perf_counter() - started
+
+        if self.metrics is not None:
+            self.metrics.record(
+                agent="Planner Agent",
+                prompt_messages=prompt_messages,
+                response=answer,
+                elapsed_seconds=elapsed_seconds,
+            )
+
+        return {
+            "messages": [answer],
+            "llm_calls": state.get("llm_calls", 0) + 1,
         }
 
 
@@ -201,13 +231,18 @@ class Planner_Agent:
                 print(colored(f"{label}:", "black", "on_white"), flush=True)
                 active_section = label
     
+            final_state = None
             for part in self.agent.stream(
                 input={"messages": messages},
                 config=config,
                 context={"current_frame": current_frame},
-                stream_mode=["messages", "updates"],
+                stream_mode=["messages", "updates", "values"],
                 version="v2",
             ):
+                if part["type"] == "values":
+                    final_state = part["data"]
+                    continue
+
                 if part["type"] == "messages":
                     chunk, metadata = part["data"]
 
@@ -319,19 +354,6 @@ class Planner_Agent:
     
             if active_section is not None:
                 print()
-            
-            final_state = None
-            for part in self.agent.stream(
-                input={"messages": messages},
-                context={"current_frame": current_frame},
-                stream_mode=["messages", "updates", "values"],
-                version="v2",
-            ):
-                if part["type"] == "values":
-                    final_state = part["data"]
-                    continue
-
-                # Existing messages and updates rendering...
 
             if final_state is None:
                 raise RuntimeError("Planner completed without producing final state.")
@@ -347,4 +369,3 @@ class Planner_Agent:
         response = self.invoke_agent(messages, current_frame=start_frame)
 
         return response
-
