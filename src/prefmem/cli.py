@@ -110,7 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--think",
-        default=None,
+        default=["HRI"],
         help="Enable thinking model. Provide a list of agents to enable thinking. e.g. [all] | [HRI, Memory, Planner, Validator]",
     )
 
@@ -118,6 +118,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--print-raw",
         action="store_true",
         help="Print each complete model response object as formatted JSON.",
+    )
+
+    parser.add_argument(
+        "--print-usage",
+        action="store_true",
+        help="Print the usage of the PrefMem system.",
     )
 
     return parser

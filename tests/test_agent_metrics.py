@@ -137,6 +137,7 @@ class AgentMetricsTests(unittest.TestCase):
             ],
             response=AIMessage(
                 content="",
+                additional_kwargs={"reasoning": "tool thought"},
                 tool_calls=[
                     {
                         "name": "call_sub_agent",
@@ -164,6 +165,7 @@ class AgentMetricsTests(unittest.TestCase):
             ],
             response=AIMessage(
                 content="plan",
+                additional_kwargs={"reasoning": "planner thought"},
                 usage_metadata={
                     "input_tokens": 8,
                     "output_tokens": 5,
@@ -183,6 +185,7 @@ class AgentMetricsTests(unittest.TestCase):
             ],
             response=AIMessage(
                 content="final answer",
+                additional_kwargs={"reasoning": "final thought"},
                 usage_metadata={
                     "input_tokens": 20,
                     "output_tokens": 4,
@@ -206,6 +209,26 @@ class AgentMetricsTests(unittest.TestCase):
         self.assertEqual(total["hri_generated_tokens"], 4)
         self.assertEqual(total["input_tokens"], 38)
         self.assertEqual(total["output_tokens"], 12)
+        self.assertEqual(total["thinking_output_tokens"], 6)
+        self.assertEqual(total["tool_call_output_tokens"], 1)
+        self.assertEqual(total["response_output_tokens"], 5)
+        self.assertEqual(total["other_output_tokens"], 0)
+        self.assertEqual(
+            total["output_token_breakdown_source"],
+            "provider_and_tokenizer",
+        )
+        self.assertEqual(
+            sum(
+                total[key]
+                for key in (
+                    "thinking_output_tokens",
+                    "tool_call_output_tokens",
+                    "response_output_tokens",
+                    "other_output_tokens",
+                )
+            ),
+            total["output_tokens"],
+        )
         self.assertEqual(total["total_tokens"], 50)
         self.assertEqual(total["throughput_source"], "vllm")
         self.assertAlmostEqual(
@@ -220,6 +243,46 @@ class AgentMetricsTests(unittest.TestCase):
         self.assertEqual(
             summary["agents"]["Planner Agent"]["generated_tokens"],
             5,
+        )
+        self.assertEqual(
+            summary["agents"]["HRI Agent"]["thinking_output_tokens"],
+            4,
+        )
+        self.assertEqual(
+            summary["agents"]["HRI Agent"]["tool_call_output_tokens"],
+            1,
+        )
+        self.assertEqual(
+            summary["agents"]["HRI Agent"]["response_output_tokens"],
+            2,
+        )
+
+    def test_provider_reasoning_count_takes_precedence(self) -> None:
+        metrics = TurnMetrics(WordCounter())
+        metrics.record(
+            agent="HRI Agent",
+            prompt_messages=[HumanMessage(content="question")],
+            response=AIMessage(
+                content="visible response",
+                additional_kwargs={"reasoning": "one word"},
+                usage_metadata={
+                    "input_tokens": 3,
+                    "output_tokens": 8,
+                    "total_tokens": 11,
+                    "output_token_details": {"reasoning": 5},
+                },
+            ),
+            elapsed_seconds=1.0,
+        )
+
+        total = metrics.summary(turn_seconds=1.0)["total"]
+        self.assertEqual(total["thinking_output_tokens"], 5)
+        self.assertEqual(total["tool_call_output_tokens"], 0)
+        self.assertEqual(total["response_output_tokens"], 3)
+        self.assertEqual(total["other_output_tokens"], 0)
+        self.assertEqual(
+            total["output_token_breakdown_source"],
+            "provider",
         )
 
     def test_planner_streams_graph_once(self) -> None:

@@ -17,7 +17,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from langgraph.checkpoint.memory import InMemorySaver  
 from langgraph.runtime import Runtime
-from prefmem.agents.vision import image_data_url, get_start_end_frames
+from prefmem.agents.vision import image_data_url, get_start_end_frames, get_live_frame
 import json
 from time import perf_counter
 
@@ -364,7 +364,8 @@ class Planner_Agent:
     
     def run(self, messages):
 
-        start_frame, last_frame = get_start_end_frames(self.args)
+        # start_frame, last_frame = get_start_end_frames(self.args)
+        start_frame = get_live_frame()
         print(colored(f"\nPlanner Agent:", "white", "on_blue"))
         response = self.invoke_agent(messages, current_frame=start_frame)
 

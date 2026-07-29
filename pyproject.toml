@@ -15,11 +15,13 @@ dependencies = [
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.4.1",
     "langgraph>=1.2.9",
+    "opencv-python>=4.11.0.86,<5",
     "termcolor>=3.3.0",
 ]
 
 [project.scripts]
 prefmem = "prefmem.cli:main"
+stream_camera = "prefmem.stream_camera:main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12.0"]

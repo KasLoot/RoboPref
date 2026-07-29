@@ -31,6 +31,59 @@ def message_text(content: object) -> str:
     return ""
 
 
+def reasoning_texts(message: AIMessage) -> tuple[str, ...]:
+    """Return reasoning text exposed separately from assistant content."""
+
+    texts = []
+    for key in ("reasoning", "reasoning_content"):
+        value = message.additional_kwargs.get(key)
+        if isinstance(value, str) and value:
+            texts.append(value)
+
+    if isinstance(message.content, list):
+        for block in message.content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") not in {
+                "reasoning",
+                "reasoning_content",
+                "thinking",
+            }:
+                continue
+            text = block.get("text") or block.get("reasoning")
+            if isinstance(text, str) and text:
+                texts.append(text)
+
+    return tuple(texts)
+
+
+def tool_call_texts(message: AIMessage) -> tuple[str, ...]:
+    """Return canonical text for the semantic payload of each tool call."""
+
+    texts = []
+    for call in [*message.tool_calls, *message.invalid_tool_calls]:
+        arguments = call.get("args", {})
+        if not isinstance(arguments, str):
+            arguments = json.dumps(
+                arguments,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        texts.append(
+            json.dumps(
+                {
+                    "name": call.get("name"),
+                    "arguments": arguments,
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+                default=str,
+            )
+        )
+    return tuple(texts)
+
+
 class VLLMTokenCounter:
     """Count raw text tokens with the tokenizer used by the vLLM server."""
 
@@ -90,6 +143,10 @@ class LLMCallMetric:
     agent: str
     system_texts: tuple[str, ...]
     query_texts: tuple[str, ...]
+    reasoning_texts: tuple[str, ...]
+    response_texts: tuple[str, ...]
+    tool_call_texts: tuple[str, ...]
+    provider_reasoning_tokens: int | None
     input_tokens: int | None
     output_tokens: int | None
     total_tokens: int | None
@@ -125,6 +182,19 @@ class TurnMetrics:
         input_tokens = usage.get("input_tokens")
         output_tokens = usage.get("output_tokens")
         total_tokens = usage.get("total_tokens")
+        output_token_details = usage.get("output_token_details") or {}
+        provider_reasoning_tokens = output_token_details.get("reasoning")
+
+        if provider_reasoning_tokens is None:
+            raw_usage = (
+                response.response_metadata.get("token_usage") or {}
+            )
+            raw_output_details = (
+                raw_usage.get("completion_tokens_details") or {}
+            )
+            provider_reasoning_tokens = raw_output_details.get(
+                "reasoning_tokens"
+            )
 
         server_metrics = response.response_metadata.get("vllm_metrics") or {}
         server_tps = server_metrics.get("tokens_per_second")
@@ -144,6 +214,18 @@ class TurnMetrics:
                     if isinstance(message, HumanMessage)
                     if (text := message_text(message.content))
                 ),
+                reasoning_texts=reasoning_texts(response),
+                response_texts=(
+                    (text,)
+                    if (text := message_text(response.content))
+                    else ()
+                ),
+                tool_call_texts=tool_call_texts(response),
+                provider_reasoning_tokens=(
+                    int(provider_reasoning_tokens)
+                    if provider_reasoning_tokens is not None
+                    else None
+                ),
                 input_tokens=(
                     int(input_tokens) if input_tokens is not None else None
                 ),
@@ -160,6 +242,147 @@ class TurnMetrics:
                 generated_tool_call=bool(response.tool_calls),
             )
         )
+
+    def _raw_text_tokens(self, texts: tuple[str, ...]) -> int | None:
+        if not texts:
+            return 0
+        if self.token_counter is None:
+            return None
+
+        total = 0
+        for text in texts:
+            count = self.token_counter.count(text)
+            if count is None:
+                return None
+            total += count
+        return total
+
+    def _call_output_breakdown(
+        self,
+        call: LLMCallMetric,
+    ) -> tuple[int | None, int | None, int | None, int | None]:
+        """Split a completion into thinking, tool, response, and other tokens.
+
+        Providers report the exact completion total and may report exact
+        reasoning tokens. When reasoning details are absent, separately exposed
+        reasoning text is counted with the server tokenizer. The remainder of a
+        completion is assigned to its visible output channel. This preserves
+        the provider total without treating parsed tool-call JSON as an exact
+        reproduction of the model's wire-format control tokens.
+        """
+
+        if call.provider_reasoning_tokens is not None:
+            thinking_tokens = call.provider_reasoning_tokens
+        else:
+            thinking_tokens = self._raw_text_tokens(call.reasoning_texts)
+
+        if call.output_tokens is None:
+            return (
+                thinking_tokens,
+                self._raw_text_tokens(call.tool_call_texts),
+                self._raw_text_tokens(call.response_texts),
+                None,
+            )
+
+        if thinking_tokens is None:
+            return None, None, None, None
+
+        thinking_tokens = min(
+            max(0, thinking_tokens),
+            call.output_tokens,
+        )
+        remaining_tokens = call.output_tokens - thinking_tokens
+        has_tool_calls = bool(call.tool_call_texts)
+        has_response = bool(call.response_texts)
+
+        if has_tool_calls and not has_response:
+            return thinking_tokens, remaining_tokens, 0, 0
+        if has_response and not has_tool_calls:
+            return thinking_tokens, 0, remaining_tokens, 0
+        if not has_tool_calls and not has_response:
+            return thinking_tokens, 0, 0, remaining_tokens
+
+        tool_estimate = self._raw_text_tokens(call.tool_call_texts)
+        response_estimate = self._raw_text_tokens(call.response_texts)
+        if tool_estimate is None or response_estimate is None:
+            return thinking_tokens, None, None, None
+
+        estimated_tokens = tool_estimate + response_estimate
+        if estimated_tokens <= remaining_tokens:
+            return (
+                thinking_tokens,
+                tool_estimate,
+                response_estimate,
+                remaining_tokens - estimated_tokens,
+            )
+        if estimated_tokens == 0:
+            return thinking_tokens, 0, 0, remaining_tokens
+
+        # A response containing both text and tool calls is unusual. Preserve
+        # the exact provider total while using tokenizer counts as the ratio.
+        tool_tokens = round(
+            remaining_tokens * tool_estimate / estimated_tokens
+        )
+        return (
+            thinking_tokens,
+            tool_tokens,
+            remaining_tokens - tool_tokens,
+            0,
+        )
+
+    def _output_breakdown(self, calls: list[LLMCallMetric]) -> dict:
+        breakdowns = [
+            self._call_output_breakdown(call) for call in calls
+        ]
+        breakdown = {
+            "thinking_output_tokens": optional_sum(
+                [breakdown[0] for breakdown in breakdowns]
+            ),
+            "tool_call_output_tokens": optional_sum(
+                [breakdown[1] for breakdown in breakdowns]
+            ),
+            "response_output_tokens": optional_sum(
+                [breakdown[2] for breakdown in breakdowns]
+            ),
+            "other_output_tokens": optional_sum(
+                [breakdown[3] for breakdown in breakdowns]
+            ),
+        }
+        if not calls:
+            source = "none"
+        elif any(value is None for value in breakdown.values()):
+            source = "unavailable"
+        else:
+            used_tokenizer = any(
+                (
+                    call.provider_reasoning_tokens is None
+                    and bool(call.reasoning_texts)
+                )
+                or (
+                    bool(call.tool_call_texts)
+                    and bool(call.response_texts)
+                )
+                or call.output_tokens is None
+                for call in calls
+            )
+            used_provider = any(
+                call.output_tokens is not None
+                or call.provider_reasoning_tokens is not None
+                for call in calls
+            )
+            if used_provider and used_tokenizer:
+                source = "provider_and_tokenizer"
+            elif used_provider:
+                source = "provider"
+            elif used_tokenizer:
+                source = "tokenizer"
+            else:
+                source = "none"
+
+        return {
+            **breakdown,
+            "output_token_breakdown_source": source,
+        }
 
     def _text_tokens(
         self,
@@ -251,6 +474,7 @@ class TurnMetrics:
             "other_input_tokens": other_input_tokens,
             "input_tokens": input_tokens,
             "generated_tokens": output_tokens,
+            **self._output_breakdown(calls),
             "total_tokens": total_tokens,
             "throughput_tokens_per_second": throughput,
             "throughput_source": throughput_source,
@@ -337,6 +561,7 @@ class TurnMetrics:
                 "other_input_tokens": other_input_tokens,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
+                **self._output_breakdown(self.calls),
                 "total_tokens": total_tokens,
                 "throughput_tokens_per_second": throughput,
                 "throughput_source": throughput_source,

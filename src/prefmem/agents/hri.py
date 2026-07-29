@@ -19,7 +19,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from langgraph.checkpoint.memory import InMemorySaver  
 from langgraph.runtime import Runtime
-from prefmem.agents.vision import image_data_url, get_start_end_frames
+from prefmem.agents.vision import image_data_url, get_start_end_frames, get_live_frame
 from prefmem.agents.planner import Planner_Agent
 import json
 
@@ -200,10 +200,55 @@ class HRI_Agent:
         return {"messages": result}
 
 
+    @staticmethod
+    def _messages_for_model(messages: list[AnyMessage]) -> list[AnyMessage]:
+        """Exclude completed prior-turn tool traces from the next prompt.
+
+        Tool calls and results after the latest human message belong to the
+        current graph turn and must remain available to the next HRI call.
+        Earlier tool traces are implementation details; prior user messages and
+        final assistant responses remain as conversational context.
+        """
+
+        latest_human_index = max(
+            (
+                index
+                for index, message in enumerate(messages)
+                if isinstance(message, HumanMessage)
+            ),
+            default=0,
+        )
+
+        model_messages = []
+        for index, message in enumerate(messages):
+            if index >= latest_human_index:
+                model_messages.append(message)
+                continue
+
+            if isinstance(message, ToolMessage):
+                continue
+            if isinstance(message, AIMessage) and (
+                message.tool_calls or message.invalid_tool_calls
+            ):
+                continue
+            if isinstance(message, AIMessage):
+                additional_kwargs = {
+                    key: value
+                    for key, value in message.additional_kwargs.items()
+                    if key not in {"reasoning", "reasoning_content"}
+                }
+                message = message.model_copy(
+                    update={"additional_kwargs": additional_kwargs}
+                )
+            model_messages.append(message)
+
+        return model_messages
+
+
     def llm_call(self, state: dict, runtime: Runtime[CurrentFrameContext]):
         """LLM decides whether to call a tool or not"""
 
-        model_messages = list(state["messages"])
+        model_messages = self._messages_for_model(state["messages"])
         request_options = (
             {"reasoning_effort": "high"}
             if getattr(self, "thinking_enabled", False)
@@ -419,8 +464,12 @@ class HRI_Agent:
                 queries = json.load(f)
         query_index = 0
         response = None
-        
+
+        turn_index = 0
         while True:
+
+            print("="* 20 + f"Turn {turn_index + 1}" + "="*20)
+            turn_index += 1
 
             print(colored("User:", "black", "on_white"))
             user_input = input()
@@ -443,7 +492,8 @@ class HRI_Agent:
                         m.pretty_print()
                 continue
 
-            start_frame, last_frame = get_start_end_frames(self.args)
+            # start_frame, last_frame = get_start_end_frames(self.args)
+            start_frame = get_live_frame()
             
             # build message
             messages = [
@@ -456,13 +506,15 @@ class HRI_Agent:
             response = self.invoke_agent(messages, current_frame=start_frame)
             turn_seconds = perf_counter() - turn_started
 
-            print(colored("Token Metrics:", "black", "on_white"))
-            print(
-                json.dumps(
-                    self.metrics.summary(turn_seconds=turn_seconds),
-                    indent=2,
+            if self.args.print_usage:
+                print("\n")
+                print(colored("Token Metrics:", "black", "on_white"))
+                print(
+                    json.dumps(
+                        self.metrics.summary(turn_seconds=turn_seconds),
+                        indent=2,
+                    )
                 )
-            )
 
 
     def get_agent_graph(self):

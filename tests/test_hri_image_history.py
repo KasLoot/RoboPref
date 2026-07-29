@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
-from langchain.messages import AIMessage, HumanMessage
+from langchain.messages import AIMessage, HumanMessage, ToolMessage
 
 from prefmem.agents.hri import HRI_Agent
 
@@ -80,6 +80,127 @@ class HRIImageHistoryTests(unittest.TestCase):
             [message.content for message in checkpointed_human_messages],
             ["first question", "second question"],
         )
+
+    def test_prior_turn_reasoning_and_tool_trace_are_not_sent(self) -> None:
+        model = RecordingModel()
+        hri = object.__new__(HRI_Agent)
+        hri.config = SimpleNamespace(system_prompt="test system prompt")
+        hri.hri_llm = model
+        hri.metrics = None
+        hri.thinking_enabled = False
+
+        prior_tool_call = AIMessage(
+            content="",
+            additional_kwargs={"reasoning": "private tool reasoning"},
+            tool_calls=[
+                {
+                    "name": "call_sub_agent",
+                    "args": {"message": "make a plan"},
+                    "id": "call-1",
+                    "type": "tool_call",
+                }
+            ],
+        )
+        prior_tool_result = ToolMessage(
+            content="private tool result",
+            tool_call_id="call-1",
+        )
+        prior_response = AIMessage(
+            content="public answer",
+            additional_kwargs={"reasoning": "private final reasoning"},
+        )
+
+        hri.llm_call(
+            {
+                "messages": [
+                    HumanMessage(content="first question"),
+                    prior_tool_call,
+                    prior_tool_result,
+                    prior_response,
+                    HumanMessage(content="second question"),
+                ],
+                "llm_calls": 1,
+            },
+            SimpleNamespace(context={"current_frame": {}}),
+        )
+
+        sent_messages = model.calls[-1]
+        self.assertEqual(
+            [
+                message.content
+                for message in sent_messages
+                if isinstance(message, HumanMessage)
+            ],
+            [
+                "first question",
+                [
+                    {},
+                    {"type": "text", "text": "second question"},
+                ],
+            ],
+        )
+        sent_ai_messages = [
+            message
+            for message in sent_messages
+            if isinstance(message, AIMessage)
+        ]
+        self.assertEqual(
+            [message.content for message in sent_ai_messages],
+            ["public answer"],
+        )
+        self.assertNotIn(
+            "reasoning",
+            sent_ai_messages[0].additional_kwargs,
+        )
+        self.assertFalse(
+            any(
+                isinstance(message, ToolMessage)
+                for message in sent_messages
+            )
+        )
+
+    def test_current_turn_tool_trace_is_sent_to_follow_up_call(self) -> None:
+        model = RecordingModel()
+        hri = object.__new__(HRI_Agent)
+        hri.config = SimpleNamespace(system_prompt="test system prompt")
+        hri.hri_llm = model
+        hri.metrics = None
+        hri.thinking_enabled = False
+
+        current_tool_call = AIMessage(
+            content="",
+            additional_kwargs={"reasoning": "current reasoning"},
+            tool_calls=[
+                {
+                    "name": "call_sub_agent",
+                    "args": {"message": "make a plan"},
+                    "id": "call-2",
+                    "type": "tool_call",
+                }
+            ],
+        )
+        current_tool_result = ToolMessage(
+            content="current tool result",
+            tool_call_id="call-2",
+        )
+
+        hri.llm_call(
+            {
+                "messages": [
+                    HumanMessage(content="first question"),
+                    AIMessage(content="first answer"),
+                    HumanMessage(content="second question"),
+                    current_tool_call,
+                    current_tool_result,
+                ],
+                "llm_calls": 2,
+            },
+            SimpleNamespace(context={"current_frame": {}}),
+        )
+
+        sent_messages = model.calls[-1]
+        self.assertIn(current_tool_call, sent_messages)
+        self.assertIn(current_tool_result, sent_messages)
 
 
 if __name__ == "__main__":
