@@ -17,22 +17,27 @@ ssh -N -L 8000:127.0.0.1:8000 \
 
 Stream camera 0 to a browser on this machine:
 
-```powershell
+```console
 uv sync
-uv run python webcam_stream.py
+uv run stream_camera
 ```
 
 Open <http://127.0.0.1:1234>. Press `Ctrl+C` to stop the server.
+The camera system is detected automatically; use `--system` to select one
+explicitly.
 
 Useful options:
 
-```powershell
+```console
 # Find an available camera index
-uv run python webcam_stream.py --list-cameras
+uv run stream_camera --list-cameras
 
 # Select camera 1 and use Windows DirectShow
-uv run python webcam_stream.py --camera 1 --backend dshow
+uv run stream_camera --system windows --camera 1 --backend dshow
+
+# Use Linux V4L2 with MJPEG transport
+uv run stream_camera --system linux
 
 # Make the stream available on the local network (no authentication)
-uv run python webcam_stream.py --host 0.0.0.0
+uv run stream_camera --host 0.0.0.0
 ```

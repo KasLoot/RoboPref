@@ -78,6 +78,8 @@ PAGE = b"""<!doctype html>
 </html>
 """
 
+SYSTEM_CHOICES = ("windows", "linux")
+
 
 def load_opencv() -> ModuleType:
     """Load OpenCV with an actionable error when the dependency is absent."""
@@ -119,14 +121,50 @@ def bounded_integer(minimum: int, maximum: int):
     return parse
 
 
-def backend_id(cv2: ModuleType, name: str) -> int:
-    """Translate a friendly backend name to an OpenCV backend ID."""
+def default_system() -> str:
+    """Return the camera system matching the current Python platform."""
+    return "windows" if sys.platform == "win32" else "linux"
+
+
+def backend_id(cv2: ModuleType, system: str, name: str) -> int:
+    """Translate system and backend choices to an OpenCV backend ID."""
+    if system == "linux":
+        return cv2.CAP_V4L2
+
     backends = {
         "auto": cv2.CAP_ANY,
         "dshow": cv2.CAP_DSHOW,
         "msmf": cv2.CAP_MSMF,
     }
     return backends[name]
+
+
+def configure_capture(
+    cv2: ModuleType,
+    capture,
+    system: str,
+    width: int,
+    height: int,
+    fps: int,
+) -> None:
+    """Configure the camera, requesting compressed transport on Linux."""
+    if system == "linux":
+        capture.set(
+            cv2.CAP_PROP_FOURCC,
+            cv2.VideoWriter_fourcc(*"MJPG"),
+        )
+
+    capture.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+    capture.set(cv2.CAP_PROP_FPS, fps)
+    capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+
+def fourcc_name(value: float) -> str:
+    """Decode an OpenCV FOURCC property into a printable name."""
+    encoded = int(value)
+    name = "".join(chr((encoded >> (8 * index)) & 0xFF) for index in range(4))
+    return name.rstrip("\x00") or "unknown"
 
 
 class CameraStream:
@@ -136,6 +174,7 @@ class CameraStream:
         self,
         cv2: ModuleType,
         camera: int,
+        system: str,
         backend: int,
         width: int,
         height: int,
@@ -144,6 +183,7 @@ class CameraStream:
     ) -> None:
         self.cv2 = cv2
         self.camera = camera
+        self.system = system
         self.backend = backend
         self.width = width
         self.height = height
@@ -166,10 +206,14 @@ class CameraStream:
                 "Close other camera apps or try another --camera index."
             )
 
-        capture.set(self.cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        capture.set(self.cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        capture.set(self.cv2.CAP_PROP_FPS, self.fps)
-        capture.set(self.cv2.CAP_PROP_BUFFERSIZE, 1)
+        configure_capture(
+            self.cv2,
+            capture,
+            self.system,
+            self.width,
+            self.height,
+            self.fps,
+        )
         self._capture = capture
 
         ok, frame = capture.read()
@@ -183,6 +227,22 @@ class CameraStream:
             capture.release()
             self._capture = None
             raise
+
+        actual_width = round(capture.get(self.cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = round(capture.get(self.cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = capture.get(self.cv2.CAP_PROP_FPS)
+        actual_fourcc = fourcc_name(capture.get(self.cv2.CAP_PROP_FOURCC))
+        print(
+            f"Camera {self.camera}: backend={capture.getBackendName()}, "
+            f"format={actual_fourcc}, "
+            f"{actual_width}x{actual_height} @ {actual_fps:g} FPS"
+        )
+        if self.system == "linux" and actual_fourcc not in ("MJPG", "JPEG"):
+            print(
+                "Warning: the camera did not accept MJPEG; "
+                "the stream may have a lower frame rate.",
+                file=sys.stderr,
+            )
 
         self._thread = threading.Thread(
             target=self._capture_loop,
@@ -392,10 +452,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--camera", type=parse_camera, default=0, help="camera index")
     parser.add_argument(
+        "--system",
+        choices=SYSTEM_CHOICES,
+        default=default_system(),
+        help="camera system (Linux uses V4L2 with MJPEG; default: detected)",
+    )
+    parser.add_argument(
         "--backend",
         choices=("auto", "dshow", "msmf"),
         default="auto",
-        help="OpenCV capture backend (Windows: try dshow if auto fails)",
+        help="Windows capture backend (try dshow if auto fails)",
     )
     parser.add_argument("--host", default="127.0.0.1", help="HTTP bind address")
     parser.add_argument(
@@ -432,8 +498,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = build_parser().parse_args()
+    if args.system == "linux" and args.backend != "auto":
+        fail("--backend dshow/msmf can only be used with --system windows.")
+
     cv2 = load_opencv()
-    backend = backend_id(cv2, args.backend)
+    backend = backend_id(cv2, args.system, args.backend)
 
     if args.list_cameras:
         raise SystemExit(list_cameras(cv2, backend, args.probe_count))
@@ -441,6 +510,7 @@ def main() -> None:
     camera = CameraStream(
         cv2=cv2,
         camera=args.camera,
+        system=args.system,
         backend=backend,
         width=args.width,
         height=args.height,

@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 class VLLMConfig:
     def __init__(self):
-        self.model = "/workspace/models/gemma-4-26B-A4B-it/"
+        self.model = "/workspace/models/gemma-4-26B-A4B-it"
         # self.model = "/workspace/models/Qwen3.6-35B-A3B"
         self.model_base_url = "http://localhost:8000/v1"
 
