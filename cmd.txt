@@ -6,19 +6,24 @@ ssh -N -L 8000:127.0.0.1:8000 \
   root@103.196.86.210
 
 
-
-
+mkdir -p /workspace/vllm
+cd /workspace/vllm
 uv venv -p 3.12
 source .venv/bin/activate
 
 # CUDA 13.0
 uv pip install vllm --extra-index-url https://wheels.vllm.ai/0.25.1/cu130 --extra-index-url https://download.pytorch.org/whl/cu130 --index-strategy unsafe-best-match
 
+
+mkdir -p /workspace/models/gemma-4-26B-A4B-it
+
+hf download google/gemma-4-26B-A4B-it --local-dir /workspace/models/gemma-4-26B-A4B-it
+
 VLLM_USE_FLASHINFER_SAMPLER=0 \
 vllm serve /workspace/models/gemma-4-26B-A4B-it \
   --max-model-len 32768 \
   --enable-per-request-metrics \
-  --gpu-memory-utilization 0.90 \
+  --gpu-memory-utilization 0.95 \
   --moe-backend triton \
   --enable-auto-tool-choice \
   --tool-call-parser gemma4 \
