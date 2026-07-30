@@ -2,8 +2,8 @@
 
 
 ssh -N -L 8000:127.0.0.1:8000 \
-  -p 11552 -i ~/.ssh/id_ed25519 \
-  root@103.196.86.210
+  -p 17756 -i ~/.ssh/id_ed25519 \
+  root@103.196.86.98
 
 
 mkdir -p /workspace/vllm
@@ -46,3 +46,8 @@ vllm serve /workspace/models/Qwen3.6-35B-A3B \
   --reasoning-parser qwen3 \
   --mm-encoder-tp-mode data \
   --moe-backend triton
+
+
+vllm serve /data/models/embeddinggemma-300m --dtype bfloat16 \
+  --hf_overrides '{"matryoshka_dimensions": 768}' \
+  --port 8080
