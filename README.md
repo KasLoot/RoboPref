@@ -3,7 +3,7 @@
 RoboPref v2 is a from-scratch rewrite of the preference-aware robotic
 task-orchestration prototype.
 
-Status: pre-alpha development (`2.0.0.dev0`).
+Status: pre-alpha development (`2.0.0.dev1`).
 
 ```bash
 # vLLM server model initialization

@@ -1,6 +1,6 @@
 [project]
 name = "robopref"
-version = "2.0.0.dev0"
+version = "2.0.0.dev1"
 description = "Preference-aware robotic task orchestration"
 readme = "README.md"
 authors = [
