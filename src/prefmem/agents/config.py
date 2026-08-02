@@ -44,7 +44,7 @@ class HRI_Config(Global_Model_Config):
         self.model = self.model_config.model
         self.model_base_url = self.model_config.model_base_url
         
-        self.system_prompt = Path("src/prefmem/agents/prompt/hri/hri-prompt-v3.md").read_text(encoding="utf-8")
+        self.system_prompt = Path("src/prefmem/agents/prompt/hri/hri-prompt-v5.md").read_text(encoding="utf-8")
 
 
 class Planner_Config(Global_Model_Config):
@@ -54,3 +54,18 @@ class Planner_Config(Global_Model_Config):
         self.model_base_url = self.model_config.model_base_url
         
         self.system_prompt = Path("src/prefmem/agents/prompt/planner/planner-prompt-v2.md").read_text(encoding="utf-8")
+
+
+class Memory_Config(Global_Model_Config):
+    def __init__(self, model_config):
+        super().__init__(model_config)
+        self.model = self.model_config.model
+        self.model_base_url = self.model_config.model_base_url
+        
+        self.system_prompt = Path("src/prefmem/agents/prompt/memory/memory-prompt-v3.md").read_text(encoding="utf-8")
+
+        self.embedding_model = "/data/models/embeddinggemma-300m"
+        self.embedding_model_base_url = "http://localhost:8080/v1"
+        self.embedding_dimensions = 768
+        self.top_k = 5
+        self.top_cap_k = 10

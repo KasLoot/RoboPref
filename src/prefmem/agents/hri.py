@@ -21,6 +21,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.runtime import Runtime
 from prefmem.agents.vision import image_data_url, get_start_end_frames, get_live_frame
 from prefmem.agents.planner import Planner_Agent
+from prefmem.agents.memory import Memory_Agent
 import json
 
 from time import perf_counter
@@ -105,6 +106,7 @@ class HRI_Agent:
         self.hri_agent = self.build_agent()
         self.system_prompt = self.config.system_prompt
         self.thinking_enabled = bool(self.args.think and (self.args.think == "all" or "HRI" in self.args.think))
+        self.completed_memory_mutations: list[dict] = []
 
         self.metrics = TurnMetrics(
             VLLMTokenCounter(
@@ -121,9 +123,60 @@ class HRI_Agent:
             metrics=self.metrics,
         )
 
+        self.memory_agent = Memory_Agent(
+            model_config=model_config,
+            args=args,
+            metrics=self.metrics,
+        )
+
+    def _record_completed_memory_mutation(
+        self,
+        request: str,
+        output: str,
+    ) -> None:
+        if not request.lstrip().startswith("MUTATE REQUEST:"):
+            return
+
+        try:
+            result = json.loads(output)
+        except (TypeError, json.JSONDecodeError):
+            return
+
+        if not isinstance(result, dict):
+            return
+
+        status = result.get("status")
+        if status not in {
+            "REMEMBERED",
+            "UPDATED",
+            "FORGOTTEN",
+            "UNCHANGED",
+            "SUCCESS",
+        }:
+            return
+
+        receipt = {
+            "request": request,
+            "status": status,
+        }
+        for key in (
+            "id",
+            "text",
+            "previous_text",
+            "new_text",
+            "forgotten_text",
+        ):
+            if key in result:
+                receipt[key] = result[key]
+
+        receipts = getattr(self, "completed_memory_mutations", [])
+        if receipt not in receipts:
+            receipts.append(receipt)
+        self.completed_memory_mutations = receipts[-20:]
+
     def call_sub_agent(
         self,
-        sub_agent_name:  Literal["PLANNER_AGENT"], 
+        sub_agent_name:  Literal["PLANNER_AGENT", "MEMORY_AGENT", "EXECUTION_AGENT", "VALIDATOR_AGENT"], 
         message: str
         ) -> str:
         """Call a sub-agent by providing the agent name and a request.
@@ -137,6 +190,7 @@ class HRI_Agent:
         """
         # Placeholder implementation; replace with actual sub-agent invocation logic.
 
+        request_message = message
         message = [HumanMessage(content=message)]
 
         if sub_agent_name == "PLANNER_AGENT":
@@ -152,11 +206,26 @@ class HRI_Agent:
 
             
         if sub_agent_name == "MEMORY_AGENT":
-            return f"Finished: The robot has seen a red block, a blue block, and a green block."
+            memory_state = self.memory_agent.run(messages=message)
+            memory_output = memory_state["messages"][-1].content
+            if not isinstance(memory_output, str):
+                memory_output = json.dumps(
+                    memory_output,
+                    ensure_ascii=False,
+                    default=str,
+                )
+            self._record_completed_memory_mutation(
+                request_message,
+                memory_output,
+            )
+            return memory_output
+
+
+        
         if sub_agent_name == "EXECUTION_AGENT":
-            return f"Finished: The robot can pick up blocks and stack them."
+            return f"Agent under development. Reply the user: \"Called the EXECUTION_AGENT, agent under development.\""
         if sub_agent_name == "VALIDATOR_AGENT":
-            return f"Finished: The blocks are in the correct order."
+            return f"Agent under development. Reply the user: \"Called the VALIDATOR_AGENT, agent under development.\""
         else:
             raise ValueError(f"Unknown sub-agent name: {sub_agent_name}")
 
@@ -267,15 +336,30 @@ class HRI_Agent:
                 )
                 break
 
-        prompt_messages = [
-            SystemMessage(
-                content=getattr(
-                    self,
-                    "system_prompt",
-                    self.config.system_prompt,
+        system_prompt = getattr(
+            self,
+            "system_prompt",
+            self.config.system_prompt,
+        )
+        completed_memory_mutations = getattr(
+            self,
+            "completed_memory_mutations",
+            [],
+        )
+        if completed_memory_mutations:
+            system_prompt += (
+                "\n\nCOMPLETED_MEMORY_MUTATIONS: These mutations already "
+                "succeeded in this conversation. Do not repeat them unless "
+                "the user explicitly requests a new memory change. A later "
+                "task-plan confirmation is not a new memory request.\n"
+                + json.dumps(
+                    completed_memory_mutations,
+                    ensure_ascii=False,
+                    default=str,
                 )
             )
-        ] + model_messages
+
+        prompt_messages = [SystemMessage(content=system_prompt)] + model_messages
 
         started = perf_counter()
         answer = self.hri_llm.invoke(

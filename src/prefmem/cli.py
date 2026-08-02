@@ -37,17 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Treat --dataset as one generated benchmark packet directory.",
     )
 
-    memory_group = parser.add_mutually_exclusive_group()
-    memory_group.add_argument(
-        "--preference-store",
-        type=Path,
-        default=None,
-        metavar="PATH",
-        help="Approved preference-store path.",
-    )
-    memory_group.add_argument(
-        "--memory-store",
-        dest="preference_store",
+    parser.add_argument(
+        "--memory-store-path",
+        default="./memory_store",
         type=Path,
         metavar="PATH",
         help="Deprecated alias for --preference-store; do not pass both.",
