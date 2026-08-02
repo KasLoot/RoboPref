@@ -16,6 +16,7 @@ dependencies = [
     "langchain-openai>=1.4.1",
     "langgraph>=1.2.9",
     "opencv-python>=4.11.0.86,<5",
+    "sentence-transformers>=5.6.1",
     "termcolor>=3.3.0",
 ]
 
