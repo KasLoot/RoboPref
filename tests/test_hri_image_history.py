@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import unittest
 from types import SimpleNamespace
 
-from langchain.messages import AIMessage, HumanMessage, ToolMessage
+from langchain.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 
 from prefmem.agents.hri import HRI_Agent
 
@@ -15,6 +16,24 @@ class RecordingModel:
     def invoke(self, messages: list) -> AIMessage:
         self.calls.append(messages)
         return AIMessage(content="ok")
+
+
+class CompletedMemoryAgent:
+    def run(self, messages: list) -> dict:
+        return {
+            "messages": [
+                messages[0],
+                AIMessage(
+                    content=json.dumps(
+                        {
+                            "status": "REMEMBERED",
+                            "id": "pref-tidy",
+                            "text": "When asked to tidy, clear and clean.",
+                        }
+                    )
+                ),
+            ]
+        }
 
 
 class HRIImageHistoryTests(unittest.TestCase):
@@ -201,6 +220,42 @@ class HRIImageHistoryTests(unittest.TestCase):
         sent_messages = model.calls[-1]
         self.assertIn(current_tool_call, sent_messages)
         self.assertIn(current_tool_result, sent_messages)
+
+    def test_completed_memory_mutation_is_injected_into_later_turns(self) -> None:
+        model = RecordingModel()
+        hri = object.__new__(HRI_Agent)
+        hri.config = SimpleNamespace(system_prompt="test system prompt")
+        hri.hri_llm = model
+        hri.memory_agent = CompletedMemoryAgent()
+        hri.metrics = None
+        hri.thinking_enabled = False
+        hri.completed_memory_mutations = []
+
+        result = hri.call_sub_agent(
+            sub_agent_name="MEMORY_AGENT",
+            message=(
+                "MUTATE REQUEST: remember when asked to tidy, clear and clean."
+            ),
+        )
+        self.assertEqual(json.loads(result)["status"], "REMEMBERED")
+
+        hri.llm_call(
+            {
+                "messages": [HumanMessage(content="Yes.")],
+                "llm_calls": 0,
+            },
+            SimpleNamespace(context={"current_frame": {}}),
+        )
+
+        receipt_messages = [
+            message.content
+            for message in model.calls[-1]
+            if isinstance(message, SystemMessage)
+            and "COMPLETED_MEMORY_MUTATIONS" in message.content
+        ]
+        self.assertEqual(len(receipt_messages), 1)
+        self.assertIn("pref-tidy", receipt_messages[0])
+        self.assertIn("task-plan confirmation", receipt_messages[0])
 
 
 if __name__ == "__main__":
