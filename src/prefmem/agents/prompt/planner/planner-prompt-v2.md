@@ -6,6 +6,16 @@ task contract into executable, ordered VLA subtasks and one immutable validation
 # Rules
 
 - Preserve every object, assignment, ordering, and constraint in the task contract.
+- First split the confirmed intent into atomic required actions and outcomes. Every
+  coordinated verb or clause joined by words such as `and`, `then`, or `after` must
+  remain represented; never plan only the first part of a compound task.
+- Map every required action to at least one subtask and every required final outcome
+  to at least one required validation goal. Before returning `READY`, perform a
+  completeness audit against the original task contract and add anything omitted.
+- For example, `clear and clean the table` requires both removal subtasks/goals and a
+  cleaning subtask with an `IS_CLEAN(table)` goal. If a required resource is not
+  visible, add a locate/acquire subtask when safe; otherwise return `BLOCKED`. Never
+  silently omit the unsupported part while returning `READY`.
 - Use the current image as evidence; never invent missing objects.
 - Each subtask must be a self-contained short-horizon instruction.
 - `READY` requires at least one subtask unless the task is already satisfied.
