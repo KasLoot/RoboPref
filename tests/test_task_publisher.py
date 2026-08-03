@@ -5,7 +5,7 @@ import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
-from prefmem.stream_camera import WebcamServer
+from prefmem.stream_camera import PAGE, WebcamServer
 from prefmem.task_publisher import (
     CameraTaskPublisher,
     ControllerDisplay,
@@ -36,7 +36,34 @@ def active_display(*, sequence: int = 1) -> ControllerDisplay:
     )
 
 
+def final_display(*, sequence: int = 3) -> ControllerDisplay:
+    return ControllerDisplay(
+        session_id="run-1",
+        sequence=sequence,
+        state=DisplayState.FINAL_VALIDATION,
+        goal="Build a stable tower.",
+        cycle=2,
+        publication_id="run-1:final-1",
+        expected_observation=(
+            "All blocks form one stable tower.",
+            "Every block remains on the table.",
+        ),
+        message=(
+            "Keep the scene unchanged; move only the camera as needed to "
+            "show every requested outcome."
+        ),
+    )
+
+
 class ControllerDisplayContractTests(unittest.TestCase):
+    def test_camera_page_uses_non_execution_final_validation_guidance(self) -> None:
+        self.assertNotIn(b"display.instruction ||", PAGE)
+        self.assertIn(b"Keep scene objects unchanged", PAGE)
+        self.assertIn(
+            b'showDetail(taskMessage, "Message", display.message)',
+            PAGE,
+        )
+
     def test_planning_cannot_retain_retired_execution_instruction(self) -> None:
         with self.assertRaisesRegex(ValueError, "cannot retain"):
             ControllerDisplay(
@@ -98,6 +125,12 @@ class ControllerDisplayContractTests(unittest.TestCase):
                         **kwargs,
                     )
 
+    def test_final_validation_presents_camera_guidance_as_message(self) -> None:
+        display = final_display(sequence=1)
+
+        self.assertIsNone(display.instruction)
+        self.assertIn("move only the camera", display.message)
+
     def test_every_surface_state_round_trips(self) -> None:
         displays = (
             ControllerDisplay(
@@ -107,14 +140,7 @@ class ControllerDisplayContractTests(unittest.TestCase):
                 goal="Build a stable tower.",
             ),
             active_display(sequence=2),
-            ControllerDisplay(
-                session_id="run-1",
-                sequence=3,
-                state=DisplayState.FINAL_VALIDATION,
-                goal="Build a stable tower.",
-                publication_id="run-1:final-1",
-                expected_observation=("All blocks form one stable tower.",),
-            ),
+            final_display(sequence=3),
             ControllerDisplay(
                 session_id="run-1",
                 sequence=4,
@@ -172,6 +198,23 @@ class CameraTaskPublisherTests(unittest.TestCase):
         self.assertEqual(
             self.server.display_store.snapshot()["display"],
             display.to_payload(),
+        )
+
+    def test_final_validation_message_round_trips_through_camera_api(self) -> None:
+        publisher = CameraTaskPublisher(self.base_url)
+        display = final_display()
+
+        envelope = publisher.publish(display)
+
+        self.assertEqual(envelope.display, display)
+        self.assertIsNone(envelope.display.instruction)
+        self.assertIn("move only the camera", envelope.display.message)
+        self.assertEqual(
+            envelope.display.expected_observation,
+            (
+                "All blocks form one stable tower.",
+                "Every block remains on the table.",
+            ),
         )
 
     def test_server_conflict_is_exposed_with_status_and_reason(self) -> None:

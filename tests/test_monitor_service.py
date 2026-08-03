@@ -10,6 +10,7 @@ from langchain.messages import HumanMessage, SystemMessage
 
 from prefmem.agents.monitor import (
     CapturedFrame,
+    DEFAULT_MONITOR_PROMPT,
     MonitorErrorKind,
     MonitorModelOutput,
     MonitorOutputError,
@@ -112,6 +113,14 @@ class MonitorOutputTests(unittest.TestCase):
                 '{"task_status":"ONGOING","criteria":[],"failure":null,'
                 '"observation":"Visible."}'
             )
+
+    def test_prompt_requires_status_to_follow_criterion_states(self) -> None:
+        prompt = DEFAULT_MONITOR_PROMPT.read_text(encoding="utf-8")
+
+        self.assertIn("First assign every criterion state", prompt)
+        self.assertIn("must use `SUCCESS`", prompt)
+        self.assertIn("`ONGOING` with every criterion `MET` is invalid", prompt)
+        self.assertIn("do not need to have\n  witnessed", prompt)
         with self.assertRaisesRegex(MonitorOutputError, "unknown fields"):
             MonitorModelOutput.from_json(
                 '{"emergency_stop":false,"emergency_reason":null,'
@@ -133,6 +142,45 @@ class MonitorOutputTests(unittest.TestCase):
 
 
 class MonitorServiceTests(unittest.TestCase):
+    def test_all_met_ongoing_model_result_is_delivered_as_success(self) -> None:
+        output = json.dumps(
+            {
+                "emergency_stop": False,
+                "emergency_reason": None,
+                "task_status": "ONGOING",
+                "criteria": [
+                    {"id": "goal-1:cycle-1:c1", "state": "MET"}
+                ],
+                "failure": None,
+                "observation": "The blue block is visibly in the marked zone.",
+            }
+        )
+        received = []
+        finished = threading.Event()
+        service_holder = {}
+
+        def accept(assessment) -> None:
+            received.append(assessment)
+            service_holder["service"].retire()
+            finished.set()
+
+        service = MonitorService(
+            accept,
+            model=RecordingModel(output),
+            frame_source=SequenceFrames([5]),
+            system_prompt="Monitor system contract.",
+            min_interval_seconds=0,
+        )
+        service_holder["service"] = service
+        try:
+            service.publish(task())
+            self.assertTrue(finished.wait(2.0))
+        finally:
+            service.stop()
+
+        self.assertEqual(len(received), 1)
+        self.assertIs(received[0].task_status, TaskStatus.SUCCESS)
+
     def test_model_order_thinking_disabled_and_host_envelope(self) -> None:
         model = RecordingModel(normal_output())
         frames = SequenceFrames([5])

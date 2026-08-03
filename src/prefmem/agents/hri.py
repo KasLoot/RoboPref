@@ -147,6 +147,21 @@ class VLLMChatOpenAI(ChatOpenAI):
 
 
 class HRI_Agent:
+    _VALIDATION_REPORT_STATUSES = frozenset(
+        {"COMPLETE", "INCOMPLETE", "NEEDS_EVIDENCE"}
+    )
+    _VALIDATION_STATUS_ALIASES = {
+        "SUCCESS": "COMPLETE",
+        "FAILURE": "INCOMPLETE",
+        "PARTIAL": "INCOMPLETE",
+        "UNKNOWN": "NEEDS_EVIDENCE",
+    }
+    _CHECKLIST_SYMBOLS = {
+        "MET": "✓",
+        "NOT_MET": "✗",
+        "UNKNOWN": "?",
+    }
+
     def __init__(self, model_config, args):
         self.config = HRI_Config(model_config)
         self.args = args
@@ -942,12 +957,253 @@ class HRI_Agent:
         notifications = getattr(runtime, "notifications", None)
         if notifications is None:
             return
+        authoritative_state = None
+        context_dict = getattr(runtime, "context_dict", None)
+        if callable(context_dict):
+            try:
+                runtime_context = context_dict()
+            except Exception:
+                runtime_context = None
+            if isinstance(runtime_context, dict):
+                authoritative_state = self._enum_text(
+                    runtime_context.get("state")
+                )
         while True:
             try:
                 notification = notifications.get_nowait()
             except queue.Empty:
                 return
-            print(colored(f"PrefMem: {notification}", "white", "on_red"))
+            rendered = self._render_runtime_notification(
+                notification,
+                authoritative_state=authoritative_state,
+            )
+            print(colored(f"PrefMem: {rendered}", "white", "on_green"))
+
+    @staticmethod
+    def _notification_mapping(value) -> dict | None:
+        """Return a mapping view without depending on Validator contracts."""
+
+        if isinstance(value, dict):
+            return value
+        for method_name in ("model_dump", "to_dict"):
+            method = getattr(value, method_name, None)
+            if callable(method):
+                try:
+                    mapped = method()
+                except Exception:
+                    continue
+                if isinstance(mapped, dict):
+                    return mapped
+        try:
+            mapped = vars(value)
+        except TypeError:
+            return None
+        return mapped if isinstance(mapped, dict) else None
+
+    @staticmethod
+    def _enum_text(value) -> str:
+        if value is None:
+            return ""
+        value = getattr(value, "value", value)
+        return str(value).strip().upper()
+
+    @staticmethod
+    def _brief_text(value) -> str:
+        if value is None:
+            return ""
+        return " ".join(str(value).split())
+
+    @classmethod
+    def _validation_report_payload(cls, notification) -> dict | None:
+        """Recognize a final-validation notification by shape or marker.
+
+        Runtime may publish a contract object, a plain dictionary, or a small
+        notification wrapper.  Keeping this adapter structural prevents the
+        user-facing HRI layer from importing the Validator's evolving types.
+        """
+
+        outer = cls._notification_mapping(notification)
+        if outer is None:
+            return None
+
+        payload = outer
+        wrapped = False
+        for key in ("validation_report", "final_validation_report", "report"):
+            nested = cls._notification_mapping(outer.get(key))
+            if nested is not None:
+                payload = {**outer, **nested}
+                wrapped = True
+                break
+
+        marker = cls._enum_text(
+            payload.get("kind")
+            or payload.get("type")
+            or payload.get("notification_type")
+            or ""
+        )
+        marked = marker in {
+            "VALIDATION_REPORT",
+            "FINAL_VALIDATION_REPORT",
+            "FINAL_VALIDATION",
+        }
+        status_value = (
+            payload.get("overall_status")
+            or payload.get("validation_status")
+            or payload.get("status")
+            or payload.get("outcome")
+        )
+        status = cls._VALIDATION_STATUS_ALIASES.get(
+            cls._enum_text(status_value),
+            cls._enum_text(status_value),
+        )
+        checklist_present = any(
+            key in payload
+            for key in ("broad_checklist", "brief_checklist", "checklist")
+        )
+        if status not in cls._VALIDATION_REPORT_STATUSES:
+            return None
+        if not (wrapped or marked or checklist_present):
+            return None
+
+        return {**payload, "_render_status": status}
+
+    @classmethod
+    def _render_runtime_notification(
+        cls,
+        notification,
+        *,
+        authoritative_state: str | None = None,
+    ) -> str:
+        """Render final validation for a human, preserving ordinary strings.
+
+        The detailed Validator checklist is deliberately never read here.
+        Only the broad, user-facing checklist and controller-level result are
+        eligible for the terminal task report.
+        """
+
+        if isinstance(notification, str):
+            return notification
+
+        report = cls._validation_report_payload(notification)
+        if report is None:
+            return str(notification)
+
+        status = report["_render_status"]
+        raw_checklist = (
+            report.get("broad_checklist")
+            or report.get("brief_checklist")
+            or report.get("checklist")
+            or []
+        )
+        if isinstance(raw_checklist, (str, bytes, dict)):
+            raw_checklist = []
+
+        checklist: list[tuple[str, str, str, str]] = []
+        for raw_item in raw_checklist:
+            item = cls._notification_mapping(raw_item)
+            if item is None:
+                continue
+            item_status = cls._enum_text(
+                item.get("state")
+                or item.get("status")
+                or item.get("result")
+                or "UNKNOWN"
+            )
+            symbol = cls._CHECKLIST_SYMBOLS.get(item_status, "?")
+            label = cls._brief_text(
+                item.get("label")
+                or item.get("description")
+                or item.get("item")
+                or item.get("criterion")
+                or item.get("requirement")
+                or item.get("title")
+                or item.get("name")
+            )
+            if not label:
+                continue
+            evidence = cls._brief_text(
+                item.get("evidence")
+                or item.get("brief_evidence")
+                or item.get("observation")
+            )
+            checklist.append((item_status, symbol, label, evidence))
+
+        total = len(checklist)
+        met = sum(item_status == "MET" for item_status, *_ in checklist)
+        unknown = sum(
+            item_status == "UNKNOWN" for item_status, *_ in checklist
+        )
+        controller_state = cls._enum_text(authoritative_state)
+        completion_unconfirmed = (
+            status == "COMPLETE"
+            and bool(controller_state)
+            and controller_state != "COMPLETE"
+        )
+        summary = cls._brief_text(report.get("summary"))
+        if completion_unconfirmed:
+            summary = (
+                "Final validation met its checklist, but PrefMem has not "
+                "marked the task complete "
+                f"(controller state: {controller_state})."
+            )
+        elif not summary and status == "COMPLETE":
+            summary = (
+                f"Task complete — all {total} required outcomes were verified."
+                if total
+                else "Task complete — all required outcomes were verified."
+            )
+        elif not summary and status == "INCOMPLETE":
+            summary = (
+                f"Task incomplete — {met} of {total} required outcomes were verified."
+                if total
+                else "Task incomplete — one or more required outcomes were not met."
+            )
+        elif not summary:
+            summary = (
+                "Validation needs more evidence — "
+                f"{unknown} of {total} required outcomes could not be verified."
+                if total
+                else (
+                    "Validation needs more evidence — completion could not "
+                    "yet be verified."
+                )
+            )
+
+        lines = [summary]
+        for _item_status, symbol, label, evidence in checklist:
+            line = f"{symbol} {label}"
+            if evidence:
+                line += f" — {evidence}"
+            lines.append(line)
+
+        next_action = cls._brief_text(
+            report.get("next_action") or report.get("recommended_next_action")
+        )
+        if next_action:
+            lines.append(f"Next action: {next_action}")
+
+        evidence_requests = (
+            report.get("evidence_requests")
+            or report.get("evidence_needed")
+            or report.get("evidence_request")
+            or []
+        )
+        if isinstance(evidence_requests, str):
+            evidence_requests = [evidence_requests]
+        elif not isinstance(evidence_requests, (list, tuple)):
+            evidence_requests = []
+        evidence_requests = [
+            cls._brief_text(request)
+            for request in evidence_requests
+            if cls._brief_text(request)
+        ]
+        if len(evidence_requests) == 1:
+            lines.append(f"Evidence needed: {evidence_requests[0]}")
+        elif evidence_requests:
+            lines.append("Evidence needed:")
+            lines.extend(f"- {request}" for request in evidence_requests)
+
+        return "\n".join(lines)
 
     def _read_user_input_interruptibly(self) -> str | None:
         """Read stdin without letting it mask a Monitor emergency stop."""

@@ -127,7 +127,10 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="*",
         default=["HRI"],
         metavar="AGENT",
-        help="Agents allowed to use model thinking (Monitor is always disabled).",
+        help=(
+            "Agents allowed to use model thinking "
+            "(Monitor and Validator are always disabled)."
+        ),
     )
     parser.add_argument("--print-raw", action="store_true")
     parser.add_argument("--print-usage", action="store_true")

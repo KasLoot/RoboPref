@@ -35,15 +35,21 @@ Ordinary task decision
 
 - Copy every expected-observation criterion ID exactly once. Never create,
   omit, rename, or reorder criterion IDs.
+- First assign every criterion state from the current frame, then derive
+  `task_status` from those states. `task_status` is not a separate confidence
+  or progress judgment.
 - Criterion `state` must be exactly `MET`, `NOT_MET`, or `UNKNOWN`.
 - `MET`: the frame visibly establishes the full criterion.
 - `NOT_MET`: the relevant state is visible and contradicts the criterion.
 - `UNKNOWN`: occlusion, blur, framing, or insufficient visual evidence prevents
   a reliable decision.
-- Use `SUCCESS` only when every supplied criterion is visibly `MET` in this
-  frame. Set `failure` to `null`.
-- Use `ONGOING` while the task is incomplete, in progress, or uncertain. Set
-  `failure` to `null`. An unmet criterion alone is normally `ONGOING`.
+- When every supplied criterion is visibly `MET`, you must use `SUCCESS` and
+  set `failure` to `null`. `ONGOING` with every criterion `MET` is invalid.
+- When any criterion is `NOT_MET` or `UNKNOWN` and there is no terminal
+  failure, you must use `ONGOING` and set `failure` to `null`.
+- Judge completion from the visible expected outcome. You do not need to have
+  witnessed the preceding action or motion when the current frame already
+  establishes every expected criterion.
 - Use `FAIL` only when visible evidence shows that this particular task attempt
   has terminally failed or cannot safely continue as instructed. `FAIL` does
   not mean the high-level goal is impossible; the Planner may recover on the
@@ -55,6 +61,7 @@ Ordinary task decision
 - For non-`FAIL` output, `failure` must be `null`.
 - `observation` and `failure.description` must each be exactly one concise
   sentence. Describe visible evidence, not confidence, speculation, advice, or
-  a next action.
+  a next action. The observation must agree with the criterion states and
+  derived `task_status`.
 
 Judge only the latest frame. Do not reuse a conclusion from an earlier frame.

@@ -73,11 +73,18 @@ def act(instruction: str = "Place the blue block flat in the marked area."):
     )
 
 
-def assessment(task, *, when: float, frame: int, status: str):
+def assessment(
+    task,
+    *,
+    when: float,
+    frame: int,
+    status: str,
+    state: str | None = None,
+):
     failure = None
-    state = "MET"
+    criterion_state = "MET" if state is None else state
     if status == "FAIL":
-        state = "NOT_MET"
+        criterion_state = "NOT_MET"
         failure = {
             "kind": "UNEXPECTED",
             "description": "The block has fallen onto its side.",
@@ -86,14 +93,18 @@ def assessment(task, *, when: float, frame: int, status: str):
         {
             "task_status": status,
             "criteria": [
-                {"id": criterion.criterion_id, "state": state}
+                {"id": criterion.criterion_id, "state": criterion_state}
                 for criterion in task.expected_observation
             ],
             "failure": failure,
             "observation": (
-                "The block is visibly stable."
-                if status == "SUCCESS"
-                else "The block is visibly lying on its side."
+                "The block is temporarily occluded."
+                if criterion_state == "UNKNOWN"
+                else (
+                    "The block is visibly stable."
+                    if criterion_state == "MET"
+                    else "The block is visibly lying on its side."
+                )
             ),
         },
         plan_id=task.plan_id,
@@ -160,6 +171,75 @@ class RecedingHorizonControllerTests(unittest.TestCase):
             terminal.planner_request.execution_history[0].outcome.value,
             "SUCCESS",
         )
+
+    def test_all_met_ongoing_reports_request_the_next_cycle(self) -> None:
+        task = self.start_task()
+        self.clock.advance(0.1)
+        first = self.controller.record_assessment(
+            assessment(task, when=self.clock.value, frame=11, status="ONGOING")
+        )
+        self.assertIs(first.result, RecedingResult.ACCEPTED)
+        self.assertEqual(first.snapshot.consecutive_successes, 1)
+
+        self.clock.advance(2.0)
+        terminal = self.controller.record_assessment(
+            assessment(task, when=self.clock.value, frame=12, status="ONGOING")
+        )
+
+        self.assertIs(terminal.result, RecedingResult.REPLAN_REQUESTED)
+        self.assertEqual(terminal.planner_request.trigger.value, "TASK_SUCCESS")
+
+    def test_unknown_view_preserves_but_does_not_increment_success(self) -> None:
+        task = self.start_task()
+        self.clock.advance(0.1)
+        self.controller.record_assessment(
+            assessment(task, when=self.clock.value, frame=11, status="SUCCESS")
+        )
+
+        self.clock.advance(1.0)
+        inconclusive = self.controller.record_assessment(
+            assessment(
+                task,
+                when=self.clock.value,
+                frame=12,
+                status="ONGOING",
+                state="UNKNOWN",
+            )
+        )
+        self.assertIs(inconclusive.result, RecedingResult.ACCEPTED)
+        self.assertEqual(inconclusive.snapshot.consecutive_successes, 1)
+
+        self.clock.advance(1.0)
+        terminal = self.controller.record_assessment(
+            assessment(task, when=self.clock.value, frame=13, status="SUCCESS")
+        )
+        self.assertIs(terminal.result, RecedingResult.REPLAN_REQUESTED)
+
+    def test_visible_not_met_resets_pending_success(self) -> None:
+        task = self.start_task()
+        self.clock.advance(0.1)
+        self.controller.record_assessment(
+            assessment(task, when=self.clock.value, frame=11, status="SUCCESS")
+        )
+
+        self.clock.advance(1.0)
+        contradicted = self.controller.record_assessment(
+            assessment(
+                task,
+                when=self.clock.value,
+                frame=12,
+                status="ONGOING",
+                state="NOT_MET",
+            )
+        )
+        self.assertEqual(contradicted.snapshot.consecutive_successes, 0)
+
+        self.clock.advance(1.0)
+        fresh_candidate = self.controller.record_assessment(
+            assessment(task, when=self.clock.value, frame=13, status="SUCCESS")
+        )
+        self.assertIs(fresh_candidate.result, RecedingResult.ACCEPTED)
+        self.assertEqual(fresh_candidate.snapshot.consecutive_successes, 1)
 
     def test_stable_task_failure_replans_instead_of_ending_goal(self) -> None:
         task = self.start_task()

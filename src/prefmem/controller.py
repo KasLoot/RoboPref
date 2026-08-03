@@ -428,7 +428,10 @@ class PlanController:
             revision=self._plan.revision,
             step_id=self._plan.final_validation_step_id,
             phase=TaskPhase.FINAL_VALIDATION,
-            instruction="Hold the camera steady on the completed result.",
+            instruction=(
+                "Keep the scene unchanged; move only the camera as needed to "
+                "show every requested outcome."
+            ),
             expected_observation=self._plan.final_expected_observation,
             known_failure_conditions=(),
             published_at=float(self._clock()),
@@ -774,7 +777,10 @@ class RecedingHorizonController:
             if decision.decision is PlannerDecisionType.REQUEST_FINAL_VALIDATION:
                 self._attempt = 1
                 task = self._build_task_locked(
-                    "Hold the camera steady on the completed result.",
+                    (
+                        "Keep the scene unchanged; move only the camera as "
+                        "needed to show every requested outcome."
+                    ),
                     self._goal.final_expected_observation,
                     (),
                     phase=TaskPhase.FINAL_VALIDATION,
@@ -844,7 +850,18 @@ class RecedingHorizonController:
                 self._last_progress_at = self._clock()
 
             if assessment.task_status is TaskStatus.ONGOING:
-                self._reset_streaks_locked()
+                # An inconclusive view is not evidence that a previously
+                # visible success disappeared. Preserve the candidate across
+                # MET/UNKNOWN-only frames, but reset it on visible
+                # contradiction. The ordinary no-progress timeout still
+                # bounds how long an UNKNOWN view can remain neutral.
+                self._failure_count = 0
+                if any(
+                    criterion.state is CriterionState.NOT_MET
+                    for criterion in assessment.criteria
+                ):
+                    self._success_count = 0
+                    self._first_success_at = None
                 self._bump_sequence_locked()
                 return self._transition_locked(RecedingResult.ACCEPTED)
 

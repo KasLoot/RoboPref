@@ -191,7 +191,8 @@ PAGE = b"""<!doctype html>
       } else if (display.state === "PLANNING") {
         taskInstruction.textContent = "Planning the next task. Hold position.";
       } else if (display.state === "FINAL_VALIDATION") {
-        taskInstruction.textContent = "Validating the final goal. Hold position.";
+        taskInstruction.textContent =
+          "Validating the final goal. Keep scene objects unchanged; follow the guidance below.";
       } else if (display.state === "COMPLETE") {
         taskInstruction.textContent = "The high-level goal is complete.";
       } else if (display.state === "EMERGENCY_STOPPED") {

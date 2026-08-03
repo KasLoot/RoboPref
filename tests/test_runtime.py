@@ -4,12 +4,21 @@ import unittest
 from unittest.mock import patch
 
 from prefmem.agents.monitor import CapturedFrame, MonitorErrorEvent, MonitorErrorKind
+from prefmem.agents.validator import ValidatorErrorEvent, ValidatorErrorKind
 from prefmem.contracts import (
     GoalProposal,
     MonitorAssessment,
     PlannerDecision,
+    ValidationAssessment,
+    ValidationChecklistDraft,
+    freeze_validation_contract,
 )
-from prefmem.controller import RecedingControllerState, RecedingHorizonController
+from prefmem.controller import (
+    RecedingControllerState,
+    RecedingHorizonController,
+    RecedingResult,
+    RecedingTransition,
+)
 from prefmem.runtime import PrefMemRuntime
 from prefmem.task_publisher import DisplayState, TaskPublisherResponseError
 
@@ -69,6 +78,56 @@ class RecordingMonitor:
 
     def publish(self, task) -> None:
         self.published.append(task)
+        self.events.append(("publish", task.publication_id))
+
+    def retire(self, publication_id=None) -> bool:
+        self.retired.append(publication_id)
+        self.events.append(("retire", publication_id))
+        return True
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+        self.events.append(("stop", None))
+
+
+class RecordingValidator:
+    def __init__(self) -> None:
+        self.compile_calls = []
+        self.compile_error = None
+        self.published = []
+        self.contracts = []
+        self.retired = []
+        self.stop_calls = 0
+        self.events = []
+
+    def compile_contract(self, goal, confirmation_frame):
+        self.compile_calls.append((goal, confirmation_frame))
+        if self.compile_error is not None:
+            raise self.compile_error
+        draft = ValidationChecklistDraft.from_model_output(
+            {
+                "broad_items": [
+                    {
+                        "broad_index": index,
+                        "detailed_criteria": [
+                            f"The camera visibly verifies outcome {index + 1}."
+                        ],
+                    }
+                    for index, _label in enumerate(
+                        goal.final_expected_observation
+                    )
+                ]
+            }
+        )
+        return freeze_validation_contract(
+            goal,
+            draft,
+            validation_id=f"{goal.goal_id}:validation",
+        )
+
+    def publish(self, task, contract) -> None:
+        self.published.append(task)
+        self.contracts.append(contract)
         self.events.append(("publish", task.publication_id))
 
     def retire(self, publication_id=None) -> bool:
@@ -197,11 +256,44 @@ def assessment(task, *, status: str, observed_at: float, frame: int):
     )
 
 
+def validation_assessment(
+    contract,
+    task,
+    *,
+    state: str,
+    observed_at: float,
+    frame: int,
+):
+    evidence = {
+        "MET": "The requested final outcome is clearly visible.",
+        "NOT_MET": "The red block is visibly beside the blue block.",
+        "UNKNOWN": "The requested final outcome is occluded.",
+    }[state]
+    return ValidationAssessment.from_model_output(
+        contract,
+        {
+            "criteria": [
+                {
+                    "id": criterion.criterion_id,
+                    "state": state,
+                    "evidence": evidence,
+                }
+                for criterion in contract.detailed_criteria
+            ],
+            "observation": "The final scene is visible from the current view.",
+        },
+        publication_id=task.publication_id,
+        observed_at=observed_at,
+        frame_sequence=frame,
+    )
+
+
 class RuntimeOrchestrationTests(unittest.TestCase):
-    def build_runtime(self, planner, *, frame_sequences=(10, 20, 30)):
+    def build_runtime(self, planner, *, frame_sequences=(10, 20, 30, 40)):
         clock = FakeClock()
         publisher = RecordingPublisher()
         monitor = RecordingMonitor()
+        validator = RecordingValidator()
         controller = RecedingHorizonController(
             success_confirmations=2,
             success_stability_seconds=0,
@@ -215,6 +307,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             frame_source=SequenceFrames(*frame_sequences),
             controller=controller,
             monitor=monitor,
+            validator=validator,
             session_id="test-session",
         )
         self.addCleanup(runtime.close)
@@ -244,6 +337,27 @@ class RuntimeOrchestrationTests(unittest.TestCase):
                 )
             )
 
+    def emit_validation_twice(
+        self,
+        runtime,
+        clock,
+        task,
+        *,
+        state,
+        frames,
+    ):
+        contract = runtime.validator.contracts[-1]
+        for frame in frames:
+            runtime._on_validator_assessment(
+                validation_assessment(
+                    contract,
+                    task,
+                    state=state,
+                    observed_at=clock.advance(),
+                    frame=frame,
+                )
+            )
+
     def test_success_replans_then_final_validation_completes(self) -> None:
         planner = ScriptedPlanner(
             act(
@@ -253,6 +367,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             final_validation(),
         )
         runtime, clock, publisher, monitor = self.build_runtime(planner)
+        validator = runtime.validator
 
         context = self.start_goal(runtime)
         first_task = monitor.published[0]
@@ -263,35 +378,227 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             "Place the red block on the blue block.",
             [task.instruction for task in monitor.published],
         )
+        self.assertEqual(len(validator.compile_calls), 1)
+        self.assertEqual(validator.compile_calls[0][1].sequence, 20)
+        self.assertEqual(planner.plan_calls[0][0].frame_sequence, 30)
 
-        self.emit_twice(runtime, clock, first_task, status="SUCCESS", frames=(21, 22))
+        runtime._on_monitor_assessment(
+            assessment(
+                first_task,
+                status="SUCCESS",
+                observed_at=clock.advance(),
+                frame=31,
+            )
+        )
+        confirming_display = publisher.displays[-1]
+        self.assertIs(confirming_display.state, DisplayState.ACTIVE)
+        self.assertIn("Expected observation detected", confirming_display.message)
+        self.assertIn("confirming that it remains stable", confirming_display.message)
+        runtime._on_monitor_assessment(
+            assessment(
+                first_task,
+                status="SUCCESS",
+                observed_at=clock.advance(),
+                frame=32,
+            )
+        )
 
         self.assertEqual(len(planner.plan_calls), 2)
         second_request = planner.plan_calls[1][0]
         self.assertEqual(second_request.cycle_id, 2)
         self.assertEqual(second_request.trigger.value, "TASK_SUCCESS")
-        self.assertEqual(second_request.frame_sequence, 30)
+        self.assertEqual(second_request.frame_sequence, 40)
         self.assertEqual(second_request.execution_history[0].outcome.value, "SUCCESS")
         self.assertEqual(monitor.retired, [first_task.publication_id])
 
-        validation_task = monitor.published[1]
+        self.assertEqual(len(monitor.published), 1)
+        validation_task = validator.published[0]
         self.assertEqual(validation_task.phase.value, "FINAL_VALIDATION")
-        self.assertIs(publisher.displays[-1].state, DisplayState.FINAL_VALIDATION)
+        self.assertIn("Keep the scene unchanged", validation_task.instruction)
+        final_display = publisher.displays[-1]
+        self.assertIs(final_display.state, DisplayState.FINAL_VALIDATION)
+        self.assertIsNone(final_display.instruction)
+        self.assertIn("Keep the scene unchanged", final_display.message)
+        self.assertIn("move only the camera", final_display.message)
+        self.assertEqual(
+            final_display.expected_observation,
+            tuple(
+                runtime.controller.snapshot.goal.final_expected_observation
+            ),
+        )
 
-        self.emit_twice(
+        runtime._on_validator_assessment(
+            validation_assessment(
+                validator.contracts[0],
+                validation_task,
+                state="MET",
+                observed_at=clock.advance(),
+                frame=41,
+            )
+        )
+        self.assertTrue(runtime.notifications.empty())
+        self.emit_validation_twice(
             runtime,
             clock,
             validation_task,
-            status="SUCCESS",
-            frames=(31, 32),
+            state="MET",
+            frames=(42,),
         )
 
         self.assertEqual(runtime.context_dict()["state"], "COMPLETE")
         self.assertIs(publisher.displays[-1].state, DisplayState.COMPLETE)
         self.assertEqual(
             monitor.retired,
-            [first_task.publication_id, validation_task.publication_id],
+            [first_task.publication_id],
         )
+        self.assertEqual(validator.retired, [validation_task.publication_id])
+        report = runtime.notifications.get_nowait()
+        self.assertEqual(report["status"], "COMPLETE")
+        self.assertEqual(report["checklist"][0]["state"], "MET")
+        self.assertNotIn("evidence", report["checklist"][0])
+        self.assertNotIn("observation", report)
+        validation_context = runtime.context_dict()["validation"]
+        self.assertNotIn("detailed", str(validation_context).lower())
+
+    def test_stale_active_display_cannot_overwrite_newer_attention(self) -> None:
+        planner = ScriptedPlanner(
+            act(
+                "Place the blue block flat in the marked area.",
+                "Place the red block on the blue block.",
+            )
+        )
+        runtime, _clock, publisher, _monitor = self.build_runtime(planner)
+        self.start_goal(runtime)
+        stale_active = runtime.controller.snapshot
+
+        attention = runtime.controller.record_system_error(
+            "Monitoring timed out."
+        )
+        self.assertTrue(runtime._publish_transition(attention))
+        published_count = len(publisher.displays)
+        stale_transition = RecedingTransition(
+            result=RecedingResult.ACCEPTED,
+            snapshot=stale_active,
+        )
+
+        self.assertFalse(runtime._publish_transition(stale_transition))
+        self.assertEqual(len(publisher.displays), published_count)
+        self.assertIs(publisher.displays[-1].state, DisplayState.NEEDS_ATTENTION)
+
+    def test_final_incomplete_is_confirmed_then_replanned_with_evidence(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next."),
+            final_validation(),
+            act(
+                "Place the red block back on the blue block.",
+                "Validate the repaired tower.",
+            ),
+        )
+        runtime, clock, publisher, monitor = self.build_runtime(
+            planner,
+            frame_sequences=(10, 20, 30, 40, 50),
+        )
+        self.start_goal(runtime)
+        step = monitor.published[0]
+        self.emit_twice(runtime, clock, step, status="SUCCESS", frames=(31, 32))
+        validation = runtime.validator.published[0]
+
+        runtime._on_validator_assessment(
+            validation_assessment(
+                runtime.validator.contracts[0],
+                validation,
+                state="NOT_MET",
+                observed_at=clock.advance(),
+                frame=41,
+            )
+        )
+        self.assertTrue(runtime.notifications.empty())
+        runtime._on_validator_assessment(
+            validation_assessment(
+                runtime.validator.contracts[0],
+                validation,
+                state="NOT_MET",
+                observed_at=clock.advance(),
+                frame=42,
+            )
+        )
+
+        self.assertEqual(runtime.context_dict()["state"], "EXECUTING")
+        self.assertIs(publisher.displays[-1].state, DisplayState.ACTIVE)
+        self.assertEqual(len(monitor.published), 2)
+        self.assertEqual(
+            monitor.published[-1].instruction,
+            "Place the red block back on the blue block.",
+        )
+        self.assertEqual(
+            runtime.validator.retired,
+            [validation.publication_id],
+        )
+        replan = planner.plan_calls[2][0]
+        self.assertEqual(replan.trigger.value, "FINAL_VALIDATION_FAIL")
+        record = replan.execution_history[-1]
+        self.assertEqual(record.outcome.value, "FINAL_VALIDATION_FAIL")
+        self.assertIn("red block rests on the blue block", record.failure_reason)
+        self.assertIn("visibly beside the blue block", record.failure_reason)
+        report = runtime.notifications.get_nowait()
+        self.assertEqual(report["status"], "INCOMPLETE")
+        self.assertEqual(report["checklist"][0]["state"], "NOT_MET")
+        self.assertIn("replanning", report["next_action"])
+
+    def test_needs_evidence_notifies_once_then_timeout_can_resume_validator(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next."),
+            final_validation(),
+        )
+        runtime, clock, publisher, monitor = self.build_runtime(
+            planner,
+            frame_sequences=(10, 20, 30, 40, 50),
+        )
+        self.start_goal(runtime)
+        step = monitor.published[0]
+        self.emit_twice(runtime, clock, step, status="SUCCESS", frames=(31, 32))
+        validation = runtime.validator.published[0]
+        contract = runtime.validator.contracts[0]
+
+        for frame in (41, 42):
+            runtime._on_validator_assessment(
+                validation_assessment(
+                    contract,
+                    validation,
+                    state="UNKNOWN",
+                    observed_at=clock.advance(),
+                    frame=frame,
+                )
+            )
+
+        self.assertEqual(runtime.context_dict()["state"], "FINAL_VALIDATION")
+        self.assertEqual(len(planner.plan_calls), 2)
+        report = runtime.notifications.get_nowait()
+        self.assertEqual(report["status"], "NEEDS_EVIDENCE")
+        self.assertEqual(report["checklist"][0]["state"], "UNKNOWN")
+        self.assertTrue(report["evidence_requests"])
+        self.assertTrue(runtime.notifications.empty())
+
+        clock.advance(31)
+        self.assertTrue(runtime.check_timeout())
+        self.assertEqual(runtime.context_dict()["state"], "NEEDS_ATTENTION")
+        paused_report = runtime.notifications.get_nowait()
+        self.assertIn("paused", paused_report["next_action"])
+        self.assertEqual(
+            runtime.validator.retired,
+            [validation.publication_id],
+        )
+
+        runtime.resume_current_task()
+
+        resumed = runtime.validator.published[-1]
+        self.assertEqual(runtime.context_dict()["state"], "FINAL_VALIDATION")
+        self.assertNotEqual(resumed.publication_id, validation.publication_id)
+        self.assertIs(runtime.validator.contracts[-1], contract)
+        self.assertIsNone(
+            runtime.context_dict()["validation"]["latest_report"]
+        )
+        self.assertIs(publisher.displays[-1].state, DisplayState.FINAL_VALIDATION)
 
     def test_declined_confirmation_does_not_capture_or_plan(self) -> None:
         planner = ScriptedPlanner(
@@ -312,6 +619,37 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         self.assertEqual(runtime.frame_source.calls, 1)
         self.assertEqual(planner.plan_calls, [])
         self.assertEqual(monitor.published, [])
+        self.assertEqual(runtime.validator.compile_calls, [])
+        self.assertEqual(runtime.validator.published, [])
+        self.assertEqual(publisher.displays, [])
+
+    def test_checklist_compile_failure_leaves_exact_goal_confirmable(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next.")
+        )
+        runtime, _clock, publisher, monitor = self.build_runtime(
+            planner,
+            frame_sequences=(10, 20),
+        )
+        preview = runtime.request_goal_preview("Build a stable two-block tower.")
+        contract = preview["goal_contract"]
+        runtime.validator.compile_error = RuntimeError("model unavailable")
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "checklist compilation failed: model unavailable",
+        ):
+            runtime.confirm_goal(
+                goal_id=contract["goal_id"],
+                revision=contract["revision"],
+                confirmed=True,
+            )
+
+        self.assertEqual(runtime.context_dict()["state"], "AWAITING_CONFIRMATION")
+        self.assertEqual(runtime.pending_goal.goal_id, contract["goal_id"])
+        self.assertEqual(planner.plan_calls, [])
+        self.assertEqual(monitor.published, [])
+        self.assertEqual(runtime.validator.published, [])
         self.assertEqual(publisher.displays, [])
 
     def test_blocked_replacement_cannot_leave_old_goal_authoritative(self) -> None:
@@ -373,19 +711,19 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         )
         runtime, clock, publisher, monitor = self.build_runtime(
             planner,
-            frame_sequences=(10, 20, 30, 40, 50),
+            frame_sequences=(10, 20, 30, 40, 50, 60, 70),
         )
         self.start_goal(runtime)
         first_session = runtime.session_id
         first_task = monitor.published[0]
-        self.emit_twice(runtime, clock, first_task, status="SUCCESS", frames=(21, 22))
-        validation = monitor.published[1]
-        self.emit_twice(
+        self.emit_twice(runtime, clock, first_task, status="SUCCESS", frames=(31, 32))
+        validation = runtime.validator.published[0]
+        self.emit_validation_twice(
             runtime,
             clock,
             validation,
-            status="SUCCESS",
-            frames=(31, 32),
+            state="MET",
+            frames=(41, 42),
         )
         self.assertIs(publisher.displays[-1].state, DisplayState.COMPLETE)
         self.assertEqual(publisher.displays[-1].session_id, first_session)
@@ -419,7 +757,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         self.start_goal(runtime)
         failed_task = monitor.published[0]
 
-        self.emit_twice(runtime, clock, failed_task, status="FAIL", frames=(21, 22))
+        self.emit_twice(runtime, clock, failed_task, status="FAIL", frames=(31, 32))
 
         replan_request = planner.plan_calls[1][0]
         record = replan_request.execution_history[-1]
@@ -466,13 +804,14 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         )
         runtime, _clock, publisher, monitor = self.build_runtime(
             planner,
-            frame_sequences=(10, 20),
+            frame_sequences=(10, 20, 30),
         )
         self.start_goal(runtime)
 
         runtime.close()
 
         self.assertEqual(monitor.stop_calls, 1)
+        self.assertEqual(runtime.validator.stop_calls, 1)
         self.assertEqual(publisher.reset_calls, 2)
         self.assertEqual(publisher.reset_sessions, [None, "test-session"])
 
@@ -488,6 +827,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
                 task_publisher=FailingPublisher(),
                 frame_source=SequenceFrames(10),
                 monitor=RecordingMonitor(),
+                validator=RecordingValidator(),
             )
 
     def test_emergency_stop_latches_stops_monitor_and_publishes_terminal_state(self) -> None:
@@ -501,7 +841,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         with patch("prefmem.runtime.emergency_stop", side_effect=stop_reasons.append):
             runtime, _clock, publisher, monitor = self.build_runtime(
                 planner,
-                frame_sequences=(10, 20),
+                frame_sequences=(10, 20, 30),
             )
             task = self.start_goal(runtime)["current_task"]
 
@@ -525,6 +865,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         )
         self.assertIs(publisher.displays[-1].state, DisplayState.EMERGENCY_STOPPED)
         self.assertEqual(monitor.stop_calls, 1)
+        self.assertEqual(runtime.validator.stop_calls, 1)
 
     def test_stale_monitor_error_cannot_pause_a_replacement_task(self) -> None:
         planner = ScriptedPlanner(
@@ -534,7 +875,7 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         runtime, clock, _publisher, monitor = self.build_runtime(planner)
         self.start_goal(runtime)
         first_task = monitor.published[0]
-        self.emit_twice(runtime, clock, first_task, status="SUCCESS", frames=(21, 22))
+        self.emit_twice(runtime, clock, first_task, status="SUCCESS", frames=(31, 32))
         current = monitor.published[1]
 
         runtime._on_monitor_error(
@@ -550,6 +891,42 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             runtime.context_dict()["current_task"]["publication_id"],
             current.publication_id,
         )
+
+    def test_monitor_has_no_authority_over_final_validation(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next."),
+            final_validation(),
+        )
+        runtime, clock, _publisher, monitor = self.build_runtime(planner)
+        self.start_goal(runtime)
+        step = monitor.published[0]
+        self.emit_twice(runtime, clock, step, status="SUCCESS", frames=(31, 32))
+        validation = runtime.validator.published[0]
+
+        for frame in (41, 42):
+            runtime._on_monitor_assessment(
+                assessment(
+                    validation,
+                    status="SUCCESS",
+                    observed_at=clock.advance(),
+                    frame=frame,
+                )
+            )
+        runtime._on_validator_error(
+            ValidatorErrorEvent(
+                kind=ValidatorErrorKind.MODEL,
+                message="late error from an older publication",
+                publication_id="stale-publication",
+            )
+        )
+
+        context = runtime.context_dict()
+        self.assertEqual(context["state"], "FINAL_VALIDATION")
+        self.assertEqual(
+            context["current_task"]["publication_id"],
+            validation.publication_id,
+        )
+        self.assertIsNone(context["validation"]["latest_report"])
 
 
 if __name__ == "__main__":

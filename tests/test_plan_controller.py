@@ -431,7 +431,10 @@ class PlanControllerTests(unittest.TestCase):
         self.assertIs(task.phase, TaskPhase.FINAL_VALIDATION)
         self.assertEqual(
             task.instruction,
-            "Hold the camera steady on the completed result.",
+            (
+                "Keep the scene unchanged; move only the camera as needed to "
+                "show every requested outcome."
+            ),
         )
         self.assertIs(
             self.assert_success_after_stability(task),

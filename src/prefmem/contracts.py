@@ -47,6 +47,14 @@ class CriterionState(str, Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class ValidationStatus(str, Enum):
+    """Overall result derived from a frozen final-validation checklist."""
+
+    COMPLETE = "COMPLETE"
+    INCOMPLETE = "INCOMPLETE"
+    NEEDS_EVIDENCE = "NEEDS_EVIDENCE"
+
+
 class FailureKind(str, Enum):
     """Whether a terminal failure was anticipated by the planner."""
 
@@ -768,6 +776,754 @@ class PlannerDecision:
 
 
 @dataclass(frozen=True, slots=True)
+class ValidationChecklistDraftItem:
+    """Model-authored detailed visual checks for one broad goal outcome."""
+
+    broad_index: int
+    detailed_criteria: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.broad_index, bool)
+            or not isinstance(self.broad_index, int)
+            or self.broad_index < 0
+        ):
+            raise ValueError("broad_index must be a non-negative integer")
+        criteria = _string_tuple(
+            self.detailed_criteria,
+            "detailed_criteria",
+        )
+        if not 1 <= len(criteria) <= 5:
+            raise ValueError("detailed_criteria must contain 1 to 5 criteria")
+        object.__setattr__(self, "detailed_criteria", criteria)
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> ValidationChecklistDraftItem:
+        payload = _mapping(payload, "validation checklist draft item")
+        _reject_unknown_keys(
+            payload,
+            {"broad_index", "detailed_criteria"},
+            "validation checklist draft item",
+        )
+        return cls(
+            broad_index=payload.get("broad_index"),
+            detailed_criteria=payload.get("detailed_criteria", ()),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "broad_index": self.broad_index,
+            "detailed_criteria": list(self.detailed_criteria),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationChecklistDraft:
+    """Strict, ID-free detailed checklist returned by the Validator model."""
+
+    broad_items: tuple[ValidationChecklistDraftItem, ...]
+
+    def __post_init__(self) -> None:
+        if isinstance(self.broad_items, (str, bytes)) or not isinstance(
+            self.broad_items,
+            Sequence,
+        ):
+            raise ValueError("broad_items must be a sequence")
+        items = tuple(self.broad_items)
+        if not items or not all(
+            isinstance(item, ValidationChecklistDraftItem) for item in items
+        ):
+            raise ValueError(
+                "broad_items must contain ValidationChecklistDraftItem objects"
+            )
+        indices = [item.broad_index for item in items]
+        if len(indices) != len(set(indices)):
+            raise ValueError("broad_items must not contain duplicate broad_index values")
+        object.__setattr__(self, "broad_items", items)
+
+    @classmethod
+    def from_model_output(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> ValidationChecklistDraft:
+        payload = _mapping(payload, "validation checklist draft")
+        _reject_unknown_keys(
+            payload,
+            {"broad_items"},
+            "validation checklist draft",
+        )
+        items = _mapping_sequence(
+            payload.get("broad_items", ()),
+            "broad_items",
+        )
+        return cls(
+            broad_items=tuple(
+                ValidationChecklistDraftItem.from_dict(item) for item in items
+            )
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"broad_items": [item.to_dict() for item in self.broad_items]}
+
+
+@dataclass(frozen=True, slots=True)
+class DetailedValidationCriterion:
+    """One frozen, host-identified visual criterion."""
+
+    criterion_id: str
+    description: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "criterion_id",
+            _identifier(self.criterion_id, "criterion_id"),
+        )
+        object.__setattr__(
+            self,
+            "description",
+            _text(self.description, "description"),
+        )
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> DetailedValidationCriterion:
+        payload = _mapping(payload, "detailed validation criterion")
+        _reject_unknown_keys(
+            payload,
+            {"id", "criterion"},
+            "detailed validation criterion",
+        )
+        return cls(
+            criterion_id=payload.get("id"),
+            description=payload.get("criterion"),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {"id": self.criterion_id, "criterion": self.description}
+
+
+@dataclass(frozen=True, slots=True)
+class BroadValidationItem:
+    """A frozen broad outcome and its internal detailed visual checks."""
+
+    broad_id: str
+    broad_index: int
+    label: str
+    detailed_criteria: tuple[DetailedValidationCriterion, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "broad_id",
+            _identifier(self.broad_id, "broad_id"),
+        )
+        if (
+            isinstance(self.broad_index, bool)
+            or not isinstance(self.broad_index, int)
+            or self.broad_index < 0
+        ):
+            raise ValueError("broad_index must be a non-negative integer")
+        object.__setattr__(self, "label", _text(self.label, "label"))
+        if isinstance(self.detailed_criteria, (str, bytes)) or not isinstance(
+            self.detailed_criteria,
+            Sequence,
+        ):
+            raise ValueError("detailed_criteria must be a sequence")
+        criteria = tuple(self.detailed_criteria)
+        if not 1 <= len(criteria) <= 5 or not all(
+            isinstance(item, DetailedValidationCriterion) for item in criteria
+        ):
+            raise ValueError(
+                "detailed_criteria must contain 1 to 5 "
+                "DetailedValidationCriterion objects"
+            )
+        ids = [item.criterion_id for item in criteria]
+        if len(ids) != len(set(ids)):
+            raise ValueError("detailed criterion IDs must be unique")
+        object.__setattr__(self, "detailed_criteria", criteria)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> BroadValidationItem:
+        payload = _mapping(payload, "broad validation item")
+        _reject_unknown_keys(
+            payload,
+            {"id", "broad_index", "label", "detailed_criteria"},
+            "broad validation item",
+        )
+        criteria = _mapping_sequence(
+            payload.get("detailed_criteria", ()),
+            "detailed_criteria",
+        )
+        return cls(
+            broad_id=payload.get("id"),
+            broad_index=payload.get("broad_index"),
+            label=payload.get("label"),
+            detailed_criteria=tuple(
+                DetailedValidationCriterion.from_dict(item) for item in criteria
+            ),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.broad_id,
+            "broad_index": self.broad_index,
+            "label": self.label,
+            "detailed_criteria": [
+                item.to_dict() for item in self.detailed_criteria
+            ],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationContract:
+    """Frozen final checklist bound to the exact confirmed goal contract."""
+
+    validation_id: str
+    goal_contract: GoalContract
+    broad_items: tuple[BroadValidationItem, ...]
+
+    def __post_init__(self) -> None:
+        validation_id = _identifier(self.validation_id, "validation_id")
+        object.__setattr__(self, "validation_id", validation_id)
+        if not isinstance(self.goal_contract, GoalContract):
+            raise ValueError("goal_contract must be a GoalContract")
+        if isinstance(self.broad_items, (str, bytes)) or not isinstance(
+            self.broad_items,
+            Sequence,
+        ):
+            raise ValueError("broad_items must be a sequence")
+        items = tuple(self.broad_items)
+        expected_labels = self.goal_contract.final_expected_observation
+        if len(items) != len(expected_labels) or not all(
+            isinstance(item, BroadValidationItem) for item in items
+        ):
+            raise ValueError(
+                "broad_items must contain exactly one BroadValidationItem "
+                "for every final expected observation"
+            )
+        all_ids: list[str] = []
+        for index, (item, expected_label) in enumerate(
+            zip(items, expected_labels, strict=True)
+        ):
+            if item.broad_index != index:
+                raise ValueError("broad_items must be in exact zero-based goal order")
+            if item.label != expected_label:
+                raise ValueError(
+                    "broad item labels must exactly match the frozen goal observations"
+                )
+            expected_broad_id = f"{validation_id}:b{index + 1}"
+            if item.broad_id != expected_broad_id:
+                raise ValueError("broad item IDs must be deterministic")
+            all_ids.append(item.broad_id)
+            for criterion_index, criterion in enumerate(
+                item.detailed_criteria,
+                start=1,
+            ):
+                expected_id = f"{expected_broad_id}:c{criterion_index}"
+                if criterion.criterion_id != expected_id:
+                    raise ValueError("detailed criterion IDs must be deterministic")
+                all_ids.append(criterion.criterion_id)
+        if len(all_ids) != len(set(all_ids)):
+            raise ValueError("validation contract IDs must be unique")
+        object.__setattr__(self, "broad_items", items)
+
+    @property
+    def detailed_criteria(self) -> tuple[DetailedValidationCriterion, ...]:
+        """Return detailed criteria in their mandatory assessment order."""
+
+        return tuple(
+            criterion
+            for broad_item in self.broad_items
+            for criterion in broad_item.detailed_criteria
+        )
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> ValidationContract:
+        payload = _mapping(payload, "validation contract")
+        _reject_unknown_keys(
+            payload,
+            {"validation_id", "goal_contract", "broad_items"},
+            "validation contract",
+        )
+        broad_items = _mapping_sequence(
+            payload.get("broad_items", ()),
+            "broad_items",
+        )
+        return cls(
+            validation_id=payload.get("validation_id"),
+            goal_contract=GoalContract.from_dict(
+                _mapping(payload.get("goal_contract"), "goal_contract")
+            ),
+            broad_items=tuple(
+                BroadValidationItem.from_dict(item) for item in broad_items
+            ),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "validation_id": self.validation_id,
+            "goal_contract": self.goal_contract.to_dict(),
+            "broad_items": [item.to_dict() for item in self.broad_items],
+        }
+
+
+def freeze_validation_contract(
+    goal_contract: GoalContract,
+    draft: ValidationChecklistDraft,
+    *,
+    validation_id: str,
+) -> ValidationContract:
+    """Bind a model checklist to host-owned goal labels and deterministic IDs."""
+
+    if not isinstance(goal_contract, GoalContract):
+        raise TypeError("goal_contract must be a GoalContract")
+    if not isinstance(draft, ValidationChecklistDraft):
+        raise TypeError("draft must be a ValidationChecklistDraft")
+    safe_validation_id = _identifier(validation_id, "validation_id")
+    expected_indices = set(range(len(goal_contract.final_expected_observation)))
+    items_by_index = {item.broad_index: item for item in draft.broad_items}
+    if set(items_by_index) != expected_indices:
+        raise ValueError(
+            "checklist draft must map exactly once to every frozen broad outcome"
+        )
+    broad_items = tuple(
+        BroadValidationItem(
+            broad_id=f"{safe_validation_id}:b{index + 1}",
+            broad_index=index,
+            label=label,
+            detailed_criteria=tuple(
+                DetailedValidationCriterion(
+                    criterion_id=(
+                        f"{safe_validation_id}:b{index + 1}:c{criterion_index}"
+                    ),
+                    description=description,
+                )
+                for criterion_index, description in enumerate(
+                    items_by_index[index].detailed_criteria,
+                    start=1,
+                )
+            ),
+        )
+        for index, label in enumerate(
+            goal_contract.final_expected_observation
+        )
+    )
+    return ValidationContract(
+        validation_id=safe_validation_id,
+        goal_contract=goal_contract,
+        broad_items=broad_items,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationCriterionAssessment:
+    """Visible evidence for one frozen detailed validation criterion."""
+
+    criterion_id: str
+    state: CriterionState
+    evidence: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "criterion_id",
+            _identifier(self.criterion_id, "criterion_id"),
+        )
+        try:
+            state = CriterionState(self.state)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid criterion state: {self.state!r}") from error
+        object.__setattr__(self, "state", state)
+        object.__setattr__(
+            self,
+            "evidence",
+            _one_sentence(self.evidence, "evidence"),
+        )
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> ValidationCriterionAssessment:
+        payload = _mapping(payload, "validation criterion assessment")
+        _reject_unknown_keys(
+            payload,
+            {"id", "state", "evidence"},
+            "validation criterion assessment",
+        )
+        return cls(
+            criterion_id=payload.get("id"),
+            state=payload.get("state"),
+            evidence=payload.get("evidence"),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "id": self.criterion_id,
+            "state": self.state.value,
+            "evidence": self.evidence,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationAssessment:
+    """Validator output wrapped in trusted publication and frame metadata."""
+
+    validation_id: str
+    goal_id: str
+    goal_revision: int
+    publication_id: str
+    observed_at: float
+    frame_sequence: int | None
+    criteria: tuple[ValidationCriterionAssessment, ...]
+    observation: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "validation_id",
+            _identifier(self.validation_id, "validation_id"),
+        )
+        object.__setattr__(self, "goal_id", _identifier(self.goal_id, "goal_id"))
+        if (
+            isinstance(self.goal_revision, bool)
+            or not isinstance(self.goal_revision, int)
+            or self.goal_revision < 1
+        ):
+            raise ValueError("goal_revision must be a positive integer")
+        object.__setattr__(
+            self,
+            "publication_id",
+            _identifier(self.publication_id, "publication_id"),
+        )
+        if isinstance(self.observed_at, bool) or not isinstance(
+            self.observed_at,
+            (int, float),
+        ):
+            raise ValueError("observed_at must be a finite number")
+        observed_at = float(self.observed_at)
+        if not math.isfinite(observed_at):
+            raise ValueError("observed_at must be a finite number")
+        object.__setattr__(self, "observed_at", observed_at)
+        if self.frame_sequence is not None and (
+            isinstance(self.frame_sequence, bool)
+            or not isinstance(self.frame_sequence, int)
+            or self.frame_sequence < 0
+        ):
+            raise ValueError("frame_sequence must be non-negative")
+        if isinstance(self.criteria, (str, bytes)) or not isinstance(
+            self.criteria,
+            Sequence,
+        ):
+            raise ValueError("criteria must be a sequence")
+        criteria = tuple(self.criteria)
+        if not criteria or not all(
+            isinstance(item, ValidationCriterionAssessment) for item in criteria
+        ):
+            raise ValueError(
+                "criteria must contain ValidationCriterionAssessment objects"
+            )
+        ids = [item.criterion_id for item in criteria]
+        if len(ids) != len(set(ids)):
+            raise ValueError("validation assessment criterion IDs must be unique")
+        object.__setattr__(self, "criteria", criteria)
+        object.__setattr__(
+            self,
+            "observation",
+            _one_sentence(self.observation, "observation"),
+        )
+
+    @classmethod
+    def from_model_output(
+        cls,
+        contract: ValidationContract,
+        payload: Mapping[str, Any],
+        *,
+        publication_id: str,
+        observed_at: float,
+        frame_sequence: int | None,
+    ) -> ValidationAssessment:
+        if not isinstance(contract, ValidationContract):
+            raise TypeError("contract must be a ValidationContract")
+        payload = _mapping(payload, "validation assessment")
+        _reject_unknown_keys(
+            payload,
+            {"criteria", "observation"},
+            "validation assessment",
+        )
+        criterion_payloads = _mapping_sequence(
+            payload.get("criteria", ()),
+            "criteria",
+        )
+        criteria = tuple(
+            ValidationCriterionAssessment.from_dict(item)
+            for item in criterion_payloads
+        )
+        expected_ids = tuple(
+            item.criterion_id for item in contract.detailed_criteria
+        )
+        actual_ids = tuple(item.criterion_id for item in criteria)
+        if len(actual_ids) != len(set(actual_ids)):
+            raise ValueError("validation assessment criterion IDs must be unique")
+        if actual_ids != expected_ids:
+            raise ValueError(
+                "validation assessment criteria must contain the exact frozen "
+                "IDs in contract order"
+            )
+        return cls(
+            validation_id=contract.validation_id,
+            goal_id=contract.goal_contract.goal_id,
+            goal_revision=contract.goal_contract.revision,
+            publication_id=publication_id,
+            observed_at=observed_at,
+            frame_sequence=frame_sequence,
+            criteria=criteria,
+            observation=payload.get("observation"),
+        )
+
+    def to_model_dict(self) -> dict[str, Any]:
+        """Return only the model-authored portion of this assessment."""
+
+        return {
+            "criteria": [item.to_dict() for item in self.criteria],
+            "observation": self.observation,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "validation_id": self.validation_id,
+            "goal_id": self.goal_id,
+            "goal_revision": self.goal_revision,
+            "publication_id": self.publication_id,
+            "observed_at": self.observed_at,
+            "frame_sequence": self.frame_sequence,
+            **self.to_model_dict(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class BroadValidationResult:
+    """One brief user-facing checklist result, without internal criteria."""
+
+    label: str
+    state: CriterionState
+    evidence: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "label", _text(self.label, "label"))
+        try:
+            state = CriterionState(self.state)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid broad validation state: {self.state!r}") from error
+        object.__setattr__(self, "state", state)
+        object.__setattr__(
+            self,
+            "evidence",
+            _one_sentence(self.evidence, "evidence"),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "label": self.label,
+            "state": self.state.value,
+            "evidence": self.evidence,
+        }
+
+
+def _evidence_request(label: str) -> str:
+    clean_label = label.rstrip(".!?")
+    return f"Provide a clear camera view to verify: {clean_label}."
+
+
+@dataclass(frozen=True, slots=True)
+class ValidationReport:
+    """Deterministically aggregated brief final report for the HRI agent."""
+
+    validation_id: str
+    status: ValidationStatus
+    checklist: tuple[BroadValidationResult, ...]
+    evidence_requests: tuple[str, ...]
+    observation: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "validation_id",
+            _identifier(self.validation_id, "validation_id"),
+        )
+        try:
+            status = ValidationStatus(self.status)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid validation status: {self.status!r}") from error
+        object.__setattr__(self, "status", status)
+        if isinstance(self.checklist, (str, bytes)) or not isinstance(
+            self.checklist,
+            Sequence,
+        ):
+            raise ValueError("checklist must be a sequence")
+        checklist = tuple(self.checklist)
+        if not checklist or not all(
+            isinstance(item, BroadValidationResult) for item in checklist
+        ):
+            raise ValueError("checklist must contain BroadValidationResult objects")
+        labels = [item.label.casefold() for item in checklist]
+        if len(labels) != len(set(labels)):
+            raise ValueError("checklist labels must be unique")
+        derived_status = _derive_validation_status(
+            tuple(item.state for item in checklist)
+        )
+        if status is not derived_status:
+            raise ValueError("validation status conflicts with broad checklist states")
+        object.__setattr__(self, "checklist", checklist)
+        requests = _string_tuple(self.evidence_requests, "evidence_requests")
+        expected_requests = tuple(
+            _evidence_request(item.label)
+            for item in checklist
+            if item.state is CriterionState.UNKNOWN
+        )
+        if requests != expected_requests:
+            raise ValueError(
+                "evidence_requests must exactly match UNKNOWN broad checklist items"
+            )
+        object.__setattr__(self, "evidence_requests", requests)
+        object.__setattr__(
+            self,
+            "observation",
+            _one_sentence(self.observation, "observation"),
+        )
+
+    @property
+    def summary(self) -> str:
+        total = len(self.checklist)
+        met = sum(item.state is CriterionState.MET for item in self.checklist)
+        unknown = sum(
+            item.state is CriterionState.UNKNOWN for item in self.checklist
+        )
+        if self.status is ValidationStatus.COMPLETE:
+            return f"Task complete — all {total} required outcomes were visually verified."
+        if self.status is ValidationStatus.INCOMPLETE:
+            return (
+                f"Task incomplete — {met} of {total} required outcomes were "
+                "visually verified."
+            )
+        return (
+            f"Final validation needs more evidence — {unknown} of {total} "
+            "required outcomes could not be verified."
+        )
+
+    @classmethod
+    def from_assessment(
+        cls,
+        contract: ValidationContract,
+        assessment: ValidationAssessment,
+    ) -> ValidationReport:
+        if not isinstance(contract, ValidationContract):
+            raise TypeError("contract must be a ValidationContract")
+        if not isinstance(assessment, ValidationAssessment):
+            raise TypeError("assessment must be a ValidationAssessment")
+        if (
+            assessment.validation_id != contract.validation_id
+            or assessment.goal_id != contract.goal_contract.goal_id
+            or assessment.goal_revision != contract.goal_contract.revision
+        ):
+            raise ValueError("assessment does not belong to validation contract")
+        expected_ids = tuple(
+            item.criterion_id for item in contract.detailed_criteria
+        )
+        actual_ids = tuple(item.criterion_id for item in assessment.criteria)
+        if actual_ids != expected_ids:
+            raise ValueError(
+                "validation assessment criteria must contain the exact frozen "
+                "IDs in contract order"
+            )
+        assessment_by_id = {
+            item.criterion_id: item for item in assessment.criteria
+        }
+        checklist: list[BroadValidationResult] = []
+        for broad_item in contract.broad_items:
+            detailed = tuple(
+                assessment_by_id[item.criterion_id]
+                for item in broad_item.detailed_criteria
+            )
+            state = _aggregate_criterion_states(
+                tuple(item.state for item in detailed)
+            )
+            if state is CriterionState.NOT_MET:
+                evidence = next(
+                    item.evidence
+                    for item in detailed
+                    if item.state is CriterionState.NOT_MET
+                )
+            elif state is CriterionState.UNKNOWN:
+                evidence = next(
+                    item.evidence
+                    for item in detailed
+                    if item.state is CriterionState.UNKNOWN
+                )
+            elif len(detailed) == 1:
+                evidence = detailed[0].evidence
+            else:
+                evidence = "All detailed visual checks for this outcome were met."
+            checklist.append(
+                BroadValidationResult(
+                    label=broad_item.label,
+                    state=state,
+                    evidence=evidence,
+                )
+            )
+        checklist_tuple = tuple(checklist)
+        return cls(
+            validation_id=contract.validation_id,
+            status=_derive_validation_status(
+                tuple(item.state for item in checklist_tuple)
+            ),
+            checklist=checklist_tuple,
+            evidence_requests=tuple(
+                _evidence_request(item.label)
+                for item in checklist_tuple
+                if item.state is CriterionState.UNKNOWN
+            ),
+            observation=assessment.observation,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "validation_id": self.validation_id,
+            "status": self.status.value,
+            "summary": self.summary,
+            "checklist": [item.to_dict() for item in self.checklist],
+            "evidence_requests": list(self.evidence_requests),
+            "observation": self.observation,
+        }
+
+
+def _aggregate_criterion_states(
+    states: tuple[CriterionState, ...],
+) -> CriterionState:
+    if CriterionState.NOT_MET in states:
+        return CriterionState.NOT_MET
+    if CriterionState.UNKNOWN in states:
+        return CriterionState.UNKNOWN
+    return CriterionState.MET
+
+
+def _derive_validation_status(
+    broad_states: tuple[CriterionState, ...],
+) -> ValidationStatus:
+    if CriterionState.NOT_MET in broad_states:
+        return ValidationStatus.INCOMPLETE
+    if CriterionState.UNKNOWN in broad_states:
+        return ValidationStatus.NEEDS_EVIDENCE
+    return ValidationStatus.COMPLETE
+
+
+@dataclass(frozen=True, slots=True)
 class ObservationCriterion:
     """Host-identified expected observation."""
 
@@ -1130,6 +1886,19 @@ class MonitorAssessment:
             FailureReport,
         ):
             raise ValueError("failure must be a FailureReport or None")
+        if (
+            task_status is TaskStatus.ONGOING
+            and self.failure is None
+            and all(
+                criterion.state is CriterionState.MET
+                for criterion in criteria
+            )
+        ):
+            # ``task_status`` is a redundant model summary.  Criterion states
+            # are the auditable evidence, so an all-MET non-failure result is
+            # canonical SUCCESS even if a cautious model emitted ONGOING.
+            task_status = TaskStatus.SUCCESS
+            object.__setattr__(self, "task_status", task_status)
         if task_status is TaskStatus.SUCCESS:
             if self.failure is not None:
                 raise ValueError("SUCCESS cannot include a failure report")

@@ -134,11 +134,22 @@ After stable `SUCCESS`, the result is appended to execution history and a fresh
 Planner cycle chooses what to do next. A stable task-level `FAIL` also replans
 with the visible observation and failure reason, allowing recovery from changed
 scene state. Camera/model/JSON errors and no-progress timeouts instead pause in
-`NEEDS_ATTENTION`; they are never interpreted as task failure. Once the Planner
-believes the goal is satisfied, Monitor performs a final holistic validation.
+`NEEDS_ATTENTION`; they are never interpreted as task failure.
 
-Monitor output includes an immediate `emergency_stop` key. If it is true, the
-runtime latches `EMERGENCY_STOPPED`, invokes the placeholder
+At confirmation time, the independent Validator expands the frozen broad goal
+outcomes into a detailed visual checklist and freezes it for the full run. When
+Planner later requests final validation, only Validator receives that
+publication; Monitor remains responsible for ordinary sub-tasks. Validator can
+accumulate evidence while the operator moves only the camera across several
+views, but the scene objects must remain unchanged. The host derives
+`COMPLETE`, `INCOMPLETE`, or `NEEDS_EVIDENCE` from the checklist. An incomplete
+result is appended to execution history and replanned; missing evidence asks
+for another camera view. HRI reports one overall sentence followed by the
+broad checklist and each item's `MET`, `NOT_MET`, or `UNKNOWN` status, while
+the detailed checklist remains internal.
+
+Monitor and Validator output include an immediate `emergency_stop` key. If it
+is true, the runtime latches `EMERGENCY_STOPPED`, invokes the placeholder
 `emergency_stop()` hook once, stops publishing work, and exits the interactive
 session. Replace that placeholder with an acknowledged robot-specific stop API
 before connecting physical hardware; the visual model is not a safety-rated
@@ -148,4 +159,4 @@ E-stop.
 &emsp;The path to store the memory. Default: `./memory_store`
 
 `--think`<br>
-&emsp;Per-agent CoT reasoning. Default: `["HRI"]` Supported: `all`, `HRI`, `Memory`, `Planner`, `Validator`.
+&emsp;Per-agent CoT reasoning. Default: `["HRI"]` Supported: `all`, `HRI`, `Memory`, `Planner`. Monitor and Validator are always disabled.

@@ -162,6 +162,26 @@ class ExecutionContractTests(unittest.TestCase):
                 observed_at=1.0,
             )
 
+    def test_monitor_all_met_ongoing_is_canonical_success(self) -> None:
+        assessment = MonitorAssessment.from_model_output(
+            {
+                "task_status": "ONGOING",
+                "criteria": [
+                    {"id": "p:r1:s1:c1", "state": "MET"},
+                    {"id": "p:r1:s1:c2", "state": "MET"},
+                ],
+                "failure": None,
+                "observation": "Both expected outcomes are visibly complete.",
+            },
+            plan_id="p",
+            revision=1,
+            step_id="p:r1:s1",
+            observed_at=1.0,
+        )
+
+        self.assertIs(assessment.task_status, TaskStatus.SUCCESS)
+        self.assertEqual(assessment.to_model_dict()["task_status"], "SUCCESS")
+
     def test_monitor_ongoing_supports_unknown_without_failure(self) -> None:
         assessment = MonitorAssessment.from_model_output(
             {
