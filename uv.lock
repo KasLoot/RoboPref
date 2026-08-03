@@ -1363,7 +1363,7 @@ wheels = [
 
 [[package]]
 name = "robopref"
-version = "2.0.0.dev1"
+version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "colorama" },
