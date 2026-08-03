@@ -3,6 +3,74 @@ A robotic agent system, enhancing human-robot interaction capabilities by levera
 
 Version: `2.0.0`
 
+## System workflow
+
+```mermaid
+flowchart TD
+    USER([User]) -->|request and clarification| HRI["HRI Agent<br/>only user-facing agent"]
+    CAMERA["Webcam server<br/>stream, snapshots, and task API"] -->|current frame| HRI
+
+    HRI -.->|retrieve or consented mutation| MEMORY["Memory Agent"]
+    MEMORY <--> STORE[("Preference JSON<br/>and embeddings")]
+
+    HRI -->|clarified goal| PREVIEW["Runtime captures a fresh frame<br/>and requests a preview"]
+    CAMERA -->|fresh snapshot| PREVIEW
+    PREVIEW --> PLANNER["Planner<br/>stateless and scene-grounded"]
+    PLANNER -->|nominal strategy| PROPOSAL["HRI presents goal, constraints,<br/>expected outcome, and outline"]
+    PROPOSAL --> CONFIRM{"Exact goal ID and revision<br/>confirmed?"}
+    CONFIRM -->|No: reject or revise| HRI
+    CONFIRM -->|Yes| CHECKLIST["Validator compiles and freezes<br/>the final evidence checklist"]
+    CAMERA -->|confirmation frame| CHECKLIST
+
+    CHECKLIST --> PLAN["Controller starts a planning cycle<br/>with frozen goal and execution history"]
+    CAMERA -->|fresh cycle frame| PLAN
+    PLAN -->|goal, history, trigger, and frame| PLANNER
+    PLANNER --> DECISION{"Planner decision"}
+
+    DECISION -->|ACT| FIRST["Select candidate task 1 only<br/>execution horizon = 1"]
+    DECISION -->|REQUEST_FINAL_VALIDATION| FINAL_TASK["Build final-validation publication"]
+    FIRST --> PUBLISH["Runtime publishes one current task"]
+    FINAL_TASK --> PUBLISH
+    PUBLISH -->|PUT /api/task| CAMERA
+    PUBLISH --> PHASE{"Publication phase"}
+
+    PHASE -->|STEP| MONITOR["Monitor service"]
+    CAMERA -->|post-publication frames| MONITOR
+    CAMERA -->|browser shows STEP instruction| EXECUTOR["Physical task executor<br/>human in the current implementation"]
+    EXECUTOR -->|changes physical scene| CAMERA
+    MONITOR --> MONITOR_RESULT{"Monitor assessment"}
+    MONITOR_RESULT -->|ONGOING| MONITOR
+    MONITOR_RESULT -->|stable SUCCESS or FAIL| HISTORY["Append terminal observation<br/>and failure evidence to history"]
+    HISTORY --> PLAN
+
+    PHASE -->|FINAL_VALIDATION| VALIDATOR["Validator service<br/>accumulates evidence across views"]
+    CAMERA -->|fresh validation views| VALIDATOR
+    CAMERA -->|browser requests camera-only views| CAMERA_VIEW["Move only the camera;<br/>keep scene objects unchanged"]
+    CAMERA_VIEW --> CAMERA
+    VALIDATOR --> VALIDATION_RESULT{"Host-derived result"}
+    VALIDATION_RESULT -->|NEEDS_EVIDENCE| CAMERA_VIEW
+    VALIDATION_RESULT -->|stable INCOMPLETE| HISTORY
+    VALIDATION_RESULT -->|stable COMPLETE| COMPLETE([COMPLETE])
+    COMPLETE -->|broad checklist and status| HRI
+
+    DECISION -->|BLOCKED or NEEDS_USER_INPUT| ATTENTION["NEEDS_ATTENTION"]
+    MONITOR -->|service error or no-progress timeout| ATTENTION
+    VALIDATOR -->|service error or no-progress timeout| ATTENTION
+    ATTENTION -->|reason and runtime state| HRI
+    ATTENTION -->|resume current task| PUBLISH
+    ATTENTION -->|replan with guidance| PLAN
+
+    MONITOR -->|emergency_stop = true| ESTOP["Shared emergency coordinator<br/>latch and emergency_stop hook"]
+    VALIDATOR -->|emergency_stop = true| ESTOP
+    ESTOP --> STOPPED([EMERGENCY_STOPPED])
+```
+
+The confirmed goal remains fixed while the controller repeatedly plans from a
+fresh frame, publishes one task, and uses visual evidence to decide what comes
+next. The current implementation delegates physical actions to the human
+watching the camera page; `emergency_stop()` is a placeholder integration hook,
+not a safety-rated stop.
+
 ## Quickstart
 
 ### Clone the repository
