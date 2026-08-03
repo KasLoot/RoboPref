@@ -1,1466 +1,1271 @@
-"""Deterministic event-driven controller for the PrefMem agent system."""
+"""Deterministic, thread-safe execution controller for confirmed plans."""
 
 from __future__ import annotations
 
-import re
+from dataclasses import dataclass, replace
+from enum import Enum
+import math
+import threading
 import time
-from collections import deque
-from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
-from typing import Any
-from uuid import uuid4
+from typing import Callable, Protocol
 
-from prefmem.agents.contracts import (
-    ConditionCheck,
-    ConditionState,
-    EpisodeRecord,
-    ExecutionCommand,
-    FailureKind,
-    HRIDecisionKind,
-    InteractionKind,
-    MemoryActionKind,
-    MemoryContext,
-    MemoryStatus,
-    MonitorAction,
-    MonitorProgress,
-    MonitorRequest,
-    MonitorResult,
-    MonitorSafetyStatus,
-    ObservationQuality,
-    PlanResult,
-    PlanningRequest,
-    PlanningStatus,
-    ReplanPolicy,
-    TaskContract,
+from prefmem.contracts import (
+    CriterionState,
+    ExecutionOutcome,
+    ExecutionRecord,
+    ExecutionPlan,
+    GoalContract,
+    MonitorAssessment,
+    PlanStatus,
+    PlannerCycleRequest,
+    PlannerDecision,
+    PlannerDecisionType,
+    PlannerTrigger,
+    PublishedTask,
     TaskPhase,
     TaskStatus,
-    ValidationRequest,
-    ValidationResult,
-    ValidatorOutcome,
-    ValidatorRecoverability,
+    ObservationCriterion,
 )
-from prefmem.agents.services import (
-    HRIReasoner,
-    MonitorReasoner,
-    PlannerReasoner,
-    ValidatorReasoner,
-)
-from prefmem.execution import CancellationReceipt, IdempotentVLAAdapter
-from prefmem.memory.service import PrefMemMemoryService
-from prefmem.observations import ObservationEnvelope, ObservationSource
-from prefmem.recording import ExperimentRecorder, NullRecorder
+
+
+class ControllerState(str, Enum):
+    IDLE = "IDLE"
+    AWAITING_CONFIRMATION = "AWAITING_CONFIRMATION"
+    ALREADY_SATISFIED = "ALREADY_SATISFIED"
+    BLOCKED = "BLOCKED"
+    EXECUTING = "EXECUTING"
+    FINAL_VALIDATION = "FINAL_VALIDATION"
+    NEEDS_ATTENTION = "NEEDS_ATTENTION"
+    FAILED = "FAILED"
+    COMPLETE = "COMPLETE"
+
+
+class AssessmentResult(str, Enum):
+    ACCEPTED = "ACCEPTED"
+    IGNORED_STALE = "IGNORED_STALE"
+    IGNORED_INVALID = "IGNORED_INVALID"
+    STEP_ADVANCED = "STEP_ADVANCED"
+    FINAL_VALIDATION_STARTED = "FINAL_VALIDATION_STARTED"
+    FAILED = "FAILED"
+    COMPLETE = "COMPLETE"
+
+
+class ControllerError(RuntimeError):
+    """Base error for invalid controller operations."""
+
+
+class InvalidTransitionError(ControllerError):
+    """Raised when an operation is invalid in the current state."""
+
+
+class PlanMismatchError(ControllerError):
+    """Raised when confirmation does not contain the staged frozen plan."""
+
+
+class ConfirmationRequiredError(ControllerError):
+    """Raised unless the caller supplies an explicit positive confirmation."""
+
+
+class TaskPublisher(Protocol):
+    """Callback that publishes a task to the human execution surface."""
+
+    def __call__(self, task: PublishedTask) -> None: ...
+
+
+class MonitorRunner(Protocol):
+    """Callback that starts monitoring a newly published task."""
+
+    def __call__(self, task: PublishedTask) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
-class ControllerLimits:
-    hri_routes_per_turn: int = 4
-    max_monitor_checks: int = 30
-    max_reobservations: int = 3
-    max_replans: int = 2
-    monitor_interval_seconds: float = 1.0
-    monitor_window: int = 3
-    success_confirmations: int = 2
-    max_dispatches: int = 32
-
-    def __post_init__(self) -> None:
-        if self.hri_routes_per_turn < 1:
-            raise ValueError("hri_routes_per_turn must be positive")
-        if self.max_monitor_checks < 1:
-            raise ValueError("max_monitor_checks must be positive")
-        if self.max_reobservations < 0 or self.max_replans < 0:
-            raise ValueError("recovery budgets cannot be negative")
-        if self.monitor_interval_seconds < 0:
-            raise ValueError("monitor_interval_seconds cannot be negative")
-        if self.monitor_window < 1:
-            raise ValueError("monitor_window must be positive")
-        if self.success_confirmations < 1:
-            raise ValueError("success_confirmations must be positive")
-        if self.max_dispatches < 1:
-            raise ValueError("max_dispatches must be positive")
+class ControllerSnapshot:
+    state: ControllerState
+    plan: ExecutionPlan | None
+    current_task: PublishedTask | None
+    current_step_index: int | None
+    attention_reason: str | None
+    consecutive_successes: int
+    consecutive_failures: int
 
 
-@dataclass(slots=True)
-class TurnResult:
-    text: str
-    phase: TaskPhase
-    task_id: str | None = None
-    plan: PlanResult | None = None
-    validation: ValidationResult | None = None
-    memory: MemoryContext | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+class PlanController:
+    """Own confirmation, publication, temporal evidence, and plan advancement.
+
+    All state transitions are protected by a re-entrant lock.  External
+    callbacks run after the transition is committed and outside the lock, so a
+    monitor runner may safely deliver assessments from another thread.
+    """
+
+    def __init__(
+        self,
+        publisher: TaskPublisher,
+        monitor_runner: MonitorRunner | None = None,
+        *,
+        success_confirmations: int = 2,
+        success_stability_seconds: float = 2.0,
+        failure_confirmations: int = 2,
+        ongoing_timeout_seconds: float = 30.0,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        if not callable(publisher):
+            raise TypeError("publisher must be callable")
+        if monitor_runner is not None and not callable(monitor_runner):
+            raise TypeError("monitor_runner must be callable or None")
+        if (
+            isinstance(success_confirmations, bool)
+            or not isinstance(success_confirmations, int)
+            or success_confirmations < 2
+        ):
+            raise ValueError("success_confirmations must be at least 2")
+        if (
+            isinstance(success_stability_seconds, bool)
+            or not isinstance(success_stability_seconds, (int, float))
+            or not math.isfinite(success_stability_seconds)
+            or success_stability_seconds < 0
+        ):
+            raise ValueError("success_stability_seconds cannot be negative")
+        if (
+            isinstance(failure_confirmations, bool)
+            or not isinstance(failure_confirmations, int)
+            or failure_confirmations < 2
+        ):
+            raise ValueError("failure_confirmations must be at least 2")
+        if (
+            isinstance(ongoing_timeout_seconds, bool)
+            or not isinstance(ongoing_timeout_seconds, (int, float))
+            or not math.isfinite(ongoing_timeout_seconds)
+            or ongoing_timeout_seconds <= 0
+        ):
+            raise ValueError("ongoing_timeout_seconds must be positive")
+        if not callable(clock):
+            raise TypeError("clock must be callable")
+
+        self._publisher = publisher
+        self._monitor_runner = monitor_runner
+        self._success_confirmations = success_confirmations
+        self._success_stability_seconds = float(success_stability_seconds)
+        self._failure_confirmations = failure_confirmations
+        self._ongoing_timeout_seconds = float(ongoing_timeout_seconds)
+        self._clock = clock
+        self._lock = threading.RLock()
+
+        self._state = ControllerState.IDLE
+        self._plan: ExecutionPlan | None = None
+        self._current_task: PublishedTask | None = None
+        self._current_step_index: int | None = None
+        self._attention_reason: str | None = None
+        self._success_count = 0
+        self._failure_count = 0
+        self._first_success_at: float | None = None
+        self._last_assessment_at: float | None = None
+        self._last_progress_at: float | None = None
+        self._best_met_count = 0
+        self._failure_signature: tuple[str, str] | None = None
+
+    @property
+    def snapshot(self) -> ControllerSnapshot:
+        with self._lock:
+            return self._snapshot_locked()
+
+    def stage_plan(self, plan: ExecutionPlan) -> ControllerSnapshot:
+        """Freeze a host-identified plan while publishing nothing."""
+
+        if not isinstance(plan, ExecutionPlan):
+            raise TypeError("plan must be an ExecutionPlan")
+        with self._lock:
+            if self._state in {
+                ControllerState.EXECUTING,
+                ControllerState.FINAL_VALIDATION,
+            }:
+                raise InvalidTransitionError(
+                    "cannot replace a plan while it is executing"
+                )
+            if (
+                self._plan is not None
+                and plan.plan_id == self._plan.plan_id
+                and plan.revision <= self._plan.revision
+            ):
+                raise ValueError(
+                    "a replacement with the same plan_id needs a newer revision"
+                )
+
+            self._plan = plan
+            self._current_task = None
+            self._current_step_index = None
+            self._attention_reason = plan.blocked_reason
+            self._reset_evidence_locked()
+            if plan.status is PlanStatus.READY:
+                self._state = ControllerState.AWAITING_CONFIRMATION
+                self._attention_reason = None
+            elif plan.status is PlanStatus.ALREADY_SATISFIED:
+                self._state = ControllerState.ALREADY_SATISFIED
+                self._attention_reason = None
+            else:
+                self._state = ControllerState.BLOCKED
+            return self._snapshot_locked()
+
+    def confirm_and_publish(
+        self,
+        plan: ExecutionPlan,
+        *,
+        confirmed: bool,
+    ) -> PublishedTask:
+        """Publish step one only when the exact staged plan is confirmed."""
+
+        if confirmed is not True:
+            raise ConfirmationRequiredError(
+                "explicit user confirmation is required before publication"
+            )
+        with self._lock:
+            if self._state not in {
+                ControllerState.AWAITING_CONFIRMATION,
+                ControllerState.ALREADY_SATISFIED,
+            }:
+                raise InvalidTransitionError(
+                    "the controller is not awaiting plan confirmation"
+                )
+            if plan != self._plan:
+                raise PlanMismatchError(
+                    "confirmation must include the exact staged plan and revision"
+                )
+            if plan.status is PlanStatus.ALREADY_SATISFIED:
+                self._state = ControllerState.FINAL_VALIDATION
+                self._current_step_index = None
+                task = self._build_final_validation_task_locked()
+            else:
+                self._state = ControllerState.EXECUTING
+                self._current_step_index = 0
+                task = self._build_step_task_locked(0)
+            self._activate_task_locked(task)
+        self._dispatch(task)
+        return task
+
+    def record_assessment(
+        self,
+        assessment: MonitorAssessment,
+    ) -> AssessmentResult:
+        """Consume one monitor result and deterministically update state."""
+
+        if not isinstance(assessment, MonitorAssessment):
+            raise TypeError("assessment must be a MonitorAssessment")
+        task_to_publish: PublishedTask | None = None
+        with self._lock:
+            task = self._current_task
+            if (
+                self._state
+                not in {
+                    ControllerState.EXECUTING,
+                    ControllerState.FINAL_VALIDATION,
+                }
+                or task is None
+            ):
+                return AssessmentResult.IGNORED_STALE
+            if (
+                assessment.plan_id != task.plan_id
+                or assessment.revision != task.revision
+                or assessment.step_id != task.step_id
+                or assessment.observed_at < task.published_at
+                or (
+                    self._last_assessment_at is not None
+                    and assessment.observed_at <= self._last_assessment_at
+                )
+            ):
+                return AssessmentResult.IGNORED_STALE
+
+            self._last_assessment_at = assessment.observed_at
+            expected_ids = {
+                criterion.criterion_id
+                for criterion in task.expected_observation
+            }
+            actual_ids = {
+                criterion.criterion_id for criterion in assessment.criteria
+            }
+            if actual_ids != expected_ids:
+                self._reset_streaks_locked()
+                return AssessmentResult.IGNORED_INVALID
+
+            met_count = sum(
+                criterion.state is CriterionState.MET
+                for criterion in assessment.criteria
+            )
+            if met_count > self._best_met_count:
+                self._best_met_count = met_count
+                self._last_progress_at = self._clock()
+
+            if assessment.task_status is TaskStatus.SUCCESS:
+                self._failure_count = 0
+                if self._success_count == 0:
+                    self._first_success_at = assessment.observed_at
+                self._success_count += 1
+                stable_for = (
+                    assessment.observed_at - self._first_success_at
+                    if self._first_success_at is not None
+                    else 0.0
+                )
+                if (
+                    self._success_count < self._success_confirmations
+                    or stable_for < self._success_stability_seconds
+                ):
+                    return AssessmentResult.ACCEPTED
+
+                if self._state is ControllerState.FINAL_VALIDATION:
+                    self._state = ControllerState.COMPLETE
+                    self._current_task = None
+                    self._current_step_index = None
+                    self._reset_evidence_locked()
+                    return AssessmentResult.COMPLETE
+
+                assert self._plan is not None
+                assert self._current_step_index is not None
+                next_index = self._current_step_index + 1
+                if next_index < len(self._plan.steps):
+                    self._current_step_index = next_index
+                    task_to_publish = self._build_step_task_locked(next_index)
+                    self._activate_task_locked(task_to_publish)
+                    result = AssessmentResult.STEP_ADVANCED
+                else:
+                    self._state = ControllerState.FINAL_VALIDATION
+                    self._current_step_index = None
+                    task_to_publish = self._build_final_validation_task_locked()
+                    self._activate_task_locked(task_to_publish)
+                    result = AssessmentResult.FINAL_VALIDATION_STARTED
+            elif assessment.task_status is TaskStatus.FAIL:
+                self._success_count = 0
+                self._first_success_at = None
+                assert assessment.failure is not None
+                failure_signature = (
+                    assessment.failure.kind.value,
+                    assessment.failure.description.casefold(),
+                )
+                if failure_signature == self._failure_signature:
+                    self._failure_count += 1
+                else:
+                    self._failure_signature = failure_signature
+                    self._failure_count = 1
+                if self._failure_count < self._failure_confirmations:
+                    return AssessmentResult.ACCEPTED
+                self._state = ControllerState.FAILED
+                self._attention_reason = assessment.failure.description
+                return AssessmentResult.FAILED
+            else:
+                self._reset_streaks_locked()
+                return AssessmentResult.ACCEPTED
+
+        if task_to_publish is not None:
+            self._dispatch(task_to_publish)
+        return result
+
+    def check_timeout(self, *, now: float | None = None) -> bool:
+        """Move prolonged no-progress ONGOING work to NEEDS_ATTENTION.
+
+        A timeout is deliberately not a task failure.  ``True`` means this call
+        changed the state; ``False`` means no timeout was due.
+        """
+
+        timestamp = self._clock() if now is None else float(now)
+        with self._lock:
+            if self._state not in {
+                ControllerState.EXECUTING,
+                ControllerState.FINAL_VALIDATION,
+            }:
+                return False
+            if self._last_progress_at is None:
+                return False
+            if timestamp - self._last_progress_at < self._ongoing_timeout_seconds:
+                return False
+            self._state = ControllerState.NEEDS_ATTENTION
+            self._attention_reason = (
+                "No observable progress before the monitoring timeout"
+            )
+            self._reset_streaks_locked()
+            return True
+
+    def resume_after_attention(self) -> PublishedTask:
+        """Republish the unchanged task after the human elects to continue."""
+
+        with self._lock:
+            if (
+                self._state is not ControllerState.NEEDS_ATTENTION
+                or self._current_task is None
+            ):
+                raise InvalidTransitionError(
+                    "there is no attention-paused task to resume"
+                )
+            phase = self._current_task.phase
+            self._state = (
+                ControllerState.EXECUTING
+                if phase is TaskPhase.STEP
+                else ControllerState.FINAL_VALIDATION
+            )
+            self._attention_reason = None
+            task = replace(
+                self._current_task,
+                published_at=float(self._clock()),
+            )
+            self._activate_task_locked(task)
+        self._dispatch(task)
+        return task
+
+    def _build_step_task_locked(self, index: int) -> PublishedTask:
+        assert self._plan is not None
+        step = self._plan.steps[index]
+        return PublishedTask(
+            plan_id=self._plan.plan_id,
+            revision=self._plan.revision,
+            step_id=step.step_id,
+            phase=TaskPhase.STEP,
+            instruction=step.instruction,
+            expected_observation=step.expected_observation,
+            known_failure_conditions=step.known_failure_conditions,
+            published_at=float(self._clock()),
+        )
+
+    def _build_final_validation_task_locked(self) -> PublishedTask:
+        assert self._plan is not None
+        return PublishedTask(
+            plan_id=self._plan.plan_id,
+            revision=self._plan.revision,
+            step_id=self._plan.final_validation_step_id,
+            phase=TaskPhase.FINAL_VALIDATION,
+            instruction=(
+                "Keep the scene unchanged; move only the camera as needed to "
+                "show every requested outcome."
+            ),
+            expected_observation=self._plan.final_expected_observation,
+            known_failure_conditions=(),
+            published_at=float(self._clock()),
+        )
+
+    def _activate_task_locked(self, task: PublishedTask) -> None:
+        self._current_task = task
+        self._attention_reason = None
+        self._reset_evidence_locked()
+        self._last_progress_at = task.published_at
+
+    def _reset_evidence_locked(self) -> None:
+        self._reset_streaks_locked()
+        self._last_assessment_at = None
+        self._last_progress_at = None
+        self._best_met_count = 0
+
+    def _reset_streaks_locked(self) -> None:
+        self._success_count = 0
+        self._failure_count = 0
+        self._first_success_at = None
+        self._failure_signature = None
+
+    def _snapshot_locked(self) -> ControllerSnapshot:
+        return ControllerSnapshot(
+            state=self._state,
+            plan=self._plan,
+            current_task=self._current_task,
+            current_step_index=self._current_step_index,
+            attention_reason=self._attention_reason,
+            consecutive_successes=self._success_count,
+            consecutive_failures=self._failure_count,
+        )
+
+    def _dispatch(self, task: PublishedTask) -> None:
+        try:
+            self._publisher(task)
+            if self._monitor_runner is not None:
+                self._monitor_runner(task)
+        except Exception as error:
+            with self._lock:
+                if self._current_task == task and self._state in {
+                    ControllerState.EXECUTING,
+                    ControllerState.FINAL_VALIDATION,
+                }:
+                    self._state = ControllerState.NEEDS_ATTENTION
+                    self._attention_reason = (
+                        f"Task publication failed: {type(error).__name__}"
+                    )
+            raise
 
 
-@dataclass(slots=True)
-class _ExecutionState:
-    task_id: str
-    task_contract: TaskContract
-    planning_request: PlanningRequest
-    plan: PlanResult
-    completed_subtasks: list[str] = field(default_factory=list)
-    dispatches: list[dict[str, Any]] = field(default_factory=list)
-    monitor_results: list[MonitorResult] = field(default_factory=list)
-    replans: int = 0
-    boundary_replans: int = 0
-    reobservations: int = 0
+class RecedingControllerState(str, Enum):
+    """Runtime state for one confirmed receding-horizon goal session."""
+
+    IDLE = "IDLE"
+    AWAITING_CONFIRMATION = "AWAITING_CONFIRMATION"
+    PLANNING = "PLANNING"
+    EXECUTING = "EXECUTING"
+    FINAL_VALIDATION = "FINAL_VALIDATION"
+    NEEDS_ATTENTION = "NEEDS_ATTENTION"
+    COMPLETE = "COMPLETE"
+    EMERGENCY_STOPPED = "EMERGENCY_STOPPED"
 
 
-_REMEMBER_COMMAND = re.compile(r"^/remember\s+(.+)$", re.IGNORECASE | re.DOTALL)
-_FORGET_COMMAND = re.compile(r"^/forget\s+(\S+)\s*$", re.IGNORECASE)
-_EXPLICIT_NATURAL_MEMORY = re.compile(
-    r"^(?:please\s+)?remember(?:\s+that)?\s+"
-    r"(?P<statement>.+(?:\bprefer\b|\bpreference\b|\bdefault\b|\balways\b|"
-    r"\bfor future\b).*)$",
-    re.IGNORECASE | re.DOTALL,
-)
+class RecedingResult(str, Enum):
+    STAGED = "STAGED"
+    CANCELLED = "CANCELLED"
+    PLANNING_STARTED = "PLANNING_STARTED"
+    TASK_PUBLISHED = "TASK_PUBLISHED"
+    FINAL_VALIDATION_STARTED = "FINAL_VALIDATION_STARTED"
+    ACCEPTED = "ACCEPTED"
+    IGNORED_STALE = "IGNORED_STALE"
+    IGNORED_INVALID = "IGNORED_INVALID"
+    REPLAN_REQUESTED = "REPLAN_REQUESTED"
+    NEEDS_ATTENTION = "NEEDS_ATTENTION"
+    COMPLETE = "COMPLETE"
+    EMERGENCY_STOPPED = "EMERGENCY_STOPPED"
 
 
-class PrefMemController:
-    """Own all state transitions, budgets, memory writes, and publication."""
+class AttentionKind(str, Enum):
+    NO_PROGRESS = "NO_PROGRESS"
+    SYSTEM_ERROR = "SYSTEM_ERROR"
+    PLANNER_BLOCKED = "PLANNER_BLOCKED"
+    NEEDS_USER_INPUT = "NEEDS_USER_INPUT"
+    LOOP_GUARD = "LOOP_GUARD"
+
+
+@dataclass(frozen=True, slots=True)
+class RecedingControllerSnapshot:
+    state: RecedingControllerState
+    state_sequence: int
+    goal: GoalContract | None
+    cycle_id: int
+    current_task: PublishedTask | None
+    execution_history: tuple[ExecutionRecord, ...]
+    pending_request: PlannerCycleRequest | None
+    attention_kind: AttentionKind | None
+    attention_reason: str | None
+    latest_observation: str | None
+    consecutive_successes: int
+    consecutive_failures: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecedingTransition:
+    """Deterministic output for the runtime to act on outside the lock."""
+
+    result: RecedingResult
+    snapshot: RecedingControllerSnapshot
+    task_to_publish: PublishedTask | None = None
+    planner_request: PlannerCycleRequest | None = None
+
+
+class RecedingHorizonController:
+    """Freeze a goal, execute one task, observe, and request a fresh plan.
+
+    The controller never calls a model or performs I/O.  It produces explicit
+    transitions so the runtime can fetch a fresh frame, call Planner, publish
+    the first candidate task, and start Monitor without holding this lock.
+    """
 
     def __init__(
         self,
         *,
-        username: str,
-        observation_source: ObservationSource,
-        hri: HRIReasoner,
-        planner: PlannerReasoner,
-        monitor: MonitorReasoner,
-        validator: ValidatorReasoner,
-        memory: PrefMemMemoryService,
-        vla: IdempotentVLAAdapter | None = None,
-        plan_only: bool = True,
-        replan_policy: ReplanPolicy = ReplanPolicy.ON_DEVIATION,
-        limits: ControllerLimits | None = None,
-        recorder: ExperimentRecorder | None = None,
-        wait: Callable[[float], None] = time.sleep,
+        success_confirmations: int = 2,
+        success_stability_seconds: float = 2.0,
+        failure_confirmations: int = 2,
+        ongoing_timeout_seconds: float = 30.0,
+        max_cycles: int = 20,
+        max_consecutive_failures: int = 3,
+        max_identical_failed_attempts: int = 2,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self.username = username
-        self.observation_source = observation_source
-        self.hri = hri
-        self.planner = planner
-        self.monitor = monitor
-        self.validator = validator
-        self.memory = memory
-        self.vla = vla
-        self.plan_only = plan_only
-        self.replan_policy = replan_policy
-        self.limits = limits or ControllerLimits()
-        self.recorder = recorder or NullRecorder()
-        self.wait = wait
-        self.clock = clock
-        self.phase = TaskPhase.IDLE
-        self.conversation: list[dict[str, str]] = []
-        self._pending_memory_consent: dict[str, Any] | None = None
-        self._active_memory_consent: dict[str, Any] | None = None
-
-    def _transition(
-        self,
-        phase: TaskPhase,
-        *,
-        details: Mapping[str, Any] | None = None,
-    ) -> None:
-        previous = self.phase
-        self.phase = phase
-        self.recorder.record_event(
-            "Controller transition",
-            {
-                "from": previous,
-                "to": phase,
-                "details": dict(details or {}),
-            },
-        )
-
-    def _reply(
-        self,
-        text: str,
-        *,
-        phase: TaskPhase,
-        **result_fields: Any,
-    ) -> TurnResult:
-        self._transition(phase)
-        self.conversation.append({"role": "assistant", "content": text})
-        self.recorder.record_assistant(text)
-        return TurnResult(text=text, phase=phase, **result_fields)
-
-    def _handle_memory_command(self, user_text: str) -> TurnResult | None:
-        remember = _REMEMBER_COMMAND.match(user_text)
-        if remember:
-            statement = remember.group(1).strip()
-            preference = self.memory.remember_preference(
-                username=self.username,
-                statement=statement,
-                authorized=True,
-                evidence=[{"user_utterance": user_text}],
-            )
-            return self._reply(
-                (
-                    f"I saved that future preference as `{preference.id}`: "
-                    f"{preference.statement}"
-                ),
-                phase=TaskPhase.COMPLETE,
-                metadata={"preference_id": preference.id},
-            )
-
-        forget = _FORGET_COMMAND.match(user_text)
-        if forget:
-            preference = self.memory.revoke_preference(
-                username=self.username,
-                preference_id=forget.group(1),
-                authorized=True,
-                evidence=[{"user_utterance": user_text}],
-            )
-            return self._reply(
-                f"I revoked preference `{preference.id}`.",
-                phase=TaskPhase.COMPLETE,
-                metadata={"preference_id": preference.id},
-            )
-
-        if user_text.strip().lower() == "/preferences":
-            preferences = self.memory.store.load_preferences(
-                username=self.username
-            )
-            if not preferences:
-                text = "You do not have any active saved preferences."
-            else:
-                lines = [
-                    f"- `{record.id}`: {record.statement}"
-                    for record in preferences
-                ]
-                text = "Your active saved preferences are:\n\n" + "\n".join(lines)
-            return self._reply(text, phase=TaskPhase.COMPLETE)
-        return None
-
-    def _memory_action_authorized(
-        self,
-        *,
-        user_text: str,
-        decision: Any,
-    ) -> bool:
-        action = decision.memory_action.action
-        lowered = user_text.casefold()
-        if self._active_memory_consent is not None and lowered in {
-            "yes",
-            "yes.",
-            "y",
-            "confirm",
-            "please do",
-            "do that",
-        }:
-            proposal = self._active_memory_consent.get("proposal")
-            if not isinstance(proposal, Mapping):
-                return False
-            expected_action = str(
-                proposal.get("action", MemoryActionKind.REMEMBER.value)
-            ).upper()
-            expected_statement = proposal.get("statement")
-            expected_scope = proposal.get("scope", {})
-            expected_value = proposal.get("structured_value", {})
-            expected_target = proposal.get("target_record_id")
-            actual_statement = decision.memory_action.statement
+        for name, value, minimum in (
+            ("success_confirmations", success_confirmations, 2),
+            ("failure_confirmations", failure_confirmations, 2),
+            ("max_cycles", max_cycles, 1),
+            ("max_consecutive_failures", max_consecutive_failures, 1),
+            ("max_identical_failed_attempts", max_identical_failed_attempts, 1),
+        ):
+            if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+                raise ValueError(f"{name} must be at least {minimum}")
+        for name, value, allow_zero in (
+            ("success_stability_seconds", success_stability_seconds, True),
+            ("ongoing_timeout_seconds", ongoing_timeout_seconds, False),
+        ):
             if (
-                expected_action != action.value
-                or not isinstance(expected_statement, str)
-                or actual_statement is None
-                or " ".join(expected_statement.split())
-                != " ".join(actual_statement.split())
-                or expected_scope != decision.memory_action.scope
-                or expected_value != decision.memory_action.structured_value
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+                or (not allow_zero and value == 0)
             ):
-                return False
-            if expected_target is not None and decision.memory_refs_used != [
-                expected_target
-            ]:
-                return False
-            return True
-        if action in {MemoryActionKind.REMEMBER, MemoryActionKind.UPDATE}:
-            return bool(
-                _EXPLICIT_NATURAL_MEMORY.match(user_text)
-                or re.search(
-                    r"\b(from now on|make (?:that|this) my default|"
-                    r"save (?:that|this) (?:as )?(?:my )?preference|"
-                    r"update my preference)\b",
-                    lowered,
-                )
-            )
-        if action == MemoryActionKind.FORGET:
-            return bool(
-                re.search(
-                    r"\b(forget|delete|remove|stop remembering)\b",
-                    lowered,
-                )
-            )
-        return False
+                qualifier = "non-negative" if allow_zero else "positive"
+                raise ValueError(f"{name} must be a finite {qualifier} number")
+        if not callable(clock):
+            raise TypeError("clock must be callable")
 
-    def _commit_hri_memory_action(
+        self._success_confirmations = success_confirmations
+        self._success_stability_seconds = float(success_stability_seconds)
+        self._failure_confirmations = failure_confirmations
+        self._ongoing_timeout_seconds = float(ongoing_timeout_seconds)
+        self._max_cycles = max_cycles
+        self._max_consecutive_failures = max_consecutive_failures
+        self._max_identical_failed_attempts = max_identical_failed_attempts
+        self._clock = clock
+        self._lock = threading.RLock()
+
+        self._state = RecedingControllerState.IDLE
+        self._state_sequence = 0
+        self._goal: GoalContract | None = None
+        self._cycle_id = 0
+        self._attempt = 0
+        self._current_task: PublishedTask | None = None
+        self._history: list[ExecutionRecord] = []
+        self._pending_request: PlannerCycleRequest | None = None
+        self._attention_kind: AttentionKind | None = None
+        self._attention_reason: str | None = None
+        self._latest_observation: str | None = None
+        self._success_count = 0
+        self._failure_count = 0
+        self._first_success_at: float | None = None
+        self._last_assessment_at: float | None = None
+        self._last_frame_sequence: int | None = None
+        self._last_progress_at: float | None = None
+        self._best_met_count = 0
+        self._consecutive_terminal_failures = 0
+
+    @property
+    def snapshot(self) -> RecedingControllerSnapshot:
+        with self._lock:
+            return self._snapshot_locked()
+
+    def stage_goal(self, goal: GoalContract) -> RecedingTransition:
+        if not isinstance(goal, GoalContract):
+            raise TypeError("goal must be a GoalContract")
+        with self._lock:
+            self._reject_emergency_locked()
+            if self._state in {
+                RecedingControllerState.PLANNING,
+                RecedingControllerState.EXECUTING,
+                RecedingControllerState.FINAL_VALIDATION,
+            }:
+                raise InvalidTransitionError("cannot replace an active goal")
+            self._goal = goal
+            self._cycle_id = 0
+            self._attempt = 0
+            self._current_task = None
+            self._history = []
+            self._pending_request = None
+            self._attention_kind = None
+            self._attention_reason = None
+            self._latest_observation = None
+            self._consecutive_terminal_failures = 0
+            self._reset_evidence_locked()
+            self._set_state_locked(RecedingControllerState.AWAITING_CONFIRMATION)
+            return self._transition_locked(RecedingResult.STAGED)
+
+    def cancel_staged_goal(self) -> RecedingTransition:
+        """Discard an unconfirmed goal so it cannot remain authoritative."""
+
+        with self._lock:
+            self._reject_emergency_locked()
+            if self._state is not RecedingControllerState.AWAITING_CONFIRMATION:
+                raise InvalidTransitionError(
+                    "only a goal awaiting confirmation can be cancelled"
+                )
+            self._goal = None
+            self._cycle_id = 0
+            self._attempt = 0
+            self._current_task = None
+            self._history = []
+            self._pending_request = None
+            self._attention_kind = None
+            self._attention_reason = None
+            self._latest_observation = None
+            self._consecutive_terminal_failures = 0
+            self._reset_evidence_locked()
+            self._set_state_locked(RecedingControllerState.IDLE)
+            return self._transition_locked(RecedingResult.CANCELLED)
+
+    def confirm_goal(
         self,
+        goal: GoalContract,
         *,
-        decision: Any,
-        user_text: str,
-    ) -> str | None:
-        action = decision.memory_action.action
-        if action == MemoryActionKind.NONE:
-            return None
-        authorized = self._memory_action_authorized(
-            user_text=user_text,
-            decision=decision,
-        )
-        if not authorized:
-            message = (
-                "The proposed durable memory change was not committed because "
-                "the current user message did not explicitly authorize it."
+        confirmed: bool,
+        frame_sequence: int | None = None,
+    ) -> RecedingTransition:
+        if confirmed is not True:
+            raise ConfirmationRequiredError(
+                "explicit user confirmation is required before planning execution"
             )
-            self.recorder.record_event(
-                "Preference mutation rejected",
-                {
-                    "action": decision.memory_action,
-                    "user_text": user_text,
-                    "reason": "missing explicit authorization",
-                },
+        with self._lock:
+            self._reject_emergency_locked()
+            if self._state is not RecedingControllerState.AWAITING_CONFIRMATION:
+                raise InvalidTransitionError("the controller is not awaiting confirmation")
+            if goal != self._goal:
+                raise PlanMismatchError("confirmation must reference the exact staged goal")
+            request = self._begin_planning_locked(
+                PlannerTrigger.CONFIRMED,
+                frame_sequence=frame_sequence,
+                next_cycle=1,
             )
-            return message
+            return self._transition_locked(
+                RecedingResult.PLANNING_STARTED,
+                planner_request=request,
+            )
 
-        statement = decision.memory_action.statement
-        assert statement is not None
-        scope_payload = dict(decision.memory_action.scope)
-        scope = str(scope_payload.pop("kind", "contextual"))
-        evidence = [
-            {
-                "user_utterance": user_text,
-                "hri_reason_code": decision.reason_code,
+    def bind_planning_frame(
+        self,
+        frame_sequence: int | None,
+    ) -> PlannerCycleRequest:
+        """Attach trusted current-frame metadata before invoking Planner."""
+
+        with self._lock:
+            self._reject_emergency_locked()
+            if (
+                self._state is not RecedingControllerState.PLANNING
+                or self._pending_request is None
+            ):
+                raise InvalidTransitionError("there is no active planning request")
+            request = replace(
+                self._pending_request,
+                frame_sequence=frame_sequence,
+            )
+            self._pending_request = request
+            return request
+
+    def apply_planner_decision(
+        self,
+        request: PlannerCycleRequest,
+        decision: PlannerDecision,
+    ) -> RecedingTransition:
+        if not isinstance(request, PlannerCycleRequest):
+            raise TypeError("request must be a PlannerCycleRequest")
+        if not isinstance(decision, PlannerDecision):
+            raise TypeError("decision must be a PlannerDecision")
+        with self._lock:
+            self._reject_emergency_locked()
+            if (
+                self._state is not RecedingControllerState.PLANNING
+                or self._pending_request != request
+            ):
+                raise InvalidTransitionError("planner result is stale or unexpected")
+            assert self._goal is not None
+
+            if decision.decision is PlannerDecisionType.ACT:
+                first = decision.candidate_tasks[0]
+                failed_matches = sum(
+                    record.outcome
+                    in {ExecutionOutcome.FAIL, ExecutionOutcome.FINAL_VALIDATION_FAIL}
+                    and record.instruction.casefold() == first.instruction.casefold()
+                    for record in self._history
+                )
+                if failed_matches >= self._max_identical_failed_attempts:
+                    self._pending_request = None
+                    self._attention_kind = AttentionKind.LOOP_GUARD
+                    self._attention_reason = (
+                        "Planner repeated a task that already failed too many times"
+                    )
+                    self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+                    return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+
+                self._attempt = 1
+                task = self._build_task_locked(
+                    first.instruction,
+                    first.expected_observation,
+                    first.known_failure_conditions,
+                    phase=TaskPhase.STEP,
+                )
+                self._current_task = task
+                self._pending_request = None
+                self._attention_kind = None
+                self._attention_reason = None
+                self._activate_task_locked(task)
+                self._set_state_locked(RecedingControllerState.EXECUTING)
+                return self._transition_locked(
+                    RecedingResult.TASK_PUBLISHED,
+                    task_to_publish=task,
+                )
+
+            if decision.decision is PlannerDecisionType.REQUEST_FINAL_VALIDATION:
+                self._attempt = 1
+                task = self._build_task_locked(
+                    (
+                        "Keep the scene unchanged; move only the camera as "
+                        "needed to show every requested outcome."
+                    ),
+                    self._goal.final_expected_observation,
+                    (),
+                    phase=TaskPhase.FINAL_VALIDATION,
+                )
+                self._current_task = task
+                self._pending_request = None
+                self._attention_kind = None
+                self._attention_reason = None
+                self._activate_task_locked(task)
+                self._set_state_locked(RecedingControllerState.FINAL_VALIDATION)
+                return self._transition_locked(
+                    RecedingResult.FINAL_VALIDATION_STARTED,
+                    task_to_publish=task,
+                )
+
+            self._pending_request = None
+            self._attention_kind = (
+                AttentionKind.PLANNER_BLOCKED
+                if decision.decision is PlannerDecisionType.BLOCKED
+                else AttentionKind.NEEDS_USER_INPUT
+            )
+            self._attention_reason = (
+                decision.blocked_reason
+                if decision.decision is PlannerDecisionType.BLOCKED
+                else decision.user_question
+            )
+            self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+            return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+
+    def record_assessment(
+        self,
+        assessment: MonitorAssessment,
+    ) -> RecedingTransition:
+        if not isinstance(assessment, MonitorAssessment):
+            raise TypeError("assessment must be a MonitorAssessment")
+        with self._lock:
+            if self._state is RecedingControllerState.EMERGENCY_STOPPED:
+                return self._transition_locked(RecedingResult.IGNORED_STALE)
+            task = self._current_task
+            if self._state not in {
+                RecedingControllerState.EXECUTING,
+                RecedingControllerState.FINAL_VALIDATION,
+            } or task is None:
+                return self._transition_locked(RecedingResult.IGNORED_STALE)
+            if not self._assessment_matches_locked(assessment, task):
+                return self._transition_locked(RecedingResult.IGNORED_STALE)
+
+            self._last_assessment_at = assessment.observed_at
+            self._last_frame_sequence = assessment.frame_sequence
+            expected_ids = {
+                criterion.criterion_id for criterion in task.expected_observation
             }
-        ]
-        try:
-            if action == MemoryActionKind.REMEMBER:
-                record = self.memory.remember_preference(
-                    username=self.username,
-                    statement=statement,
-                    authorized=True,
-                    scope=scope,
-                    applicability=scope_payload,
-                    structured_value=decision.memory_action.structured_value,
-                    evidence=evidence,
-                )
-                note = f"Saved preference `{record.id}`."
-            else:
-                referenced = [
-                    record_id
-                    for record_id in decision.memory_refs_used
-                    if record_id.startswith("pref-")
-                ]
-                if len(referenced) != 1:
-                    raise ValueError(
-                        f"{action.value} requires exactly one retrieved preference ID"
-                    )
-                if action == MemoryActionKind.UPDATE:
-                    record = self.memory.update_preference(
-                        username=self.username,
-                        preference_id=referenced[0],
-                        statement=statement,
-                        authorized=True,
-                        scope=scope,
-                        applicability=scope_payload,
-                        structured_value=decision.memory_action.structured_value,
-                        evidence=evidence,
-                    )
-                    note = (
-                        f"Updated preference `{referenced[0]}` as `{record.id}`."
-                    )
-                else:
-                    record = self.memory.revoke_preference(
-                        username=self.username,
-                        preference_id=referenced[0],
-                        authorized=True,
-                        evidence=evidence,
-                    )
-                    note = f"Revoked preference `{record.id}`."
-        except Exception as exc:
-            note = f"The memory change was not committed: {exc}"
-            self.recorder.record_event(
-                "Preference mutation failed",
-                {
-                    "action": decision.memory_action,
-                    "error": f"{type(exc).__name__}: {exc}",
-                },
-            )
-            return note
+            actual_ids = {
+                criterion.criterion_id for criterion in assessment.criteria
+            }
+            if actual_ids != expected_ids:
+                self._reset_streaks_locked()
+                return self._transition_locked(RecedingResult.IGNORED_INVALID)
 
-        self._pending_memory_consent = None
-        return note
+            self._latest_observation = assessment.observation
+            met_count = sum(
+                criterion.state is CriterionState.MET
+                for criterion in assessment.criteria
+            )
+            if met_count > self._best_met_count:
+                self._best_met_count = met_count
+                self._last_progress_at = self._clock()
 
-    def handle_user(self, user_text: str) -> TurnResult:
-        user_text = user_text.strip()
-        if not user_text:
-            return TurnResult(
-                text="Please enter a request.",
-                phase=TaskPhase.WAITING_FOR_USER,
-            )
-
-        self._transition(TaskPhase.HRI)
-        self.conversation.append({"role": "user", "content": user_text})
-        self._active_memory_consent = self._pending_memory_consent
-        self._pending_memory_consent = None
-
-        if _REMEMBER_COMMAND.match(user_text) or _FORGET_COMMAND.match(
-            user_text
-        ) or user_text.strip().lower() == "/preferences":
-            self.recorder.record_event("User", user_text)
-        try:
-            command_result = self._handle_memory_command(user_text)
-        except Exception as exc:
-            self.recorder.record_event(
-                "Memory command failed",
-                {"error": f"{type(exc).__name__}: {exc}"},
-            )
-            return self._reply(
-                f"I could not apply that memory command: {exc}",
-                phase=TaskPhase.FAILED,
-            )
-        if command_result is not None:
-            return command_result
-
-        try:
-            initial = self.observation_source.capture(purpose="hri-input")
-        except Exception as exc:
-            self.recorder.record_event(
-                "Observation failure",
-                {"error": f"{type(exc).__name__}: {exc}"},
-            )
-            return self._reply(
-                f"I could not read the camera frame: {exc}",
-                phase=TaskPhase.FAILED,
-            )
-
-        self.recorder.record_user(user_text, frame_path=initial.frame_path)
-        memory_context = MemoryContext(status=MemoryStatus.NOT_RETRIEVED)
-        retrieval_signatures: set[str] = set()
-
-        try:
-            for _ in range(self.limits.hri_routes_per_turn):
-                decision = self.hri.decide(
-                    username=self.username,
-                    user_query=user_text,
-                    observation=initial.observation,
-                    memory=memory_context,
-                    conversation=self.conversation[-12:],
-                    pending_memory_consent=self._active_memory_consent,
-                    frame_path=initial.frame_path,
-                )
-                self.recorder.record_event("HRI route", decision)
-
-                if decision.decision == HRIDecisionKind.RETRIEVE_MEMORY:
-                    assert decision.memory_request is not None
-                    signature = decision.memory_request.model_dump_json(
-                        exclude={"request_id"}
-                    )
-                    if signature in retrieval_signatures:
-                        memory_context = MemoryContext(
-                            status=MemoryStatus.UNAVAILABLE,
-                            request_id=decision.memory_request.request_id,
-                            warnings=[
-                                "HRI repeated an identical retrieval request; "
-                                "the host suppressed the loop."
-                            ],
-                        )
-                    else:
-                        retrieval_signatures.add(signature)
-                        try:
-                            memory_context = self.memory.retrieve(
-                                username=self.username,
-                                request=decision.memory_request,
-                            )
-                        except Exception as exc:
-                            memory_context = MemoryContext(
-                                status=MemoryStatus.UNAVAILABLE,
-                                request_id=decision.memory_request.request_id,
-                                warnings=[
-                                    f"Memory retrieval unavailable: "
-                                    f"{type(exc).__name__}: {exc}"
-                                ],
-                            )
-                            self.recorder.record_event(
-                                "Memory retrieval unavailable",
-                                {
-                                    "request": decision.memory_request,
-                                    "error": f"{type(exc).__name__}: {exc}",
-                                },
-                            )
-                    continue
-
-                supplied_memory_ids = {
-                    str(item["record_id"])
-                    for item in [
-                        *memory_context.relevant_preferences,
-                        *memory_context.relevant_history,
-                        *memory_context.conflicts,
-                    ]
-                    if item.get("record_id") is not None
-                }
-                referenced_ids = set(decision.memory_refs_used)
-                if not referenced_ids.issubset(supplied_memory_ids):
-                    raise ValueError(
-                        "HRI referenced persistent memory IDs that were not "
-                        "supplied by the host"
-                    )
-                if decision.task_contract is not None and not set(
-                    decision.task_contract.preference_refs
-                ).issubset(supplied_memory_ids):
-                    raise ValueError(
-                        "task contract referenced preferences outside the "
-                        "retrieved host context"
-                    )
-
-                memory_note = self._commit_hri_memory_action(
-                    decision=decision,
-                    user_text=user_text,
-                )
-
-                if decision.decision == HRIDecisionKind.ASK_USER:
-                    assert decision.interaction is not None
-                    assert decision.reply_to_user is not None
-                    if decision.interaction.kind == InteractionKind.MEMORY_CONSENT:
-                        proposed = decision.interaction.proposed_value
-                        if not isinstance(proposed, Mapping):
-                            raise ValueError(
-                                "MEMORY_CONSENT requires a structured proposal"
-                            )
-                        required = {
-                            "statement",
-                            "scope",
-                            "structured_value",
-                        }
-                        missing = sorted(required - set(proposed))
-                        if missing:
-                            raise ValueError(
-                                "MEMORY_CONSENT proposal is missing "
-                                f"{missing}"
-                            )
-                        self._pending_memory_consent = {
-                            "pending_question": decision.reply_to_user,
-                            "proposal": dict(proposed),
-                        }
-                    reply = decision.reply_to_user
-                    if memory_note:
-                        reply = f"{reply}\n\n{memory_note}"
-                    return self._reply(
-                        reply,
-                        phase=TaskPhase.WAITING_FOR_USER,
-                        memory=memory_context,
-                    )
-
-                if decision.decision == HRIDecisionKind.RESPOND:
-                    assert decision.reply_to_user is not None
-                    reply = decision.reply_to_user
-                    if memory_note:
-                        reply = f"{reply}\n\n{memory_note}"
-                    return self._reply(
-                        reply,
-                        phase=TaskPhase.COMPLETE,
-                        memory=memory_context,
-                    )
-
-                assert decision.task_contract is not None
-                return self._run_task(
-                    decision.task_contract,
-                    initial=initial,
-                    memory_context=memory_context,
-                    memory_note=memory_note,
-                )
-        except Exception as exc:
-            self.recorder.record_event(
-                "Controller error",
-                {"stage": self.phase, "error": f"{type(exc).__name__}: {exc}"},
-            )
-            return self._reply(
-                f"I could not safely complete this turn: {exc}",
-                phase=TaskPhase.FAILED,
-                memory=memory_context,
-            )
-
-        return self._reply(
-            "I could not resolve the request within the HRI routing budget.",
-            phase=TaskPhase.FAILED,
-            memory=memory_context,
-        )
-
-    @staticmethod
-    def _plan_text(plan: PlanResult) -> str:
-        if plan.planning_status == PlanningStatus.ALREADY_SATISFIED:
-            return "The planner found that the requested final state may already hold."
-        lines = [
-            f"{index}. {subtask.task_instruction}"
-            for index, subtask in enumerate(plan.subtasks, start=1)
-        ]
-        return "\n".join(lines)
-
-    @staticmethod
-    def _with_memory_note(text: str, note: str | None) -> str:
-        return f"{text}\n\n{note}" if note else text
-
-    def _present_controller_result(
-        self,
-        *,
-        fallback: str,
-        observation: ObservationEnvelope,
-        memory: MemoryContext,
-        payload: Mapping[str, Any],
-    ) -> str:
-        del observation, memory
-        # Authoritative controller outcomes are rendered by host code.  Passing
-        # them through free-form model prose would let a presentation model
-        # contradict plan-only, safety, or final-validation state.
-        self.recorder.record_event(
-            "Deterministic controller presentation",
-            {
-                "controller_result": dict(payload),
-                "user_visible_text": fallback,
-            },
-        )
-        return fallback
-
-    @staticmethod
-    def _validation_text(
-        validation: ValidationResult,
-        *,
-        confirmed_intent: str,
-    ) -> str:
-        if validation.outcome == ValidatorOutcome.SUCCESS:
-            return (
-                "Final validation verified task completion: "
-                f"{confirmed_intent}"
-            )
-        if validation.outcome == ValidatorOutcome.UNSAFE:
-            return (
-                "The task is not complete. Final validation reported an unsafe "
-                "condition, so execution is stopped."
-            )
-        if validation.outcome == ValidatorOutcome.FAILURE:
-            return (
-                "The task is not complete. Final validation found that the "
-                "requested final state was not achieved."
-            )
-        return (
-            "The task is not complete because final validation cannot verify "
-            "the requested final state."
-        )
-
-    def _save_episode(
-        self,
-        *,
-        state: _ExecutionState,
-        summary: str,
-        result: Mapping[str, Any] | str,
-        validation: ValidationResult | None = None,
-    ) -> None:
-        episode = EpisodeRecord(
-            id=f"episode-{uuid4().hex}",
-            username=self.username,
-            request=state.task_contract.confirmed_intent,
-            resolved_task=state.task_contract.model_dump(mode="json"),
-            actions=[
-                subtask.model_dump(mode="json")
-                for subtask in state.plan.subtasks
-            ],
-            execution={
-                "completed_subtasks": state.completed_subtasks,
-                "dispatches": state.dispatches,
-                "monitor_results": [
-                    item.model_dump(mode="json")
-                    for item in state.monitor_results
-                ],
-                "replans": state.replans,
-                "boundary_replans": state.boundary_replans,
-                "reobservations": state.reobservations,
-                "plan_only": self.plan_only,
-            },
-            validation=(
-                validation.model_dump(mode="json")
-                if validation is not None
-                else {}
-            ),
-            result=dict(result) if isinstance(result, Mapping) else result,
-            summary=summary,
-            tags=[state.task_contract.task_type],
-        )
-        self.memory.save_episode(episode)
-
-    def _run_task(
-        self,
-        task_contract: TaskContract,
-        *,
-        initial: ObservationEnvelope,
-        memory_context: MemoryContext,
-        memory_note: str | None = None,
-    ) -> TurnResult:
-        task_id = f"task-{uuid4().hex}"
-        planning_request = PlanningRequest(
-            plan_id=f"plan-{uuid4().hex}",
-            plan_version=1,
-            planning_mode=self.replan_policy,
-            validation_spec_id=f"spec-{uuid4().hex}",
-        )
-        self._transition(TaskPhase.PLANNING, details={"task_id": task_id})
-        plan = self.planner.plan(
-            planning_request=planning_request,
-            task_contract=task_contract,
-            observation=initial.observation,
-            frame_path=initial.frame_path,
-        )
-        plan.require_intent(task_contract)
-        plan.require_request(planning_request)
-        self.recorder.record_event("Plan accepted by host", plan)
-        state = _ExecutionState(
-            task_id=task_id,
-            task_contract=task_contract,
-            planning_request=planning_request,
-            plan=plan,
-        )
-
-        if plan.planning_status not in {
-            PlanningStatus.READY,
-            PlanningStatus.ALREADY_SATISFIED,
-        }:
-            assert plan.failure is not None
-            planner_text = (
-                f"Planning stopped with {plan.planning_status.value} "
-                f"({plan.failure.code}). No execution command was published."
-            )
-            text = self._present_controller_result(
-                fallback=planner_text,
-                observation=initial,
-                memory=memory_context,
-                payload={
-                    "kind": "PLANNER_RESULT",
-                    "plan": plan.model_dump(mode="json"),
-                    "host_truth": "No execution command was published.",
-                },
-            )
-            text = self._with_memory_note(text, memory_note)
-            self._save_episode(
-                state=state,
-                summary=f"Planning stopped: {text}",
-                result={"status": plan.planning_status, "message": text},
-            )
-            return self._reply(
-                text,
-                phase=TaskPhase.FAILED,
-                task_id=task_id,
-                plan=plan,
-                memory=memory_context,
-            )
-
-        if self.plan_only and plan.planning_status == PlanningStatus.READY:
-            fallback = (
-                "I grounded the request in the current camera frame and prepared "
-                "this plan:\n\n"
-                f"{self._plan_text(plan)}\n\n"
-                "Plan-only mode is active, so no VLA command was sent and I am "
-                "not claiming that the scene changed."
-            )
-            text = self._present_controller_result(
-                fallback=fallback,
-                observation=initial,
-                memory=memory_context,
-                payload={
-                    "kind": "PLAN_READY_NOT_EXECUTED",
-                    "plan": plan.model_dump(mode="json"),
-                    "host_truth": (
-                        "Plan-only mode: no VLA command was published and no "
-                        "physical completion may be claimed."
-                    ),
-                },
-            )
-            text = self._with_memory_note(text, memory_note)
-            self._save_episode(
-                state=state,
-                summary="A grounded plan was produced but not executed.",
-                result={"status": "PLANNED_NOT_EXECUTED"},
-            )
-            return self._reply(
-                text,
-                phase=TaskPhase.COMPLETE,
-                task_id=task_id,
-                plan=plan,
-                memory=memory_context,
-            )
-
-        if self.vla is None and plan.planning_status == PlanningStatus.READY:
-            fallback = (
-                "The plan is ready, but no VLA execution adapter is configured. "
-                "No command was sent."
-            )
-            text = self._present_controller_result(
-                fallback=fallback,
-                observation=initial,
-                memory=memory_context,
-                payload={
-                    "kind": "EXECUTION_UNAVAILABLE",
-                    "plan": plan.model_dump(mode="json"),
-                    "host_truth": "No VLA command was published.",
-                },
-            )
-            text = self._with_memory_note(text, memory_note)
-            self._save_episode(
-                state=state,
-                summary=text,
-                result={"status": "EXECUTION_UNAVAILABLE"},
-            )
-            return self._reply(
-                text,
-                phase=TaskPhase.FAILED,
-                task_id=task_id,
-                plan=plan,
-                memory=memory_context,
-            )
-
-        assert plan.validation_spec is not None
-        frozen_spec = plan.validation_spec
-
-        if plan.planning_status == PlanningStatus.READY:
-            execution_failure = self._execute_plan(
-                state,
-                initial=initial,
-                memory_context=memory_context,
-            )
-            if execution_failure is not None:
-                self._save_episode(
-                    state=state,
-                    summary=execution_failure,
-                    result={"status": "EXECUTION_STOPPED"},
-                )
-                terminal_phase = (
-                    TaskPhase.SAFETY_STOP
-                    if self.phase == TaskPhase.SAFETY_STOP
-                    else TaskPhase.FAILED
-                )
-                presented = self._present_controller_result(
-                    fallback=execution_failure,
-                    observation=initial,
-                    memory=memory_context,
-                    payload={
-                        "kind": "EXECUTION_STOPPED",
-                        "message": execution_failure,
-                        "execution": {
-                            "completed_subtasks": state.completed_subtasks,
-                            "dispatches": state.dispatches,
-                            "monitor_results": [
-                                item.model_dump(mode="json")
-                                for item in state.monitor_results
-                            ],
-                        },
-                        "host_truth": "Final validation did not authorize completion.",
-                    },
-                )
-                return self._reply(
-                    self._with_memory_note(presented, memory_note),
-                    phase=terminal_phase,
-                    task_id=task_id,
-                    plan=state.plan,
-                    memory=memory_context,
-                )
-
-        while True:
-            validation, terminal = self._validate_final(
-                state,
-                frozen_spec=frozen_spec,
-            )
-            if validation.outcome in {
-                ValidatorOutcome.SUCCESS,
-                ValidatorOutcome.UNSAFE,
-            }:
-                break
-            if validation.recoverability not in {
-                ValidatorRecoverability.AUTO_LOCAL,
-                ValidatorRecoverability.REPLAN,
-            }:
-                break
-            replanned = self._replan(
-                state,
-                observation=terminal,
-                memory_context=memory_context,
-                frozen_spec=frozen_spec,
-                reason={
-                    "trigger": "FINAL_VALIDATION",
-                    "validation_result": validation.model_dump(mode="json"),
-                    "completed_subtasks": state.completed_subtasks,
-                },
-            )
-            if isinstance(replanned, str):
-                validation = validation.model_copy(
-                    update={
-                        "user_message": (
-                            f"{validation.user_message} {replanned}"
-                        )
-                    }
-                )
-                break
-            if replanned.planning_status == PlanningStatus.ALREADY_SATISFIED:
-                if state.reobservations >= self.limits.max_reobservations:
-                    break
-                state.reobservations += 1
-                continue
-            execution_failure = self._execute_plan(
-                state,
-                initial=terminal,
-                memory_context=memory_context,
-            )
-            if execution_failure is not None:
-                validation = validation.model_copy(
-                    update={
-                        "user_message": (
-                            f"{validation.user_message} {execution_failure}"
-                        )
-                    }
-                )
-                break
-
-        text = self._present_controller_result(
-            fallback=self._validation_text(
-                validation,
-                confirmed_intent=state.task_contract.confirmed_intent,
-            ),
-            observation=terminal,
-            memory=memory_context,
-            payload={
-                "kind": "FINAL_VALIDATION",
-                "validation": validation.model_dump(mode="json"),
-                "host_truth": (
-                    "Completion is authorized only when outcome is SUCCESS and "
-                    "task_complete is true."
-                ),
-            },
-        )
-        text = self._with_memory_note(text, memory_note)
-        self._save_episode(
-            state=state,
-            summary=text,
-            result={"status": validation.outcome},
-            validation=validation,
-        )
-        phase = (
-            TaskPhase.COMPLETE
-            if validation.outcome == ValidatorOutcome.SUCCESS
-            else (
-                TaskPhase.SAFETY_STOP
-                if validation.outcome == ValidatorOutcome.UNSAFE
-                else TaskPhase.FAILED
-            )
-        )
-        return self._reply(
-            text,
-            phase=phase,
-            task_id=task_id,
-            plan=state.plan,
-            validation=validation,
-            memory=memory_context,
-            metadata={"terminal_observation_id": terminal.observation.observation_id},
-        )
-
-    def _execute_plan(
-        self,
-        state: _ExecutionState,
-        *,
-        initial: ObservationEnvelope,
-        memory_context: MemoryContext,
-    ) -> str | None:
-        assert self.vla is not None
-        assert state.plan.validation_spec is not None
-        frozen_spec = state.plan.validation_spec
-        pending = deque(state.plan.subtasks)
-        latest = initial
-
-        while pending:
-            if len(state.dispatches) >= self.limits.max_dispatches:
-                return "Execution stopped because the dispatch budget was exhausted."
-            subtask = pending.popleft()
-            dispatch_observation = self.observation_source.capture(
-                purpose=f"dispatch-{subtask.subtask_id}"
-            )
-            latest = dispatch_observation
-            dispatch_id = f"dispatch-{uuid4().hex}"
-            command = ExecutionCommand(
-                dispatch_id=dispatch_id,
-                subtask_id=subtask.subtask_id,
-                task_instruction=subtask.task_instruction,
-                observation_id=dispatch_observation.observation.observation_id,
-                current_frame=dispatch_observation.observation.image_block,
-            )
-            self._transition(
-                TaskPhase.PUBLISHING,
-                details={
-                    "task_id": state.task_id,
-                    "dispatch_id": dispatch_id,
-                    "subtask_id": subtask.subtask_id,
-                },
-            )
-            receipt = self.vla.publish(command)
-            state.dispatches.append(
-                {
-                    "command": command.model_dump(
-                        mode="json",
-                        exclude={"current_frame"},
-                    ),
-                    "receipt": receipt.model_dump(mode="json"),
-                }
-            )
-
-            try:
-                result, latest = self._monitor_subtask(
-                    state,
-                    subtask=subtask,
-                    dispatch_id=dispatch_id,
-                    dispatch_observation=dispatch_observation,
-                )
-            except Exception as exc:
-                cancellation = self._cancel_dispatch(
-                    state,
-                    dispatch_id=dispatch_id,
-                    reason="live_monitor_error",
-                )
-                self.recorder.record_event(
-                    "Live monitoring stopped",
-                    {
-                        "dispatch_id": dispatch_id,
-                        "subtask_id": subtask.subtask_id,
-                        "error": f"{type(exc).__name__}: {exc}",
-                        "cancellation": (
-                            cancellation.as_json()
-                            if cancellation is not None
-                            else None
-                        ),
-                    },
-                )
-                return (
-                    f"Execution monitoring stopped at subtask "
-                    f"`{subtask.subtask_id}`: {exc}. "
-                    "I am not claiming task completion."
-                )
-            state.monitor_results.append(result)
-
-            if result.task_status == TaskStatus.SUCCESS:
-                state.completed_subtasks.append(subtask.subtask_id)
-                if (
-                    self.replan_policy == ReplanPolicy.EVERY_SUBTASK
-                    and pending
+            if assessment.task_status is TaskStatus.ONGOING:
+                # An inconclusive view is not evidence that a previously
+                # visible success disappeared. Preserve the candidate across
+                # MET/UNKNOWN-only frames, but reset it on visible
+                # contradiction. The ordinary no-progress timeout still
+                # bounds how long an UNKNOWN view can remain neutral.
+                self._failure_count = 0
+                if any(
+                    criterion.state is CriterionState.NOT_MET
+                    for criterion in assessment.criteria
                 ):
-                    replanned = self._replan(
-                        state,
-                        observation=latest,
-                        memory_context=memory_context,
-                        frozen_spec=frozen_spec,
-                        reason={
-                            "trigger": "EVERY_SUBTASK",
-                            "completed_subtasks": state.completed_subtasks,
-                            "remaining_subtasks": [
-                                item.model_dump(mode="json") for item in pending
-                            ],
-                        },
-                    )
-                    if isinstance(replanned, str):
-                        return replanned
-                    pending = deque(replanned.subtasks)
-                continue
+                    self._success_count = 0
+                    self._first_success_at = None
+                self._bump_sequence_locked()
+                return self._transition_locked(RecedingResult.ACCEPTED)
 
-            if result.recommended_action == MonitorAction.ABORT_SAFETY:
-                self._cancel_dispatch(
-                    state,
-                    dispatch_id=dispatch_id,
-                    reason="live_monitor_safety_abort",
+            if assessment.task_status is TaskStatus.SUCCESS:
+                self._failure_count = 0
+                if self._success_count == 0:
+                    self._first_success_at = assessment.observed_at
+                self._success_count += 1
+                stable_for = (
+                    assessment.observed_at - self._first_success_at
+                    if self._first_success_at is not None
+                    else 0.0
                 )
-                self._transition(TaskPhase.SAFETY_STOP)
-                return (
-                    "Execution was stopped because the live monitor reported an "
-                    "unsafe condition. I am not claiming task completion."
+                if (
+                    self._success_count < self._success_confirmations
+                    or stable_for < self._success_stability_seconds
+                ):
+                    self._bump_sequence_locked()
+                    return self._transition_locked(RecedingResult.ACCEPTED)
+
+                if self._state is RecedingControllerState.FINAL_VALIDATION:
+                    self._current_task = None
+                    self._pending_request = None
+                    self._attention_kind = None
+                    self._attention_reason = None
+                    self._reset_evidence_locked()
+                    self._set_state_locked(RecedingControllerState.COMPLETE)
+                    return self._transition_locked(RecedingResult.COMPLETE)
+
+                self._append_record_locked(
+                    task,
+                    assessment,
+                    ExecutionOutcome.SUCCESS,
+                )
+                self._consecutive_terminal_failures = 0
+                request = self._request_next_cycle_locked(
+                    PlannerTrigger.TASK_SUCCESS,
+                    assessment.frame_sequence,
+                )
+                if request is None:
+                    return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+                return self._transition_locked(
+                    RecedingResult.REPLAN_REQUESTED,
+                    planner_request=request,
                 )
 
-            if result.recommended_action == MonitorAction.USER_ASSIST:
-                self._cancel_dispatch(
-                    state,
-                    dispatch_id=dispatch_id,
-                    reason="live_monitor_user_assist",
-                )
-                self._transition(TaskPhase.WAITING_FOR_USER)
-                return (
-                    f"Execution stopped at subtask `{subtask.subtask_id}` and "
-                    "needs user assistance."
-                )
+            self._success_count = 0
+            self._first_success_at = None
+            self._failure_count += 1
+            if self._failure_count < self._failure_confirmations:
+                self._bump_sequence_locked()
+                return self._transition_locked(RecedingResult.ACCEPTED)
 
-            if result.recommended_action == MonitorAction.REPLAN:
-                self._cancel_dispatch(
-                    state,
-                    dispatch_id=dispatch_id,
-                    reason="live_monitor_replan",
-                )
-                replanned = self._replan(
-                    state,
-                    observation=latest,
-                    memory_context=memory_context,
-                    frozen_spec=frozen_spec,
-                    reason={
-                        "trigger": "MONITOR",
-                        "failed_subtask": subtask.model_dump(mode="json"),
-                        "monitor_result": result.model_dump(mode="json"),
-                        "completed_subtasks": state.completed_subtasks,
-                    },
-                )
-                if isinstance(replanned, str):
-                    return replanned
-                pending = deque(replanned.subtasks)
-                continue
-
-            self._cancel_dispatch(
-                state,
-                dispatch_id=dispatch_id,
-                reason=(
-                    "terminal_monitor_action:"
-                    f"{result.recommended_action.value}"
-                ),
+            assert assessment.failure is not None
+            final_validation = (
+                self._state is RecedingControllerState.FINAL_VALIDATION
             )
-            return (
-                f"Execution stopped at subtask `{subtask.subtask_id}` with "
-                f"monitor action {result.recommended_action}."
+            outcome = (
+                ExecutionOutcome.FINAL_VALIDATION_FAIL
+                if final_validation
+                else ExecutionOutcome.FAIL
             )
-        return None
+            self._append_record_locked(task, assessment, outcome)
+            self._consecutive_terminal_failures += 1
+            if self._consecutive_terminal_failures >= self._max_consecutive_failures:
+                self._current_task = None
+                self._pending_request = None
+                self._attention_kind = AttentionKind.LOOP_GUARD
+                self._attention_reason = (
+                    "Too many consecutive task failures; human review is required"
+                )
+                self._reset_evidence_locked()
+                self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+                return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+            request = self._request_next_cycle_locked(
+                PlannerTrigger.FINAL_VALIDATION_FAIL
+                if final_validation
+                else PlannerTrigger.TASK_FAIL,
+                assessment.frame_sequence,
+            )
+            if request is None:
+                return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+            return self._transition_locked(
+                RecedingResult.REPLAN_REQUESTED,
+                planner_request=request,
+            )
 
-    def _cancel_dispatch(
+    def check_timeout(self, *, now: float | None = None) -> RecedingTransition | None:
+        timestamp = self._clock() if now is None else float(now)
+        with self._lock:
+            if self._state not in {
+                RecedingControllerState.EXECUTING,
+                RecedingControllerState.FINAL_VALIDATION,
+            } or self._last_progress_at is None:
+                return None
+            if timestamp - self._last_progress_at < self._ongoing_timeout_seconds:
+                return None
+            self._attention_kind = AttentionKind.NO_PROGRESS
+            self._attention_reason = "No observable progress before the monitoring timeout"
+            self._reset_streaks_locked()
+            self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+            return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+
+    def record_system_error(self, reason: str) -> RecedingTransition:
+        with self._lock:
+            self._reject_emergency_locked()
+            self._attention_kind = AttentionKind.SYSTEM_ERROR
+            self._attention_reason = reason.strip() or "Unknown system error"
+            self._reset_streaks_locked()
+            self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+            return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+
+    def resume_after_attention(
         self,
-        state: _ExecutionState,
         *,
-        dispatch_id: str,
-        reason: str,
-    ) -> CancellationReceipt | None:
-        """Best-effort stop request for a command that was already published."""
-
-        assert self.vla is not None
-        try:
-            receipt = self.vla.cancel(dispatch_id, reason)
-            cancellation_record: dict[str, Any] = receipt.as_json()
-        except Exception as exc:
-            receipt = None
-            cancellation_record = {
-                "dispatch_id": dispatch_id,
-                "reason": reason,
-                "supported": None,
-                "accepted": False,
-                "error": f"{type(exc).__name__}: {exc}",
-            }
-
-        for dispatch in reversed(state.dispatches):
-            command = dispatch.get("command", {})
-            if command.get("dispatch_id") == dispatch_id:
-                dispatch["cancellation"] = cancellation_record
-                break
-        self.recorder.record_event(
-            "VLA cancellation boundary",
-            cancellation_record,
-        )
-        return receipt
-
-    def _monitor_subtask(
-        self,
-        state: _ExecutionState,
-        *,
-        subtask: Any,
-        dispatch_id: str,
-        dispatch_observation: ObservationEnvelope,
-    ) -> tuple[MonitorResult, ObservationEnvelope]:
-        self._transition(
-            TaskPhase.MONITORING,
-            details={"dispatch_id": dispatch_id},
-        )
-        started = self.clock()
-        recent: deque[ObservationEnvelope] = deque(
-            maxlen=self.limits.monitor_window
-        )
-        previous: MonitorResult | None = None
-        success_confirmations = 0
-        successful_observation_keys: set[str] = set()
-        last_progress_at = 0.0
-
-        def host_timeout_result(
-            *,
-            message: str,
-            action: MonitorAction,
-        ) -> MonitorResult:
-            return MonitorResult(
-                dispatch_id=dispatch_id,
-                subtask_id=subtask.subtask_id,
-                task_status=TaskStatus.FAILURE,
-                progress=MonitorProgress.STALLED,
-                observation_quality=ObservationQuality.STALE,
-                safety_status=MonitorSafetyStatus.UNKNOWN,
-                failure_kind=FailureKind.STALLED,
-                recommended_action=action,
-                condition_checks=[
-                    ConditionCheck(
-                        condition_id=condition.condition_id,
-                        state=ConditionState.UNKNOWN,
-                        evidence=message,
-                        confidence=0.0,
-                    )
-                    for condition in subtask.expected_outcome.conditions
-                ],
-                confidence=1.0,
-            )
-
-        for check_index in range(self.limits.max_monitor_checks):
-            elapsed = self.clock() - started
-            if elapsed >= subtask.timeout_policy.timeout_seconds:
-                action = (
-                    MonitorAction.REPLAN
-                    if subtask.timeout_policy.on_timeout == "REPLAN"
-                    else MonitorAction.USER_ASSIST
-                )
-                latest = recent[-1] if recent else dispatch_observation
-                return (
-                    host_timeout_result(
-                        message=(
-                            f"Host timeout after {elapsed:.3f} seconds; "
-                            "local completion is unverified."
-                        ),
-                        action=action,
-                    ),
-                    latest,
-                )
-            stalled_for = elapsed - last_progress_at
-            if stalled_for >= subtask.timeout_policy.stall_seconds:
-                stall_action = MonitorAction(
-                    subtask.timeout_policy.on_stall
-                )
-                latest = recent[-1] if recent else dispatch_observation
-                stalled = host_timeout_result(
-                    message=(
-                        f"Host stall threshold reached after {stalled_for:.3f} "
-                        "seconds without monitor-reported progress."
-                    ),
-                    action=stall_action,
-                )
-                if stall_action != MonitorAction.REOBSERVE:
-                    return stalled, latest
-                state.reobservations += 1
-                if state.reobservations > self.limits.max_reobservations:
-                    return (
-                        stalled.model_copy(
-                            update={
-                                "recommended_action": MonitorAction.REPLAN,
-                            }
-                        ),
-                        latest,
-                    )
-                last_progress_at = elapsed
-            if check_index and self.limits.monitor_interval_seconds:
-                self.wait(self.limits.monitor_interval_seconds)
-
-            current = self.observation_source.capture(
-                purpose=f"monitor-{subtask.subtask_id}-{check_index + 1}"
-            )
-            recent.append(current)
-            elapsed = self.clock() - started
-            request = MonitorRequest(
-                dispatch_id=dispatch_id,
-                subtask_id=subtask.subtask_id,
-                task_instruction=subtask.task_instruction,
-                expected_outcome=subtask.expected_outcome,
-                dispatch_observation=dispatch_observation.observation,
-                recent_observations=[
-                    envelope.observation for envelope in recent
-                ],
-                elapsed_seconds=elapsed,
-                previous_result=(
-                    previous.model_dump(mode="json")
-                    if previous is not None
-                    else None
-                ),
-            )
-            paths = [
-                path
-                for path in [
-                    dispatch_observation.frame_path,
-                    *(item.frame_path for item in recent),
-                ]
-                if path is not None
-            ]
-            result = self.monitor.evaluate(request, frame_paths=paths)
-            result.require_current_dispatch(
-                dispatch_id=request.dispatch_id,
-                subtask_id=request.subtask_id,
-            )
-            result.require_expected_outcome(request.expected_outcome)
-            self.recorder.record_event("Monitor result accepted by host", result)
-            if result.progress in {
-                MonitorProgress.ADVANCING,
-                MonitorProgress.VERIFYING,
-            }:
-                last_progress_at = elapsed
-
-            if result.task_status == TaskStatus.SUCCESS:
-                observation_key = (
-                    current.observation.content_hash
-                    or current.observation.observation_id
-                )
-                if observation_key in successful_observation_keys:
-                    self.recorder.record_event(
-                        "Duplicate success observation suppressed",
-                        {
-                            "dispatch_id": dispatch_id,
-                            "subtask_id": subtask.subtask_id,
-                            "observation_key": observation_key,
-                        },
-                    )
-                    previous = result
-                    continue
-                successful_observation_keys.add(observation_key)
-                success_confirmations += 1
-                if success_confirmations >= self.limits.success_confirmations:
-                    return result, current
-                previous = result
-                continue
-            success_confirmations = 0
-            if result.task_status == TaskStatus.FAILURE:
-                if result.recommended_action == MonitorAction.REOBSERVE:
-                    state.reobservations += 1
-                    if state.reobservations <= self.limits.max_reobservations:
-                        previous = result
-                        continue
-                return result, current
-            if result.recommended_action in {
-                MonitorAction.REPLAN,
-                MonitorAction.USER_ASSIST,
-                MonitorAction.ABORT_SAFETY,
-            }:
-                return result, current
-            if result.recommended_action == MonitorAction.REOBSERVE:
-                state.reobservations += 1
-                if state.reobservations > self.limits.max_reobservations:
-                    raise RuntimeError("live-monitor reobservation budget exhausted")
-            previous = result
-
-        latest = recent[-1] if recent else dispatch_observation
-        return (
-            host_timeout_result(
-                message=(
-                    "The finite live-monitor check budget was exhausted; "
-                    "local completion is unverified."
-                ),
-                action=MonitorAction.REPLAN,
-            ),
-            latest,
-        )
-
-    def _replan(
-        self,
-        state: _ExecutionState,
-        *,
-        observation: ObservationEnvelope,
-        memory_context: MemoryContext,
-        frozen_spec: Any,
-        reason: Mapping[str, Any],
-    ) -> PlanResult | str:
-        is_boundary_replan = reason.get("trigger") == "EVERY_SUBTASK"
-        if not is_boundary_replan:
-            if state.replans >= self.limits.max_replans:
-                return (
-                    "Execution stopped because the replanning budget was "
-                    "exhausted."
-                )
-            state.replans += 1
-        else:
-            state.boundary_replans += 1
-        self._transition(
-            TaskPhase.REPLANNING,
-            details={
-                "replan": (
-                    state.boundary_replans
-                    if is_boundary_replan
-                    else state.replans
-                ),
-                "replan_kind": (
-                    "BOUNDARY" if is_boundary_replan else "RECOVERY"
-                ),
-                **dict(reason),
-            },
-        )
-        planning_request = state.planning_request.model_copy(
-            update={"plan_version": state.planning_request.plan_version + 1}
-        )
-        plan = self.planner.plan(
-            planning_request=planning_request,
-            task_contract=state.task_contract,
-            observation=observation.observation,
-            recovery_context=reason,
-            frozen_validation_spec=frozen_spec,
-            frame_path=observation.frame_path,
-        )
-        plan.require_intent(state.task_contract)
-        plan.require_request(planning_request)
-        if plan.validation_spec is not None:
-            frozen_spec.require_exact_match(plan.validation_spec)
-        if plan.planning_status not in {
-            PlanningStatus.READY,
-            PlanningStatus.ALREADY_SATISFIED,
-        }:
-            code = (
-                plan.failure.code
-                if plan.failure is not None
-                else "NO_FAILURE_DETAIL"
-            )
-            return (
-                "Recovery planning stopped with "
-                f"{plan.planning_status.value} ({code})."
-            )
-        state.planning_request = planning_request
-        state.plan = plan
-        self.recorder.record_event("Recovery plan accepted by host", plan)
-        return plan
-
-    def _validate_final(
-        self,
-        state: _ExecutionState,
-        *,
-        frozen_spec: Any,
-    ) -> tuple[ValidationResult, ObservationEnvelope]:
-        attempts = 0
-        terminal_observations: list[ObservationEnvelope] = []
-        while True:
-            self._transition(
-                TaskPhase.VALIDATING,
-                details={"attempt": attempts + 1},
-            )
-            terminal = self.observation_source.capture(
-                purpose=f"validation-{attempts + 1}"
-            )
-            terminal_observations.append(terminal)
-            request = ValidationRequest(
-                validation_spec=frozen_spec,
-                terminal_observations=[
-                    item.observation for item in terminal_observations
-                ],
-                execution_evidence={
-                    "completed_subtasks": state.completed_subtasks,
-                    "dispatches": state.dispatches,
-                    "monitor_results": [
-                        item.model_dump(mode="json")
-                        for item in state.monitor_results
-                    ],
-                },
-            )
-            result = self.validator.validate(
-                request,
-                frame_paths=[
-                    item.frame_path
-                    for item in terminal_observations
-                    if item.frame_path is not None
-                ],
-            )
-            result.require_request(request)
-            self.recorder.record_event("Validation accepted by host", result)
+        frame_sequence: int | None = None,
+    ) -> RecedingTransition:
+        with self._lock:
+            self._reject_emergency_locked()
             if (
-                result.outcome == ValidatorOutcome.UNKNOWN
-                and result.recoverability
-                == ValidatorRecoverability.REOBSERVE
-                and state.reobservations < self.limits.max_reobservations
+                self._state is not RecedingControllerState.NEEDS_ATTENTION
+                or self._current_task is None
             ):
-                attempts += 1
-                state.reobservations += 1
-                continue
-            return result, terminal
+                raise InvalidTransitionError("there is no paused task to resume")
+            self._attempt += 1
+            task = replace(
+                self._current_task,
+                publication_id=self._publication_id_locked(self._attempt),
+                published_at=float(self._clock()),
+                frame_sequence=frame_sequence,
+            )
+            self._current_task = task
+            self._attention_kind = None
+            self._attention_reason = None
+            self._activate_task_locked(task)
+            self._set_state_locked(
+                RecedingControllerState.EXECUTING
+                if task.phase is TaskPhase.STEP
+                else RecedingControllerState.FINAL_VALIDATION
+            )
+            return self._transition_locked(
+                RecedingResult.TASK_PUBLISHED,
+                task_to_publish=task,
+            )
+
+    def request_replan(
+        self,
+        *,
+        operator_guidance: str | None = None,
+        frame_sequence: int | None = None,
+    ) -> RecedingTransition:
+        with self._lock:
+            self._reject_emergency_locked()
+            if self._state is not RecedingControllerState.NEEDS_ATTENTION:
+                raise InvalidTransitionError("replanning requires a paused task")
+            if self._current_task is not None:
+                observation = self._latest_observation or (
+                    self._attention_reason or "The task attempt was interrupted."
+                )
+                if not observation.endswith((".", "!", "?")):
+                    observation += "."
+                self._history.append(
+                    ExecutionRecord(
+                        cycle_id=self._cycle_id,
+                        publication_id=self._current_task.publication_id,
+                        instruction=self._current_task.instruction,
+                        expected_observation=tuple(
+                            item.description
+                            for item in self._current_task.expected_observation
+                        ),
+                        outcome=ExecutionOutcome.INTERRUPTED,
+                        observation=observation,
+                        evidence_frame_sequence=frame_sequence,
+                    )
+                )
+            request = self._request_next_cycle_locked(
+                PlannerTrigger.USER_REPLAN,
+                frame_sequence,
+                operator_guidance=operator_guidance,
+            )
+            if request is None:
+                return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+            return self._transition_locked(
+                RecedingResult.REPLAN_REQUESTED,
+                planner_request=request,
+            )
+
+    def emergency_stop(self, reason: str) -> RecedingTransition:
+        """Latch a terminal emergency state; it cannot be reset in this process."""
+
+        with self._lock:
+            if self._state is RecedingControllerState.EMERGENCY_STOPPED:
+                return self._transition_locked(RecedingResult.EMERGENCY_STOPPED)
+            self._attention_kind = None
+            self._attention_reason = reason.strip() or "Emergency stop requested"
+            self._pending_request = None
+            self._reset_streaks_locked()
+            self._set_state_locked(RecedingControllerState.EMERGENCY_STOPPED)
+            return self._transition_locked(RecedingResult.EMERGENCY_STOPPED)
+
+    def _request_next_cycle_locked(
+        self,
+        trigger: PlannerTrigger,
+        frame_sequence: int | None,
+        *,
+        operator_guidance: str | None = None,
+    ) -> PlannerCycleRequest | None:
+        next_cycle = self._cycle_id + 1
+        self._current_task = None
+        self._reset_evidence_locked()
+        if next_cycle > self._max_cycles:
+            self._pending_request = None
+            self._attention_kind = AttentionKind.LOOP_GUARD
+            self._attention_reason = "Maximum planning cycles reached"
+            self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+            return None
+        return self._begin_planning_locked(
+            trigger,
+            frame_sequence=frame_sequence,
+            next_cycle=next_cycle,
+            operator_guidance=operator_guidance,
+        )
+
+    def _begin_planning_locked(
+        self,
+        trigger: PlannerTrigger,
+        *,
+        frame_sequence: int | None,
+        next_cycle: int,
+        operator_guidance: str | None = None,
+    ) -> PlannerCycleRequest:
+        assert self._goal is not None
+        self._cycle_id = next_cycle
+        self._current_task = None
+        self._attention_kind = None
+        self._attention_reason = None
+        request = PlannerCycleRequest(
+            goal_contract=self._goal,
+            cycle_id=self._cycle_id,
+            trigger=trigger,
+            execution_history=tuple(self._history),
+            operator_guidance=operator_guidance,
+            frame_sequence=frame_sequence,
+        )
+        self._pending_request = request
+        self._set_state_locked(RecedingControllerState.PLANNING)
+        return request
+
+    def _build_task_locked(
+        self,
+        instruction: str,
+        expected: tuple[str, ...],
+        failures: tuple[str, ...],
+        *,
+        phase: TaskPhase,
+    ) -> PublishedTask:
+        assert self._goal is not None
+        suffix = "final" if phase is TaskPhase.FINAL_VALIDATION else "task"
+        step_id = (
+            f"{self._goal.goal_id}:r{self._goal.revision}:"
+            f"c{self._cycle_id}:{suffix}"
+        )
+        criteria = tuple(
+            ObservationCriterion(
+                criterion_id=f"{step_id}:c{index}",
+                description=description,
+            )
+            for index, description in enumerate(expected, start=1)
+        )
+        return PublishedTask(
+            plan_id=self._goal.goal_id,
+            revision=self._goal.revision,
+            step_id=step_id,
+            phase=phase,
+            instruction=instruction,
+            expected_observation=criteria,
+            known_failure_conditions=failures,
+            published_at=float(self._clock()),
+            publication_id=self._publication_id_locked(self._attempt),
+            cycle_id=self._cycle_id,
+            frame_sequence=(
+                None
+                if self._pending_request is None
+                else self._pending_request.frame_sequence
+            ),
+        )
+
+    def _publication_id_locked(self, attempt: int) -> str:
+        assert self._goal is not None
+        return (
+            f"{self._goal.goal_id}:r{self._goal.revision}:"
+            f"c{self._cycle_id}:a{attempt}"
+        )
+
+    def _assessment_matches_locked(
+        self,
+        assessment: MonitorAssessment,
+        task: PublishedTask,
+    ) -> bool:
+        if (
+            assessment.plan_id != task.plan_id
+            or assessment.revision != task.revision
+            or assessment.step_id != task.step_id
+            or assessment.publication_id != task.publication_id
+            or assessment.observed_at < task.published_at
+        ):
+            return False
+        if (
+            self._last_assessment_at is not None
+            and assessment.observed_at <= self._last_assessment_at
+        ):
+            return False
+        if (
+            task.frame_sequence is not None
+            and assessment.frame_sequence is not None
+            and assessment.frame_sequence <= task.frame_sequence
+        ):
+            return False
+        if (
+            self._last_frame_sequence is not None
+            and assessment.frame_sequence is not None
+            and assessment.frame_sequence <= self._last_frame_sequence
+        ):
+            return False
+        return True
+
+    def _append_record_locked(
+        self,
+        task: PublishedTask,
+        assessment: MonitorAssessment,
+        outcome: ExecutionOutcome,
+    ) -> None:
+        self._history.append(
+            ExecutionRecord(
+                cycle_id=self._cycle_id,
+                publication_id=task.publication_id,
+                instruction=task.instruction,
+                expected_observation=tuple(
+                    item.description for item in task.expected_observation
+                ),
+                outcome=outcome,
+                observation=assessment.observation,
+                failure_reason=(
+                    None
+                    if assessment.failure is None
+                    else assessment.failure.description
+                ),
+                evidence_frame_sequence=assessment.frame_sequence,
+            )
+        )
+
+    def _activate_task_locked(self, task: PublishedTask) -> None:
+        self._reset_evidence_locked()
+        self._last_progress_at = task.published_at
+
+    def _reset_evidence_locked(self) -> None:
+        self._reset_streaks_locked()
+        self._last_assessment_at = None
+        self._last_frame_sequence = None
+        self._last_progress_at = None
+        self._best_met_count = 0
+
+    def _reset_streaks_locked(self) -> None:
+        self._success_count = 0
+        self._failure_count = 0
+        self._first_success_at = None
+
+    def _reject_emergency_locked(self) -> None:
+        if self._state is RecedingControllerState.EMERGENCY_STOPPED:
+            raise InvalidTransitionError("the emergency stop is latched")
+
+    def _set_state_locked(self, state: RecedingControllerState) -> None:
+        self._state = state
+        self._bump_sequence_locked()
+
+    def _bump_sequence_locked(self) -> None:
+        self._state_sequence += 1
+
+    def _snapshot_locked(self) -> RecedingControllerSnapshot:
+        return RecedingControllerSnapshot(
+            state=self._state,
+            state_sequence=self._state_sequence,
+            goal=self._goal,
+            cycle_id=self._cycle_id,
+            current_task=self._current_task,
+            execution_history=tuple(self._history),
+            pending_request=self._pending_request,
+            attention_kind=self._attention_kind,
+            attention_reason=self._attention_reason,
+            latest_observation=self._latest_observation,
+            consecutive_successes=self._success_count,
+            consecutive_failures=self._failure_count,
+        )
+
+    def _transition_locked(
+        self,
+        result: RecedingResult,
+        *,
+        task_to_publish: PublishedTask | None = None,
+        planner_request: PlannerCycleRequest | None = None,
+    ) -> RecedingTransition:
+        return RecedingTransition(
+            result=result,
+            snapshot=self._snapshot_locked(),
+            task_to_publish=task_to_publish,
+            planner_request=planner_request,
+        )

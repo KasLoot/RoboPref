@@ -1,6 +1,5 @@
+
 import base64
-from dataclasses import dataclass
-from datetime import UTC, datetime
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -9,54 +8,33 @@ from urllib.request import Request, urlopen
 DEFAULT_LIVE_FRAME_URL = "http://127.0.0.1:1234/snapshot.jpg"
 
 
-def image_media_type(image: bytes) -> str:
-    """Return the MIME type of a supported image payload."""
-    if image.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-    if image.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-    if image.startswith((b"GIF87a", b"GIF89a")):
-        return "image/gif"
-    if image.startswith(b"RIFF") and image[8:12] == b"WEBP":
-        return "image/webp"
-    if image.startswith(b"BM"):
-        return "image/bmp"
-    if image.startswith((b"II*\x00", b"MM\x00*")):
-        return "image/tiff"
-    raise ValueError(
-        "vLLM image input must be PNG, JPEG, GIF, WebP, BMP, or TIFF."
-    )
-
-
 def image_data_url(image: bytes) -> str:
-    media_type = image_media_type(image)
+    if image.startswith(b"\x89PNG\r\n\x1a\n"):
+        media_type = "image/png"
+    elif image.startswith(b"\xff\xd8\xff"):
+        media_type = "image/jpeg"
+    elif image.startswith((b"GIF87a", b"GIF89a")):
+        media_type = "image/gif"
+    elif image.startswith(b"RIFF") and image[8:12] == b"WEBP":
+        media_type = "image/webp"
+    elif image.startswith(b"BM"):
+        media_type = "image/bmp"
+    elif image.startswith((b"II*\x00", b"MM\x00*")):
+        media_type = "image/tiff"
+    else:
+        raise ValueError(
+            "vLLM image input must be PNG, JPEG, GIF, WebP, BMP, or TIFF."
+        )
     encoded = base64.b64encode(image).decode("ascii")
     return f"data:{media_type};base64,{encoded}"
 
 
-@dataclass(frozen=True, slots=True)
-class CapturedFrame:
-    """One immutable image observation and its model-compatible representation."""
-
-    image: bytes
-    media_type: str
-    source: str
-    captured_at: datetime
-
-    @property
-    def model_block(self) -> dict[str, object]:
-        return {
-            "type": "image_url",
-            "image_url": {"url": image_data_url(self.image)},
-        }
-
-
-def capture_live_frame(
+def get_live_frame(
     snapshot_url: str = DEFAULT_LIVE_FRAME_URL,
     *,
     timeout: float = 5.0,
-) -> CapturedFrame:
-    """Fetch the latest webcam snapshot while retaining its original bytes."""
+) -> dict[str, object]:
+    """Fetch the latest webcam snapshot as a model-compatible image block."""
     if timeout <= 0:
         raise ValueError("timeout must be greater than zero")
 
@@ -80,21 +58,10 @@ def capture_live_frame(
             f"The webcam streamer returned an empty frame from {snapshot_url}."
         )
 
-    return CapturedFrame(
-        image=image,
-        media_type=image_media_type(image),
-        source=snapshot_url,
-        captured_at=datetime.now(UTC),
-    )
-
-
-def get_live_frame(
-    snapshot_url: str = DEFAULT_LIVE_FRAME_URL,
-    *,
-    timeout: float = 5.0,
-) -> dict[str, object]:
-    """Fetch the latest webcam snapshot as a model-compatible image block."""
-    return capture_live_frame(snapshot_url, timeout=timeout).model_block
+    return {
+        "type": "image_url",
+        "image_url": {"url": image_data_url(image)},
+    }
 
 
 def get_start_end_frames(args):

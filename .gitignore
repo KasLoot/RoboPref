@@ -13,6 +13,3 @@ htmlcov/
 .env
 .env.*
 !.env.example
-.prefmem/
-recordings/
-runtime/*.jsonl
