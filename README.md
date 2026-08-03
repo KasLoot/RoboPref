@@ -59,8 +59,8 @@ vllm serve /workspace/models/gemma-4-26B-A4B-it \
 
 ```bash
 ssh -N -L 8000:127.0.0.1:8000 \
-  -p 13671 -i ~/.ssh/id_ed25519 \
-  root@157.157.221.177
+  -p 11774 -i ~/.ssh/id_ed25519 \
+  root@69.8.146.87
 ```
 
 ### Serve Embedding model using vLLM
@@ -87,6 +87,11 @@ uv sync
 uv run stream_camera
 ```
 
+Keep this process running and open `http://127.0.0.1:1234`. The page shows the
+live feed and, below it, the controller's single current task, expected visual
+observations, monitor observation, and execution state. Restart `stream_camera`
+after updating PrefMem so the page and `/api/task` use the matching contracts.
+
 The operating system is detected automatically; use `--system` to select one explicitly.
 
 Useful options:
@@ -107,8 +112,37 @@ uv run stream_camera --host 0.0.0.0
 
 #### Open another terminal to run the RoboPref agent:
 ```bash
-uv run prefmem --memory-store-path ./memory_store
+uv run prefmem \
+  --model-config vllm \
+  --camera-base-url http://127.0.0.1:1234 \
+  --memory-store-path ./memory_store_test
 ```
+
+This configuration expects the Gemma chat endpoint at
+`http://localhost:8000/v1` and EmbeddingGemma at
+`http://localhost:8080/v1`.
+
+### Receding-horizon execution
+
+PrefMem treats the confirmed high-level goal and constraints as a frozen goal
+contract, not as a frozen stack of actions. Confirmation starts a new Planner
+call with a fresh camera frame. On every cycle the Planner predicts a short
+one-to-three-task horizon, while the controller publishes only its first task
+to the camera page and Monitor (execution horizon 1).
+
+After stable `SUCCESS`, the result is appended to execution history and a fresh
+Planner cycle chooses what to do next. A stable task-level `FAIL` also replans
+with the visible observation and failure reason, allowing recovery from changed
+scene state. Camera/model/JSON errors and no-progress timeouts instead pause in
+`NEEDS_ATTENTION`; they are never interpreted as task failure. Once the Planner
+believes the goal is satisfied, Monitor performs a final holistic validation.
+
+Monitor output includes an immediate `emergency_stop` key. If it is true, the
+runtime latches `EMERGENCY_STOPPED`, invokes the placeholder
+`emergency_stop()` hook once, stops publishing work, and exits the interactive
+session. Replace that placeholder with an acknowledged robot-specific stop API
+before connecting physical hardware; the visual model is not a safety-rated
+E-stop.
 
 `--memory-store-path`<br>
 &emsp;The path to store the memory. Default: `./memory_store`

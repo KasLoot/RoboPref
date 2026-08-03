@@ -2,7 +2,6 @@ import uuid
 
 from langchain.tools import tool
 from langchain.chat_models import init_chat_model
-import os
 from langchain.messages import AIMessage, AnyMessage
 from typing_extensions import TypedDict, Annotated, Literal
 from prefmem.agents.config import Memory_Config
@@ -159,7 +158,22 @@ class Memory_Agent:
             self.pref_json_path = Path(memory_store_path) / "preference.json"
             self.pref_embedding_path = Path(memory_store_path) / "preference.npy"
 
-        if memory_store_path and os.path.exists(memory_store_path):
+        store_is_complete = bool(
+            memory_store_path
+            and self.pref_json_path.is_file()
+            and self.pref_embedding_path.is_file()
+        )
+        store_is_partial = bool(
+            memory_store_path
+            and self.pref_json_path.exists() != self.pref_embedding_path.exists()
+        )
+        if store_is_partial:
+            raise ValueError(
+                "The preference store is incomplete: preference.json and "
+                "preference.npy must either both exist or both be absent"
+            )
+
+        if store_is_complete:
             with open(
                 self.pref_json_path,
                 "r",
@@ -178,6 +192,21 @@ class Memory_Agent:
                 dtype=np.float32,
                 order="C",
             )
+
+            if not isinstance(self.pref_json, list):
+                raise ValueError("preference.json must contain a JSON list")
+            if self.pref_embedding.ndim != 2:
+                raise ValueError("preference.npy must contain a 2D array")
+            if self.pref_embedding.shape[0] != len(self.pref_json):
+                raise ValueError(
+                    "Stored preference and embedding counts do not match"
+                )
+            if self.pref_embedding.shape[1] != self.config.embedding_dimensions:
+                raise ValueError(
+                    "Stored preference embeddings have dimension "
+                    f"{self.pref_embedding.shape[1]}; expected "
+                    f"{self.config.embedding_dimensions}"
+                )
 
             norms = np.linalg.norm(
                 self.pref_embedding,

@@ -64,6 +64,12 @@ class CliParserTests(unittest.TestCase):
 
         self.assertEqual(args.preference_store, Path("state/preferences.json"))
 
+    def test_memory_store_path_equals_form_selects_requested_directory(self) -> None:
+        args = parse_args(["--memory-store-path=./memory_store_test"])
+
+        self.assertEqual(args.preference_store, Path("memory_store_test"))
+        self.assertEqual(args.memory_store_path, Path("memory_store_test"))
+
     def test_memory_store_alias_conflicts_with_canonical_option(self) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as raised:
