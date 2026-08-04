@@ -14,16 +14,8 @@ body:
   - type: textarea
     id: solution
     attributes:
-      label: Describe the solution you would like
+      label: Your design idea
       description: Describe what you want to happen.
-    validations:
-      required: true
-
-  - type: textarea
-    id: alternatives
-    attributes:
-      label: Describe alternatives you have considered
-      description: Describe any alternative solutions or features you have considered.
     validations:
       required: false
 
