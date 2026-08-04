@@ -1,94 +1,36 @@
 name: Feature request
-description: Propose a new feature or improvement
-title: "[Feature]: "
-labels:
-  - enhancement
-  - triage
+description: Suggest an idea for this project
 
 body:
-  - type: markdown
-    attributes:
-      value: |
-        Thank you for suggesting an improvement.
-        Please provide enough information for the team to evaluate it.
-
-  - type: input
-    id: summary
-    attributes:
-      label: Feature summary
-      description: Give the feature a short, clear description.
-      placeholder: Add passwordless login
-    validations:
-      required: true
-
   - type: textarea
     id: problem
     attributes:
-      label: Problem or need
-      description: What problem would this feature solve?
-      placeholder: Describe the current limitation and who it affects.
+      label: Is your feature request related to a problem?
+      description: Describe the problem clearly.
+      placeholder: "I'm always frustrated when..."
     validations:
       required: true
 
   - type: textarea
-    id: proposed_solution
+    id: solution
     attributes:
-      label: Proposed solution
-      description: Describe how you think the feature should work.
-      placeholder: Explain the expected user experience or technical behavior.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: affected_area
-    attributes:
-      label: Affected area
-      description: Which part of the system would this affect?
-      options:
-        - Frontend
-        - Backend
-        - API
-        - Database
-        - Infrastructure
-        - Documentation
-        - Other
-    validations:
-      required: true
-
-  - type: textarea
-    id: acceptance_criteria
-    attributes:
-      label: Acceptance criteria
-      description: What must be true for this feature to be considered complete?
-      value: |
-        - [ ] 
-        - [ ] 
-        - [ ] 
+      label: Describe the solution you would like
+      description: Describe what you want to happen.
     validations:
       required: true
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives considered
-      description: Describe any alternative solutions or workarounds.
+      label: Describe alternatives you have considered
+      description: Describe any alternative solutions or features you have considered.
     validations:
       required: false
 
-  - type: upload
-    id: attachments
+  - type: textarea
+    id: additional-context
     attributes:
-      label: Designs or supporting files
-      description: Upload mockups, screenshots, diagrams, or other relevant files.
+      label: Additional context
+      description: Add any other context or screenshots about the feature request.
     validations:
       required: false
-
-  - type: checkboxes
-    id: checks
-    attributes:
-      label: Submission checks
-      options:
-        - label: I searched for an existing issue describing this feature.
-          required: true
-        - label: This request describes one coherent feature.
-          required: true
