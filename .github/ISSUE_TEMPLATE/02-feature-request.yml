@@ -3,26 +3,8 @@ description: Suggest an idea for this project
 
 body:
   - type: textarea
-    id: problem
+    id: feature-description
     attributes:
-      label: Is your feature request related to a problem?
-      description: Describe the problem clearly.
-      placeholder: "I'm always frustrated when..."
+      label: Describe the feature you'd like.
     validations:
       required: true
-
-  - type: textarea
-    id: solution
-    attributes:
-      label: Your design idea
-      description: Describe what you want to happen.
-    validations:
-      required: false
-
-  - type: textarea
-    id: additional-context
-    attributes:
-      label: Additional context
-      description: Add any other context or screenshots about the feature request.
-    validations:
-      required: false
