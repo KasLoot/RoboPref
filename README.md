@@ -1,7 +1,7 @@
 # RoboPref
 A robotic agent system, enhancing human-robot interaction capabilities by leveraging interactive history and experiences.
 
-Version: `2.0.0`
+Version: `2.1.0`
 
 ## System workflow
 
@@ -127,8 +127,8 @@ vllm serve /workspace/models/gemma-4-26B-A4B-it \
 
 ```bash
 ssh -N -L 8000:127.0.0.1:8000 \
-  -p 11774 -i ~/.ssh/id_ed25519 \
-  root@69.8.146.87
+  -p 27217 -i ~/.ssh/id_ed25519 \
+  root@82.221.170.234
 ```
 
 ### Serve Embedding model using vLLM
@@ -185,6 +185,52 @@ uv run prefmem \
   --camera-base-url http://127.0.0.1:1234 \
   --memory-store-path ./memory_store_test
 ```
+
+#### Operator GUI
+
+With the camera server, Gemma 4 tunnel, and EmbeddingGemma server running, start
+the local operator console in place of the terminal `prefmem` process:
+
+```bash
+uv run ui --memory-store-path ./memory_store_test
+```
+
+Open `http://127.0.0.1:8090`. The console combines the live camera feed, HRI
+conversation, exact goal confirmation, current execution state, validation
+results, history, and service health. It listens on loopback only and uses port
+8090 so it does not conflict with EmbeddingGemma on port 8080. The console has
+no login and exposes a shared transcript and robot controls, so do not publish,
+reverse-proxy, or tunnel port 8090 without adding authentication and operator
+arbitration.
+
+On desktop, the workspace is split evenly: the live camera, Monitor details,
+and compact agent-status cards are on the left, while the full-height chat is
+on the right. User and HRI messages use opposing bubbles; streamed reasoning,
+tool calls, tool results, and other internal output stay inside collapsed
+**Internal activity** sections. **New chat** clears the shared transcript and
+starts a fresh HRI checkpoint thread without resetting the physical goal,
+current task, Monitor, validation state, emergency latch, or saved preferences.
+
+Do not run `uv run prefmem` and `uv run ui` at the same time. They are two front
+ends for the same runtime, and each process would compete for the camera page's
+single current-task slot. The GUI starts the agent lazily when you press **Start
+PrefMem** or send the first message, so a missing camera/model service is shown
+as a recoverable startup or health error instead of preventing the page from
+opening.
+
+Useful GUI options:
+
+```bash
+# Use the default ./memory_store and open the browser automatically
+uv run ui --open-browser
+
+# Point the console at another local camera-stream origin
+uv run ui --camera-base-url http://127.0.0.1:1234
+```
+
+The GUI's red software-stop control latches PrefMem and stops further task
+publication, but the current `emergency_stop()` integration is logging-only.
+It is not a safety-rated or hardware emergency stop.
 
 This configuration expects the Gemma chat endpoint at
 `http://localhost:8000/v1` and EmbeddingGemma at
