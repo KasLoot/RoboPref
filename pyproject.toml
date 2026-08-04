@@ -1,6 +1,6 @@
 [project]
 name = "robopref"
-version = "2.0.0"
+version = "2.1.0"
 description = "Preference-aware robotic task orchestration"
 readme = "README.md"
 authors = [
@@ -15,6 +15,7 @@ dependencies = [
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.4.1",
     "langgraph>=1.2.9",
+    "nicegui>=3.15.0",
     "opencv-python>=4.11.0.86,<5",
     "sentence-transformers>=5.6.1",
     "termcolor>=3.3.0",
@@ -23,6 +24,7 @@ dependencies = [
 [project.scripts]
 prefmem = "prefmem.cli:main"
 stream_camera = "prefmem.stream_camera:main"
+ui = "ui.ui:main"
 
 [build-system]
 requires = ["uv_build>=0.11.32,<0.12.0"]
@@ -30,4 +32,4 @@ build-backend = "uv_build"
 
 
 [tool.uv.build-backend]
-module-name = "prefmem"
+module-name = ["prefmem", "ui"]
