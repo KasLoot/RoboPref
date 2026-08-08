@@ -1,4 +1,37 @@
+RoboPref project context: [PROJECT_CONTEXT.md](c:/Users/yuxin/workspace/RoboPref/PROJECT_CONTEXT.md) 
+
 The current task execution is relying on human. I now want to design an execution agent.
 The execution agent:
-1. Works in a simulation environement (MuJoCo)
-2. Use a object detection model to 
+1. Works in a simulation environement (MuJoCo) 
+2. Use a open-vocabulary object detection model (natural language input, object bounding box or object location or object segmentation output) to locate the position of the objects. And use the Gemma 4 model.
+3. Use the Franka Emika Panda robot. (asset file in @src/simulation/franka_emika_panda/ )
+
+Scene, robot workspace, tasks, setups:
+Let's start with a task to stack different colored blocks.
+1. Scene setup: One red cube, one green cube, one blue cube. A camera. A white mat. A robot. The robot is at the origin of the simulation world. The white mat is at the front position of the robot. The camera x and y location is the same as the center of the white mat, and lift in the y direction, watching the center of the mat (for first experiment simplicity, the camera view should not be blocked by the robot physical body). The cubes are placed at random positions on the ground and must inside the robot workspace and the camera view.
+2. A user instruction could be: "Stack the blocks.".
+3. The PrefMem agent will publish a task in natural language instruction such as: "pick up the red block and place it on the center of the white mat.".
+4. The execution agent should use the Gemma 4 model to convert this natural language instruction into end-effector destinations and use the open-vocabulary object detection model to get the true 3D coordinates of the destinations. (The reuse of the Gemma 4 model to change planner agent output to end-effector destinations seems replicating workflow, but we want the new execution agent implementation to be a clean add on to the existing system, therefore we do not change the existing output from the planner agents. Also, this execution agent is a work-around solution to use a real VLA model to perform task. The real VLA models are hard to train and they often connot understand instruction to the semantic meanings and only remember training dataset trajectories. Therefore, we leave the system clean to integrate a real VLA model in the future.)
+5. Control the robot to do the task using a controller.
+6. The monitor agent should detect the completion of the current task and publish the next task. And the above end-effector destination dection and control workflow repeats.
+
+Further thoughts:
+- I am using a "Model prediction control" style in my sub-task publish mechanism. This can resolve change in environment when the execution agent is doing the task. Such as: 1) the stack of block falls over in the middle of execution. In this case the system should replan to stack the blocks. 2) An extra block is placed in the operation area. In this case the system should add a new sub-task to pick up this extra block. Therefore, this should be a case to think when designing the simulation environment.
+- My idea to make the simulation less complex when handle case like above, is that make the simulation environment interactive. We only let the camera and the robot to be static, then we place objects in an "items" area where this "items" area is not reachable by the robot nor viewable by the camera. We place all our items in this "items" area and I can drag and drop the items.
+
+Open-vocabulary object detection model example (using SAM 3.1):
+Run on local machine:
+(robopref) PS C:\Users\yuxin\workspace\RoboPref> curl.exe -X POST "http://127.0.0.1:9000/detect" -F "prompt=tiger" -F "threshold=0.5" -F "image=@C:\Users\yuxin\workspace\RoboPref\artifacts\tiger.jpg"
+Returns:
+{"prompt":"tiger","threshold":0.5,"image":{"width":222,"height":148},"count":1,"detections":[{"object_id":0,"box_xyxy":[81,20,131,144],"mask_area":4956}]}
+
+
+
+Gemma 4, SAM 3, and EmbeddingGemma are hosted in remote server and forward port to localhost:
+Gemma 4: 8000
+SAM 3: 9000
+EmbeddingGemma:8080
+
+
+Note:
+- Do not modify code unless told.

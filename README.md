@@ -350,8 +350,8 @@ vllm serve /workspace/models/gemma-4-26B-A4B-it \
 
 ```bash
 ssh -N -L 8000:127.0.0.1:8000 \
-  -p 27217 -i ~/.ssh/id_ed25519 \
-  root@82.221.170.234
+  -p 17210 -i ~/.ssh/id_ed25519 \
+  root@103.196.86.101
 ```
 
 ### Serve Embedding model using vLLM
@@ -363,6 +363,22 @@ hf download google/embeddinggemma-300m --local-dir $workspace/models/embeddingge
 # RTX 4070 Ti with 12GB VRAM, using bfloat16 precision and 70% GPU memory utilization.
 vllm serve $workspace/models/embeddinggemma-300m --dtype bfloat16 \
   --gpu-memory-utilization 0.70 \
+  --hf-overrides '{"matryoshka_dimensions":[768]}' \
+  --port 8080
+
+# On RTX 5090
+mkdir -p serve_embeddinggemma
+cd serve_embeddinggemma
+uv venv -p 3.12
+source .venv/bin/activate
+# CUDA 13.0
+uv pip install vllm --extra-index-url https://wheels.vllm.ai/0.25.1/cu130 --extra-index-url https://download.pytorch.org/whl/cu130 --index-strategy unsafe-best-match
+
+VLLM_USE_FLASHINFER_SAMPLER=0 \
+vllm serve /workspace/models/embeddinggemma-300m \
+  --runner pooling \
+  --dtype bfloat16 \
+  --gpu-memory-utilization 0.20 \
   --hf-overrides '{"matryoshka_dimensions":[768]}' \
   --port 8080
 ```
