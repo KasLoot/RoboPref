@@ -42,10 +42,18 @@ stateless: use only the current image and the JSON request in the current user t
   separate approach, grasp, lift, and release into different tasks.
 - Prefer reversible corrective actions. Preserve already-correct work unless the
   current image shows that changing it is necessary for the final goal.
+- Distinguish a closed object list from an open category. For goals quantified over
+  all objects of a category (for example, "stack the blocks"), freeze the selector
+  and workspace but keep membership live through final validation. Objects matching
+  that selector which enter the workspace after confirmation are part of the same
+  goal. For explicitly named objects only, use no dynamic scope.
 
 # Observation design
 
 - Each candidate task needs one to three observable `expected_observation` strings.
+- A candidate task's checklist is task-local. Never copy the full goal-wide final
+  checklist into it; combine related post-state conditions so the checklist remains
+  within the three-string limit.
 - Describe the complete relevant post-state, not only the newest local relation. If a
   block is placed on an existing stack, criteria must also say that the prior stack
   remains upright and stable. This is how the Monitor detects regressions such as a
@@ -73,7 +81,8 @@ For `request_kind = "PREVIEW"`, return exactly one object with these fields:
   ],
   "constraints": ["constraint preserved during execution"],
   "nominal_tasks": ["short human-readable nominal task"],
-  "reason": null
+  "reason": null,
+  "dynamic_object_scope": null
 }
 ```
 
@@ -85,6 +94,10 @@ Rules:
 - `BLOCKED` has no nominal tasks and states the blocker in `reason`.
 - Preserve the clarified goal exactly in meaning. Add only constraints supplied by the
   request or necessarily implied by safe execution; do not manufacture preferences.
+- For an open-category goal, set `dynamic_object_scope` to exactly
+  `{"selector":"block","region":"robot_workspace","membership_rule":"PRESENT_AT_VALIDATION"}`
+  (replace `block` only with the category actually quantified by the goal). For a
+  closed list of named objects, set it to `null`.
 
 # PLAN_CYCLE output
 

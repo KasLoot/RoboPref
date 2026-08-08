@@ -1,0 +1,78 @@
+<mujoco model="RoboPref block stacking">
+  <include file="franka_emika_panda/mjx_panda.xml"/>
+  <compiler angle="radian" meshdir="franka_emika_panda/assets" autolimits="true"/>
+
+  <option timestep="0.002" iterations="50" integrator="implicitfast" gravity="0 0 -9.81"/>
+
+  <visual>
+    <headlight diffuse="0.7 0.7 0.7" ambient="0.35 0.35 0.35" specular="0.1 0.1 0.1"/>
+    <rgba haze="0.12 0.16 0.20 1"/>
+    <global azimuth="135" elevation="-28" offwidth="1024" offheight="1024"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.75 0.82 0.90" rgb2="0.35 0.45 0.58" width="512" height="3072"/>
+    <texture type="2d" name="floor_texture" builtin="checker" mark="edge" rgb1="0.30 0.32 0.34" rgb2="0.24 0.26 0.28" markrgb="0.55 0.55 0.55" width="256" height="256"/>
+    <material name="floor_material" texture="floor_texture" texuniform="true" texrepeat="8 8" reflectance="0.05"/>
+    <material name="mat_material" rgba="0.96 0.96 0.96 1" specular="0.1" shininess="0.1"/>
+    <material name="warehouse_material" rgba="0.12 0.15 0.18 1"/>
+    <material name="red_block_material" rgba="0.90 0.05 0.04 1"/>
+    <material name="green_block_material" rgba="0.04 0.72 0.12 1"/>
+    <material name="blue_block_material" rgba="0.04 0.20 0.92 1"/>
+    <material name="yellow_block_material" rgba="0.95 0.78 0.03 1"/>
+    <material name="purple_block_material" rgba="0.62 0.12 0.78 1"/>
+    <material name="orange_block_material" rgba="0.98 0.36 0.04 1"/>
+  </asset>
+
+  <default>
+    <default class="stacking_block">
+      <joint damping="0.001"/>
+      <geom type="box" size="0.025 0.025 0.025" mass="0.055" condim="4"
+            friction="1.2 0.01 0.001" solref="0.006 1" solimp="0.95 0.99 0.001"
+            contype="2" conaffinity="3"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light pos="0.55 0 1.6" dir="0 0 -1" directional="true" diffuse="0.8 0.8 0.8"/>
+    <light pos="0.1 -0.7 1.0" dir="0.4 0.4 -1" directional="true" diffuse="0.35 0.35 0.35"/>
+    <geom name="floor" type="plane" size="2.5 2.5 0.05" material="floor_material" contype="1" conaffinity="3"/>
+
+    <!-- The static oblique task camera exposes the side faces of a stack. -->
+    <geom name="white_mat" type="box" pos="0.55 0 0.006" size="0.15 0.18 0.006"
+          material="mat_material" contype="1" conaffinity="3" friction="1.2 0.01 0.001"/>
+    <camera name="task_camera" pos="1.15 -0.90 0.90"
+            xyaxes="0.832050 0.554700 0 -0.335104 0.502657 0.796895"
+            fovy="50"/>
+
+    <!-- This platform is outside both the Panda reach and task-camera view. -->
+    <geom name="items_area" type="box" pos="-1.15 -0.72 0.015" size="0.32 0.25 0.015"
+          material="warehouse_material" contype="1" conaffinity="3"/>
+
+    <body name="red_block" pos="0.35 -0.25 0.025" childclass="stacking_block">
+      <freejoint name="red_block_free"/>
+      <geom name="red_block_geom" material="red_block_material"/>
+    </body>
+    <body name="green_block" pos="0.35 0 0.025" childclass="stacking_block">
+      <freejoint name="green_block_free"/>
+      <geom name="green_block_geom" material="green_block_material"/>
+    </body>
+    <body name="blue_block" pos="0.35 0.25 0.025" childclass="stacking_block">
+      <freejoint name="blue_block_free"/>
+      <geom name="blue_block_geom" material="blue_block_material"/>
+    </body>
+
+    <body name="yellow_block" pos="-1.30 -0.72 0.055" childclass="stacking_block">
+      <freejoint name="yellow_block_free"/>
+      <geom name="yellow_block_geom" material="yellow_block_material"/>
+    </body>
+    <body name="purple_block" pos="-1.15 -0.72 0.055" childclass="stacking_block">
+      <freejoint name="purple_block_free"/>
+      <geom name="purple_block_geom" material="purple_block_material"/>
+    </body>
+    <body name="orange_block" pos="-1.00 -0.72 0.055" childclass="stacking_block">
+      <freejoint name="orange_block_free"/>
+      <geom name="orange_block_geom" material="orange_block_material"/>
+    </body>
+  </worldbody>
+</mujoco>

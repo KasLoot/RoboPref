@@ -188,7 +188,7 @@ class PlannerBoundaryTests(unittest.TestCase):
         )
         self.assertNotIn("messages", request)
 
-    def test_schema_failure_gets_at_most_one_correction_retry(self) -> None:
+    def test_schema_failure_gets_targeted_correction(self) -> None:
         model = QueueModel(
             preview_json(unexpected="not allowed"),
             preview_json(),
@@ -202,15 +202,51 @@ class PlannerBoundaryTests(unittest.TestCase):
         correction = json.loads(model.calls[1][0][1].content[1]["text"])
         self.assertIn("schema_correction", correction)
         self.assertIn("unknown fields", correction["schema_correction"]["error"])
+        self.assertEqual(
+            correction["schema_correction"]["contract"],
+            "GoalProposal",
+        )
 
-    def test_second_invalid_response_is_not_retried_again(self) -> None:
-        model = QueueModel("not json", "still not json", preview_json())
+    def test_third_invalid_response_is_not_retried_again(self) -> None:
+        model = QueueModel("not json", "still not json", "also not json")
         planner = planner_with_model(model)
 
-        with self.assertRaisesRegex(PlannerOutputError, "after one correction"):
+        with self.assertRaisesRegex(
+            PlannerOutputError,
+            "after 2 schema corrections",
+        ):
             planner.preview("Build the tower.", FRAME)
 
-        self.assertEqual(len(model.calls), 2)
+        self.assertEqual(len(model.calls), 3)
+
+    def test_oversized_task_checklist_gets_second_targeted_correction(self) -> None:
+        oversized_payload = json.loads(act_json())
+        oversized_payload["candidate_tasks"][0]["expected_observation"] = [
+            "The red block is on the platform.",
+            "The green block remains visible.",
+            "The blue block remains visible.",
+            "The full tower is stable.",
+        ]
+        oversized = json.dumps(oversized_payload)
+        model = QueueModel(oversized, oversized, act_json())
+        planner = planner_with_model(model)
+
+        decision = planner.plan_cycle(cycle_request(), FRAME)
+
+        self.assertIs(decision.decision, PlannerDecisionType.ACT)
+        self.assertEqual(len(model.calls), 3)
+        for call_index in (1, 2):
+            correction = json.loads(
+                model.calls[call_index][0][1].content[1]["text"]
+            )["schema_correction"]
+            self.assertEqual(correction["contract"], "PlannerDecision")
+            self.assertEqual(correction["attempt"], call_index)
+            self.assertTrue(
+                any(
+                    "expected_observation" in rule and "1 to 3" in rule
+                    for rule in correction["contract_rules"]
+                )
+            )
 
     def test_passed_frame_never_triggers_hidden_live_fetch(self) -> None:
         planner = planner_with_model(QueueModel(preview_json()))
@@ -246,6 +282,7 @@ class PlannerPromptTests(unittest.TestCase):
         self.assertIn("publish only `candidate_tasks[0]`", prompt)
         self.assertIn("discard the remaining prediction tail", prompt)
         self.assertIn("complete relevant post-state", prompt)
+        self.assertIn("Never copy the full goal-wide final", prompt)
         self.assertIn("prior stack", prompt)
         self.assertIn("TASK_FAIL", prompt)
         self.assertIn("NEEDS_USER_INPUT", prompt)

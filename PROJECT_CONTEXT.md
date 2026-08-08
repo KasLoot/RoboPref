@@ -58,8 +58,9 @@ its own rollouts.
 
 ## Current implemented architecture
 
-The original concept had six agents, including a Summarising Agent and a VLA
-Agent. The current implementation instead has five active model-facing agents:
+The upper-level system has five active model-facing agents. It now also has an
+optional lower-level MuJoCo execution agent; this is a constrained Gemma
+compiler plus deterministic perception/control pipeline, not a learned VLA:
 
 1. **HRI Agent** — the only user-facing agent. It receives the user message, a
    current frame, conversation context, and authoritative runtime state. It
@@ -76,7 +77,9 @@ Agent. The current implementation instead has five active model-facing agents:
 4. **Monitor Agent** — continuously evaluates the single active step against
    its expected visual observations using post-publication frames. It reports
    `ONGOING`, `SUCCESS`, or `FAIL`, criterion states, visible observations, and
-   an immediate emergency flag.
+   an immediate emergency flag. In MuJoCo terminal runs, a bounded read-only
+   telemetry stream exposes each assessment, its controller disposition, and
+   optional inference lifecycle/latency without participating in decisions.
 5. **Validator Agent** — compiles and freezes a detailed visual checklist at
    confirmation, then independently evaluates holistic goal completion when
    final validation is requested. It can accumulate evidence across multiple
@@ -86,16 +89,26 @@ Two deterministic host components are equally important but are not language
 agents:
 
 - `PrefMemRuntime` owns model/service composition, fresh-frame capture, task and
-  display publication, observation-service routing, notifications, and the
-  shared emergency coordinator.
+  display publication, observation-service routing, notifications, bounded
+  Monitor telemetry, and the shared emergency coordinator.
 - `RecedingHorizonController` is the authoritative state machine. It owns the
   frozen goal, cycle number, current publication, terminal history, evidence
   streaks, attention state, trusted identifiers, and loop guards. It performs
   no model calls or I/O.
+- `ExecutionService` is the optional, publication-fenced lower-level execution
+  boundary. Gemma 4 converts only the current natural-language step into a
+  strict symbolic pick/place program. SAM 3.1 supplies open-vocabulary masks;
+  synchronized MuJoCo depth and calibrated camera geometry supply world-frame
+  source and target points; a damped-least-squares IK and position controller
+  drives the Franka Emika Panda through a fixed safe waypoint sequence.
 
-The webcam server supplies the live stream and snapshots and exposes the
-single-slot `/api/task` display API. PrefMem can be operated through a terminal
-front end or a NiceGUI operator console.
+In human mode, the webcam server supplies the live stream and snapshots and
+exposes the single-slot `/api/task` display API. In MuJoCo mode, the simulation
+owns the synchronized RGB-D frame source and an in-memory display slot. PrefMem
+can be operated through the terminal front end. Its interactive viewer defaults
+to an independently navigable overview with the full Panda visible; the fixed,
+robot-hidden oblique camera remains isolated to visual-agent input. The NiceGUI
+operator console currently targets the human/webcam mode.
 
 ## Implemented workflow
 
@@ -135,13 +148,25 @@ front end or a NiceGUI operator console.
    discarded. Host code assigns the cycle, step, criterion, and publication
    identities.
 
-6. **Execute and monitor one step.** The camera page shows one current physical
-   instruction and its expected observations. In the current prototype, a human
-   watching that page performs the manipulation. Monitor consumes only newer,
-   post-publication frames. The controller rejects stale or mismatched evidence
-   and requires repeated terminal observations; by default, success needs two
-   confirmations spanning at least two seconds and failure needs two
-   confirmations.
+6. **Execute and monitor one step.** In `human` mode, the camera page shows one
+   current physical instruction for the operator. In `mujoco` mode, the same
+   `PublishedTask` is sent to `ExecutionService` and Monitor. The executor
+   compiles, grounds, and controls one Panda pick/place action, then parks the
+   robot clear of the fixed, oblique RGB-D camera. The camera covers the whole
+   task workspace and exposes every cube's side face in a stack while leaving
+   the storage area outside its view. Monitor consumes only newer,
+   post-publication frames; a terminal Monitor judgment is ignored until robot
+   motion has settled. The controller rejects stale or mismatched evidence and
+   requires repeated terminal observations; by default, success needs two
+   confirmations spanning at least two seconds and failure needs two.
+
+   Open-category goals can freeze a `DynamicObjectScope` while keeping its
+   membership live. For “Stack the blocks,” every matching block in the robot
+   workspace at final validation belongs to the goal, including blocks dragged
+   from the out-of-view `items_area` after confirmation. A confirmed new-object
+   detection during motion requests cancellation; the Panda reaches a safe hold
+   before the runtime replans. A fallen stack is detected through ordinary
+   Monitor/Validator evidence and likewise causes replanning.
 
 7. **Replan after every terminal step.** A stable success or failure becomes an
    immutable execution-history record. Failure records preserve both the visible
@@ -198,12 +223,15 @@ a separate host-issued authorization token.
 
 ## Current boundary and intended VLA integration
 
-The implemented workspace does **not yet call a lower-level VLA robot**. The
-human following the camera-page instruction is the current physical executor
-and provides an observable stand-in for that downstream component. The planned
-research integration is to replace this human execution boundary with a VLA
-adapter that accepts the controller's one current task while preserving the
-same goal contracts, monitoring, replanning, validation, and emergency fencing.
+The workspace has two execution adapters: the original human camera-page path
+and a MuJoCo Franka Panda path. The MuJoCo adapter is deliberately modular and
+does **not** claim to be a real VLA. It uses Gemma 4 for constrained semantic
+compilation, SAM 3.1 plus RGB-D for grounding, and a hand-designed IK/position
+controller for motion. This provides an executable research workaround while
+preserving the clean `PublishedTask` boundary. A future learned VLA can replace
+`ExecutionService`'s compiler/grounder/controller adapter without changing the
+Planner's output, frozen goal contracts, monitoring, replanning, validation, or
+emergency fencing.
 
 The shared `emergency_stop()` function is currently a logging-only integration
 hook. The GUI stop is a software latch, not a safety-rated or hardware emergency
@@ -222,11 +250,15 @@ and an independent hardware safety system.
 - `src/prefmem/agents/memory.py` — preference retrieval and mutation store.
 - `src/prefmem/agents/monitor.py` — per-task visual observation service.
 - `src/prefmem/agents/validator.py` — checklist compilation and final validation.
+- `src/prefmem/execution/` — strict Gemma compiler, SAM client, calibrated
+  RGB-D grounding, execution contracts, and publication-fenced service.
+- `src/simulation/stacking_scene.xml`, `stacking.py`, and `controller.py` — the
+  interactive block scene, synchronized camera, Panda IK, and motion control.
 - `src/prefmem/task_publisher.py` and `src/prefmem/stream_camera.py` — single
   current-task display contract and webcam service.
 - `src/ui/service.py` and `src/ui/ui.py` — local operator console.
 
 When helping with this project, do not assume the obsolete six-agent workflow,
-an automatic summarisation/memory step, a frozen stack of sub-tasks, direct VLA
-execution, or completion inferred from sub-task count. Use the current code and
-typed runtime state as the authority.
+an automatic summarisation/memory step, a frozen stack of sub-tasks, a learned
+VLA policy, or completion inferred from sub-task count. Use the current code
+and typed runtime state as the authority.

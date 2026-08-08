@@ -151,6 +151,17 @@ class RecedingHorizonControllerTests(unittest.TestCase):
         self.assertEqual(task.frame_sequence, 10)
         self.assertIs(self.controller.snapshot.state, RecedingControllerState.EXECUTING)
 
+    def test_executor_heartbeat_refreshes_timeout_without_advancing_task(self) -> None:
+        task = self.start_task()
+        self.clock.advance(9.0)
+        self.assertTrue(
+            self.controller.record_execution_progress(task.publication_id)
+        )
+        self.clock.advance(9.0)
+        self.assertIsNone(self.controller.check_timeout())
+        self.assertIs(self.controller.snapshot.current_task, task)
+        self.assertFalse(self.controller.record_execution_progress("stale-publication"))
+
     def test_stable_success_appends_history_and_requests_new_cycle(self) -> None:
         task = self.start_task()
         self.clock.advance(0.1)

@@ -274,6 +274,11 @@ def build_compilation_messages(
             "revision": goal_contract.revision,
             "goal": goal_contract.goal,
             "constraints": list(goal_contract.constraints),
+            "dynamic_object_scope": (
+                None
+                if goal_contract.dynamic_object_scope is None
+                else goal_contract.dynamic_object_scope.to_dict()
+            ),
         },
         "broad_items": [
             {"broad_index": index, "label": label}

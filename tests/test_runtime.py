@@ -140,6 +140,33 @@ class RecordingValidator:
         self.events.append(("stop", None))
 
 
+class RecordingExecutor:
+    def __init__(self) -> None:
+        self.published = []
+        self.retired = []
+        self.settled = set()
+        self.stop_calls = 0
+        self.emergency_calls = 0
+        self.on_event = None
+        self.on_scene_change = None
+
+    def publish(self, task, scope=None) -> None:
+        self.published.append((task, scope))
+
+    def retire(self, publication_id) -> bool:
+        self.retired.append(publication_id)
+        return True
+
+    def is_settled(self, publication_id) -> bool:
+        return publication_id in self.settled
+
+    def emergency_stop(self) -> None:
+        self.emergency_calls += 1
+
+    def stop(self) -> None:
+        self.stop_calls += 1
+
+
 class ScriptedPlanner:
     def __init__(self, *decisions: PlannerDecision) -> None:
         self._decisions = list(decisions)
@@ -178,6 +205,18 @@ class ScriptedPlanner:
             raise AssertionError("runtime requested an unexpected Planner cycle")
         self.plan_calls.append((request, current_frame))
         return self._decisions.pop(0)
+
+
+class OpenSetPlanner(ScriptedPlanner):
+    def preview(self, *args, **kwargs) -> GoalProposal:
+        proposal = super().preview(*args, **kwargs)
+        payload = proposal.to_dict()
+        payload["dynamic_object_scope"] = {
+            "selector": "block",
+            "region": "robot_workspace",
+            "membership_rule": "PRESENT_AT_VALIDATION",
+        }
+        return GoalProposal.from_dict(payload)
 
 
 def act(instruction: str, future_instruction: str) -> PlannerDecision:
@@ -289,7 +328,13 @@ def validation_assessment(
 
 
 class RuntimeOrchestrationTests(unittest.TestCase):
-    def build_runtime(self, planner, *, frame_sequences=(10, 20, 30, 40)):
+    def build_runtime(
+        self,
+        planner,
+        *,
+        frame_sequences=(10, 20, 30, 40),
+        executor=None,
+    ):
         clock = FakeClock()
         publisher = RecordingPublisher()
         monitor = RecordingMonitor()
@@ -309,9 +354,93 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             monitor=monitor,
             validator=validator,
             session_id="test-session",
+            executor=executor,
         )
         self.addCleanup(runtime.close)
         return runtime, clock, publisher, monitor
+
+    def test_executor_receives_open_scope_and_monitor_waits_for_settle(self):
+        planner = OpenSetPlanner(
+            act(
+                "Place the blue block flat in the marked area.",
+                "Place the red block on the blue block.",
+            ),
+            final_validation(),
+        )
+        executor = RecordingExecutor()
+        runtime, clock, _publisher, monitor = self.build_runtime(
+            planner,
+            executor=executor,
+        )
+        self.start_goal(runtime)
+        current = monitor.published[0]
+        self.assertEqual(executor.published[0][0], current)
+        self.assertEqual(executor.published[0][1].selector, "block")
+
+        self.emit_twice(
+            runtime,
+            clock,
+            current,
+            status="SUCCESS",
+            frames=(31, 32),
+        )
+        self.assertEqual(runtime.context_dict()["state"], "EXECUTING")
+        self.assertEqual(len(planner.plan_calls), 1)
+        moving_events = []
+        while not runtime.monitor_events.empty():
+            moving_events.append(runtime.monitor_events.get_nowait())
+        moving_assessments = [
+            event for event in moving_events if event.get("event") == "ASSESSMENT"
+        ]
+        self.assertEqual(len(moving_assessments), 2)
+        self.assertTrue(
+            all(
+                event["disposition"] == "IGNORED_EXECUTOR_ACTIVE"
+                for event in moving_assessments
+            )
+        )
+        self.assertTrue(
+            all(event["executor_state"] == "ACTIVE" for event in moving_assessments)
+        )
+
+        executor.settled.add(current.publication_id)
+        self.emit_twice(
+            runtime,
+            clock,
+            current,
+            status="SUCCESS",
+            frames=(33, 34),
+        )
+        self.assertEqual(len(planner.plan_calls), 2)
+        self.assertIn(current.publication_id, executor.retired)
+        settled_events = []
+        while not runtime.monitor_events.empty():
+            settled_events.append(runtime.monitor_events.get_nowait())
+        settled_assessments = [
+            event for event in settled_events if event.get("event") == "ASSESSMENT"
+        ]
+        self.assertEqual(
+            [event["disposition"] for event in settled_assessments],
+            ["ACCEPTED", "REPLAN_REQUESTED"],
+        )
+        self.assertEqual(
+            settled_assessments[0]["success_confirmation"],
+            {"count": 1, "required": 2},
+        )
+
+    def test_monitor_telemetry_is_bounded_and_drops_oldest(self):
+        runtime, _clock, _publisher, _monitor = self.build_runtime(
+            ScriptedPlanner(final_validation())
+        )
+
+        for index in range(300):
+            runtime._queue_monitor_event(
+                {"event": "INFERENCE_STARTED", "frame_sequence": index}
+            )
+
+        self.assertEqual(runtime.monitor_events.qsize(), 256)
+        first = runtime.monitor_events.get_nowait()
+        self.assertEqual(first["frame_sequence"], 44)
 
     def start_goal(self, runtime: PrefMemRuntime):
         preview = runtime.request_goal_preview(

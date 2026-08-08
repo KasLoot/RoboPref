@@ -176,6 +176,69 @@ class HRIValidationReportTests(unittest.TestCase):
         self.assertIn("authoritative runtime", prompt)
         self.assertIn("only when the authoritative runtime", prompt)
 
+    def test_summary_monitor_events_are_live_and_hide_inference_noise(self) -> None:
+        hri = object.__new__(HRI_Agent)
+        monitor_events = queue.Queue()
+        monitor_events.put(
+            {
+                "kind": "MONITOR_EVENT",
+                "event": "INFERENCE_STARTED",
+                "publication_id": "goal:r1:c1:a1",
+                "frame_sequence": 7,
+            }
+        )
+        monitor_events.put(
+            {
+                "kind": "MONITOR_EVENT",
+                "event": "ASSESSMENT",
+                "publication_id": "goal:r1:c1:a1",
+                "step_id": "place-green",
+                "frame_sequence": 8,
+                "task_status": "SUCCESS",
+                "disposition": "ACCEPTED",
+                "executor_state": "SETTLED",
+                "criteria": [
+                    {
+                        "id": "green-on-red",
+                        "description": "The green block is on the red block.",
+                        "state": "MET",
+                    }
+                ],
+                "observation": "The green block is visibly resting on the red block.",
+                "success_confirmation": {"count": 1, "required": 2},
+            }
+        )
+        hri.args = SimpleNamespace(monitor_events="summary")
+        hri.runtime = SimpleNamespace(
+            notifications=queue.SimpleQueue(),
+            monitor_events=monitor_events,
+        )
+
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            hri._print_runtime_notifications()
+
+        rendered = output.getvalue()
+        self.assertNotIn("inference started", rendered)
+        self.assertIn("[Monitor] assessment", rendered)
+        self.assertIn("status=SUCCESS", rendered)
+        self.assertIn("confirmation=1/2", rendered)
+        self.assertIn("MET: The green block is on the red block.", rendered)
+
+    def test_verbose_monitor_event_includes_inference_latency(self) -> None:
+        rendered = HRI_Agent._render_monitor_event(
+            {
+                "event": "INFERENCE_COMPLETED",
+                "publication_id": "goal:r1:c1:a1",
+                "frame_sequence": 11,
+                "elapsed_seconds": 0.625,
+            }
+        )
+
+        self.assertIn("inference completed", rendered)
+        self.assertIn("frame=11", rendered)
+        self.assertIn("latency=0.62s", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()

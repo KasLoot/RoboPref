@@ -59,6 +59,14 @@ class MonitorErrorKind(str, Enum):
     CALLBACK = "CALLBACK_ERROR"
 
 
+class MonitorTelemetryKind(str, Enum):
+    """Read-only lifecycle events emitted by the single-flight worker."""
+
+    INFERENCE_STARTED = "INFERENCE_STARTED"
+    INFERENCE_COMPLETED = "INFERENCE_COMPLETED"
+    ERROR = "ERROR"
+
+
 @dataclass(frozen=True, slots=True)
 class MonitorErrorEvent:
     """A system error to be routed to controller ``NEEDS_ATTENTION`` state."""
@@ -66,6 +74,48 @@ class MonitorErrorEvent:
     kind: MonitorErrorKind
     message: str
     publication_id: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class MonitorTelemetryEvent:
+    """Host-owned Monitor telemetry; never an input to controller decisions."""
+
+    kind: MonitorTelemetryKind
+    publication_id: str
+    frame_sequence: int | None = None
+    observed_at: float | None = None
+    elapsed_seconds: float | None = None
+    message: str | None = None
+
+    def __post_init__(self) -> None:
+        try:
+            kind = MonitorTelemetryKind(self.kind)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid monitor telemetry kind: {self.kind!r}") from error
+        publication_id = str(self.publication_id).strip()
+        if not publication_id:
+            raise ValueError("publication_id must be non-empty")
+        if self.frame_sequence is not None and (
+            isinstance(self.frame_sequence, bool)
+            or not isinstance(self.frame_sequence, int)
+            or self.frame_sequence < 0
+        ):
+            raise ValueError("frame_sequence must be non-negative or None")
+        for name, value in (
+            ("observed_at", self.observed_at),
+            ("elapsed_seconds", self.elapsed_seconds),
+        ):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+            ):
+                raise ValueError(f"{name} must be finite and non-negative or None")
+        message = None if self.message is None else str(self.message).strip()
+        object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "publication_id", publication_id)
+        object.__setattr__(self, "message", message or None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -442,6 +492,7 @@ class MonitorService:
         on_assessment: Callable[[MonitorAssessment], None],
         *,
         on_error: Callable[[MonitorErrorEvent], None] | None = None,
+        on_event: Callable[[MonitorTelemetryEvent], None] | None = None,
         emergency: EmergencyStopCoordinator | None = None,
         model: MonitorModel | None = None,
         frame_source: FrameSource | None = None,
@@ -458,6 +509,8 @@ class MonitorService:
             raise TypeError("on_assessment must be callable")
         if on_error is not None and not callable(on_error):
             raise TypeError("on_error must be callable or None")
+        if on_event is not None and not callable(on_event):
+            raise TypeError("on_event must be callable or None")
         if emergency is not None and not isinstance(
             emergency,
             EmergencyStopCoordinator,
@@ -482,6 +535,7 @@ class MonitorService:
 
         self._on_assessment = on_assessment
         self._on_error = on_error
+        self._on_event = on_event
         self.emergency = emergency or EmergencyStopCoordinator(clock=clock)
         self._clock = clock
         self._min_interval = float(min_interval_seconds)
@@ -659,6 +713,14 @@ class MonitorService:
                 frame,
                 self._system_prompt,
             )
+            self._emit_telemetry(
+                MonitorTelemetryEvent(
+                    kind=MonitorTelemetryKind.INFERENCE_STARTED,
+                    publication_id=_publication_id(task),
+                    frame_sequence=frame.sequence,
+                    observed_at=frame.observed_at,
+                )
+            )
             model_started = time.perf_counter()
             try:
                 response = self._model.invoke(
@@ -674,6 +736,15 @@ class MonitorService:
                 )
                 continue
             elapsed = time.perf_counter() - model_started
+            self._emit_telemetry(
+                MonitorTelemetryEvent(
+                    kind=MonitorTelemetryKind.INFERENCE_COMPLETED,
+                    publication_id=_publication_id(task),
+                    frame_sequence=frame.sequence,
+                    observed_at=frame.observed_at,
+                    elapsed_seconds=elapsed,
+                )
+            )
 
             if self._metrics is not None:
                 try:
@@ -777,6 +848,13 @@ class MonitorService:
             self._generation += 1
             self._active_task = None
             self._condition.notify_all()
+        self._emit_telemetry(
+            MonitorTelemetryEvent(
+                kind=MonitorTelemetryKind.ERROR,
+                publication_id=_publication_id(task),
+                message=f"{event.kind.value}: {event.message}",
+            )
+        )
         if self._on_error is None:
             LOGGER.error("%s: %s", event.kind.value, event.message)
             return
@@ -784,3 +862,14 @@ class MonitorService:
             self._on_error(event)
         except BaseException:
             LOGGER.exception("The monitor error callback raised an error")
+
+    def _emit_telemetry(self, event: MonitorTelemetryEvent) -> None:
+        callback = self._on_event
+        if callback is None:
+            return
+        try:
+            callback(event)
+        except BaseException:
+            # Telemetry is deliberately best-effort and can never interrupt
+            # observation, emergency handling, or controller callbacks.
+            LOGGER.exception("The monitor telemetry callback raised an error")

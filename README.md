@@ -31,10 +31,13 @@ The implemented workflow is:
    the trigger, terminal execution history, and any operator guidance. It may
    return one to three candidate tasks, but the controller publishes only the
    first one, giving an execution horizon of one.
-5. For a normal step, the current implementation shows that single instruction
-   on the camera page for a human to execute. Monitor evaluates post-publication
-   frames. Stable success or failure is appended to history and causes a fresh
-   planning cycle without changing the confirmed goal.
+5. For a normal step, the runtime either shows that single instruction on the
+   camera page for a human (`--executor human`, the default) or sends it to the
+   MuJoCo Panda execution agent (`--executor mujoco`). In simulation, Gemma 4
+   compiles the instruction to a constrained symbolic pick/place program, SAM
+   3.1 segments its source and target, synchronized depth grounds both in 3D,
+   and a deterministic IK/position controller executes the safe waypoint
+   sequence. Monitor remains the authority for post-motion task completion.
 6. When Planner requests final validation, Validator evaluates the frozen
    checklist over one or more fresh views. Host code derives `COMPLETE`,
    `INCOMPLETE`, or `NEEDS_EVIDENCE`; incomplete work is replanned, while missing
@@ -85,7 +88,7 @@ flowchart TD
         PUBLISH --> PHASE{"Publication phase"}
 
         PHASE -->|STEP| PAGE["Camera page shows<br/>one physical instruction"]
-        PAGE --> EXECUTOR["Physical executor<br/>human in this prototype"]
+        PAGE --> EXECUTOR["Physical executor<br/>human or MuJoCo Panda"]
         EXECUTOR -->|changes the scene| CAMERA
         PHASE -->|STEP| MONITOR["Monitor<br/>post-publication frames"]
         CAMERA -.->|visual evidence| MONITOR
@@ -203,8 +206,8 @@ flowchart TD
         PUBLISH -.->|publication failure| ATTENTION
         PUBLISH --> PHASE{"Task phase"}
 
-        PHASE -->|STEP| STEP_PAGE["Browser shows exactly one<br/>physical task and expected observations"]
-        STEP_PAGE --> HUMAN_EXECUTOR["Human performs the task<br/>current prototype executor"]
+        PHASE -->|STEP| STEP_PAGE["Publish exactly one<br/>physical task and expected observations"]
+        STEP_PAGE --> HUMAN_EXECUTOR["Human or MuJoCo Panda<br/>performs the current task"]
         HUMAN_EXECUTOR -->|changes physical scene| CAMERA
         PHASE -->|STEP only| MONITOR["Monitor service polls<br/>post-publication frames"]
         CAMERA -.->|newer visual evidence| MONITOR
@@ -289,10 +292,11 @@ flowchart TD
 
 The confirmed goal remains fixed while the controller repeatedly plans from a
 fresh frame, publishes one task, and uses fenced visual evidence to decide what
-comes next. Physical task execution is delegated to the human watching the
-camera page in the current implementation; a lower-level VLA executor is the
-intended future integration. `emergency_stop()` is a logging-only placeholder,
-not a safety-rated or hardware emergency stop.
+comes next. Physical task execution can be delegated to the human camera-page
+operator or to the MuJoCo Panda execution agent. The latter is an explicit
+language/perception/controller workaround, not a learned VLA policy; the
+execution boundary remains ready for a future VLA adapter. `emergency_stop()`
+is a logging-only placeholder, not a safety-rated or hardware emergency stop.
 
 ## Quickstart
 
@@ -350,8 +354,8 @@ vllm serve /workspace/models/gemma-4-26B-A4B-it \
 
 ```bash
 ssh -N -L 8000:127.0.0.1:8000 \
-  -p 27217 -i ~/.ssh/id_ed25519 \
-  root@82.221.170.234
+  -p 17210 -i ~/.ssh/id_ed25519 \
+  root@103.196.86.101
 ```
 
 ### Serve Embedding model using vLLM
@@ -363,6 +367,22 @@ hf download google/embeddinggemma-300m --local-dir $workspace/models/embeddingge
 # RTX 4070 Ti with 12GB VRAM, using bfloat16 precision and 70% GPU memory utilization.
 vllm serve $workspace/models/embeddinggemma-300m --dtype bfloat16 \
   --gpu-memory-utilization 0.70 \
+  --hf-overrides '{"matryoshka_dimensions":[768]}' \
+  --port 8080
+
+# On RTX 5090
+mkdir -p serve_embeddinggemma
+cd serve_embeddinggemma
+uv venv -p 3.12
+source .venv/bin/activate
+# CUDA 13.0
+uv pip install vllm --extra-index-url https://wheels.vllm.ai/0.25.1/cu130 --extra-index-url https://download.pytorch.org/whl/cu130 --index-strategy unsafe-best-match
+
+VLLM_USE_FLASHINFER_SAMPLER=0 \
+vllm serve /workspace/models/embeddinggemma-300m \
+  --runner pooling \
+  --dtype bfloat16 \
+  --gpu-memory-utilization 0.20 \
   --hf-overrides '{"matryoshka_dimensions":[768]}' \
   --port 8080
 ```
@@ -408,6 +428,82 @@ uv run prefmem \
   --camera-base-url http://127.0.0.1:1234 \
   --memory-store-path ./memory_store_test
 ```
+
+#### MuJoCo Panda execution agent
+
+The simulation mode does not need `stream_camera`; its fixed RGB-D task camera
+feeds HRI, Planner, Monitor, Validator, SAM grounding, and the execution agent
+from one synchronized MuJoCo scene. Keep the forwarded services available at:
+
+- Gemma 4: `http://localhost:8000/v1`
+- SAM 3.1: `http://127.0.0.1:9000`
+- EmbeddingGemma: `http://localhost:8080/v1`
+
+The SAM server generated by `serve_sam3.bash` now returns a lossless PNG mask
+for every detection in `mask_png_base64`; restart that service after updating
+the repository. Then run:
+
+```bash
+uv sync
+uv run prefmem \
+  --model-config vllm \
+  --model-provider vllm \
+  --executor mujoco \
+  --sam-base-url http://127.0.0.1:9000 \
+  --memory-store-path ./memory_store_test
+```
+
+The scene starts with red, green, and blue cubes at randomized, separated
+positions in the Panda workspace. Yellow, purple, and orange cubes wait on the
+dark `items_area` outside robot reach and outside the fixed task-camera view.
+The fixed task camera is oblique so the side face of every cube remains visible
+in a vertical stack. It excludes the Panda visual-mesh group only from the
+offscreen frames consumed by Monitor and the other visual agents. The separate
+interactive viewer defaults to a freely navigable overview with the complete
+Panda and stored items visible. Select MuJoCo's fixed `task_camera`, or start
+with `--simulation-viewer-camera task`, when you want to inspect the Monitor
+view; switch back to the free camera to orbit, pan, and arrange disturbances.
+Use MuJoCo's body-selection and perturbation controls to drag a stored cube into
+the workspace while execution is running. The open-set goal contract for a
+request such as “Stack the blocks” includes matching blocks present at final
+validation, even if they arrived after confirmation. A confirmed count increase
+during motion cancels to a safe hold before triggering a fresh Planner cycle.
+Stack collapse remains ordinary visual failure evidence for Monitor and is also
+handled by the next receding-horizon cycle.
+
+The Panda controller uses a minimum-jerk joint trajectory capped at 0.6 rad/s
+and 1.2 rad/s\u00b2 by default. Model-based gravity feed-forward holds each IK
+target without accumulating integral trim, and a waypoint is complete only
+after both joint error and joint velocity remain within their settling limits.
+This keeps grasp and placement approaches deliberate and prevents the actuator
+setpoint from winding past the destination.
+
+Useful options:
+
+```bash
+# Reproducible placement without an interactive viewer
+uv run prefmem --executor mujoco --simulation-seed 7 --no-simulation-viewer
+
+# Change square RGB-D resolution (128-1024 pixels) and render rate
+uv run prefmem --executor mujoco --simulation-render-size 320 --simulation-render-hz 8
+
+# Include inference lifecycle and latency in addition to assessment summaries
+uv run prefmem --executor mujoco --monitor-events verbose
+
+# Inspect the exact fixed camera used by Monitor (this view does not orbit)
+uv run prefmem --executor mujoco --simulation-viewer-camera task
+```
+
+MuJoCo mode enables concise live Monitor events by default. Each assessment
+shows its frame, status, criterion states, visible observation, executor state,
+controller disposition, and confirmation streak. Use `--monitor-events off` to
+silence them or `--monitor-events verbose` to include inference start,
+completion, and latency. Event delivery is bounded and best-effort; it is
+telemetry only and cannot change controller state.
+
+The simulated software stop cancels motion and commands the current joint and
+gripper positions, but it is not a safety-rated stop and must not be treated as
+one on physical hardware.
 
 #### Operator GUI
 
