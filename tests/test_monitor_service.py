@@ -15,6 +15,7 @@ from prefmem.agents.monitor import (
     MonitorModelOutput,
     MonitorOutputError,
     MonitorService,
+    MonitorTelemetryKind,
     THINKING_DISABLED_OPTIONS,
 )
 from prefmem.contracts import (
@@ -142,6 +143,40 @@ class MonitorOutputTests(unittest.TestCase):
 
 
 class MonitorServiceTests(unittest.TestCase):
+    def test_emits_read_only_inference_lifecycle_telemetry(self) -> None:
+        telemetry = []
+        finished = threading.Event()
+        service_holder = {}
+
+        def accept(_assessment) -> None:
+            service_holder["service"].retire()
+            finished.set()
+
+        service = MonitorService(
+            accept,
+            on_event=telemetry.append,
+            model=RecordingModel(normal_output()),
+            frame_source=SequenceFrames([6]),
+            system_prompt="Monitor system contract.",
+            min_interval_seconds=0,
+        )
+        service_holder["service"] = service
+        try:
+            service.publish(task())
+            self.assertTrue(finished.wait(2.0))
+        finally:
+            service.stop()
+
+        self.assertEqual(
+            [event.kind for event in telemetry],
+            [
+                MonitorTelemetryKind.INFERENCE_STARTED,
+                MonitorTelemetryKind.INFERENCE_COMPLETED,
+            ],
+        )
+        self.assertEqual(telemetry[0].frame_sequence, 6)
+        self.assertIsNotNone(telemetry[1].elapsed_seconds)
+
     def test_all_met_ongoing_model_result_is_delivered_as_success(self) -> None:
         output = json.dumps(
             {

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 from importlib.metadata import version
 from pathlib import Path
 from typing import Sequence
@@ -14,6 +15,9 @@ DEFAULT_MODEL = "gemma4:31b-cloud"
 DEFAULT_MODEL_PROVIDER = "ollama"
 DEFAULT_VLLM_BASE_URL = "http://localhost:8000/v1"
 DEFAULT_CAMERA_BASE_URL = "http://127.0.0.1:1234"
+DEFAULT_SAM_BASE_URL = "http://127.0.0.1:9000"
+DEFAULT_EXECUTION_MODEL = "/workspace/models/gemma-4-26B-A4B-it"
+MAX_SIMULATION_RENDER_SIZE = 1024
 
 
 def _http_url(value: str, *, allow_path: bool = True) -> str:
@@ -29,6 +33,21 @@ def _http_url(value: str, *, allow_path: bool = True) -> str:
     return value.rstrip("/")
 
 
+def _loopback_http_url(value: str) -> str:
+    result = _http_url(value, allow_path=False)
+    hostname = urlsplit(result).hostname
+    assert hostname is not None
+    if hostname.casefold() == "localhost":
+        return result
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must use a loopback host") from error
+    if not address.is_loopback:
+        raise argparse.ArgumentTypeError("must use a loopback host")
+    return result
+
+
 def _positive_float(value: str) -> float:
     try:
         result = float(value)
@@ -36,6 +55,16 @@ def _positive_float(value: str) -> float:
         raise argparse.ArgumentTypeError("must be a number") from error
     if result <= 0:
         raise argparse.ArgumentTypeError("must be greater than zero")
+    return result
+
+
+def _probability(value: str) -> float:
+    try:
+        result = float(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("must be a number") from error
+    if not 0 <= result <= 1:
+        raise argparse.ArgumentTypeError("must be between zero and one")
     return result
 
 
@@ -47,6 +76,16 @@ def _integer_at_least(minimum: int):
             raise argparse.ArgumentTypeError("must be an integer") from error
         if result < minimum:
             raise argparse.ArgumentTypeError(f"must be at least {minimum}")
+        return result
+
+    return parse
+
+
+def _integer_between(minimum: int, maximum: int):
+    def parse(value: str) -> int:
+        result = _integer_at_least(minimum)(value)
+        if result > maximum:
+            raise argparse.ArgumentTypeError(f"must be at most {maximum}")
         return result
 
     return parse
@@ -146,9 +185,64 @@ def build_parser() -> argparse.ArgumentParser:
         help="Base URL for the live snapshot and task display server.",
     )
     parser.add_argument(
+        "--executor",
+        choices=("human", "mujoco"),
+        default="human",
+        help="Use the existing human task surface or the MuJoCo Panda executor.",
+    )
+    parser.add_argument(
+        "--sam-base-url",
+        default=DEFAULT_SAM_BASE_URL,
+        help="Forwarded SAM 3.1 service used by the MuJoCo executor.",
+    )
+    parser.add_argument("--sam-threshold", type=_probability, default=0.5)
+    parser.add_argument("--execution-model", default=DEFAULT_EXECUTION_MODEL)
+    parser.add_argument(
+        "--execution-model-base-url",
+        default=DEFAULT_VLLM_BASE_URL,
+        help="OpenAI-compatible Gemma 4 endpoint for instruction compilation.",
+    )
+    parser.add_argument("--simulation-seed", type=int, default=0)
+    parser.add_argument(
+        "--simulation-viewer",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Open MuJoCo's interactive viewer (use Ctrl+right-drag on blocks).",
+    )
+    parser.add_argument(
+        "--simulation-viewer-camera",
+        choices=("task", "overview"),
+        default="overview",
+        help=(
+            "Initial MuJoCo viewer camera. 'overview' is freely navigable and "
+            "shows the robot; 'task' matches Monitor and is fixed."
+        ),
+    )
+    parser.add_argument(
+        "--simulation-render-size",
+        type=_integer_between(128, MAX_SIMULATION_RENDER_SIZE),
+        default=640,
+        metavar="PIXELS",
+        help="Square RGB-D size in pixels (128-1024).",
+    )
+    parser.add_argument(
+        "--simulation-render-hz",
+        type=_positive_float,
+        default=5.0,
+    )
+    parser.add_argument(
         "--monitor-min-interval",
         type=_positive_float,
         default=1.0,
+    )
+    parser.add_argument(
+        "--monitor-events",
+        choices=("auto", "off", "summary", "verbose"),
+        default="auto",
+        help=(
+            "Live Monitor telemetry. 'auto' selects summary for MuJoCo and "
+            "off for the human executor."
+        ),
     )
     parser.add_argument(
         "--monitor-timeout",
@@ -194,6 +288,16 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         args.camera_base_url = _http_url(args.camera_base_url, allow_path=False)
     except argparse.ArgumentTypeError as error:
         parser.error(f"--camera-base-url {error}")
+    try:
+        args.sam_base_url = _loopback_http_url(args.sam_base_url)
+    except argparse.ArgumentTypeError as error:
+        parser.error(f"--sam-base-url {error}")
+    try:
+        args.execution_model_base_url = _http_url(
+            args.execution_model_base_url
+        )
+    except argparse.ArgumentTypeError as error:
+        parser.error(f"--execution-model-base-url {error}")
     if args.success_stability_seconds < 0:
         parser.error("--success-stability-seconds must be non-negative")
 
@@ -203,6 +307,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         else args.preference_store
     )
     args.memory_store_path = args.preference_store or DEFAULT_MEMORY_STORE
+    if args.monitor_events == "auto":
+        args.monitor_events = "summary" if args.executor == "mujoco" else "off"
     del args.legacy_memory_store
     return args
 
@@ -234,8 +340,10 @@ def main(argv: Sequence[str] | None = None) -> None:
 __all__ = [
     "DEFAULT_CAMERA_BASE_URL",
     "DEFAULT_DATASET",
+    "DEFAULT_EXECUTION_MODEL",
     "DEFAULT_MODEL",
     "DEFAULT_MODEL_PROVIDER",
+    "DEFAULT_SAM_BASE_URL",
     "DEFAULT_TRANSCRIPT",
     "DEFAULT_VLLM_BASE_URL",
     "build_parser",

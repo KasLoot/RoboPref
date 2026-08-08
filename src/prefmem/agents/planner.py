@@ -49,7 +49,7 @@ class CurrentFrameContext(TypedDict):
 
 
 class PlannerOutputError(ValueError):
-    """Raised when both Planner responses violate the typed JSON contract."""
+    """Raised when all Planner responses violate the typed JSON contract."""
 
 
 class VLLMChatOpenAI(ChatOpenAI):
@@ -87,6 +87,19 @@ _JSON_FENCE = re.compile(
     r"```(?:json)?\s*(?P<body>.*?)\s*```",
     flags=re.IGNORECASE | re.DOTALL,
 )
+
+_MAX_SCHEMA_CORRECTIONS = 2
+_CONTRACT_CORRECTION_RULES = {
+    "PlannerDecision": (
+        "For ACT, candidate_tasks must contain 1 to 3 tasks; for every "
+        "other decision it must be empty.",
+        "Each candidate_tasks[i].expected_observation must contain 1 to 3 "
+        "non-empty strings.",
+        "Each task's expected_observation is task-local, not a copy of the "
+        "goal-wide final checklist. Merge related observable conditions into "
+        "at most 3 strings while preserving the complete relevant post-state.",
+    ),
+}
 
 
 def _response_text(response: object) -> str:
@@ -300,26 +313,37 @@ class Planner_Agent:
         current_frame: Mapping[str, Any],
         contract_name: str,
     ):
-        """Call and validate the model, allowing one schema-correction retry."""
+        """Call and validate the model with bounded, targeted corrections."""
 
         contract = _contract_class(contract_name)
         request = _request_text(request_payload)
         last_error: Exception | None = None
         invalid_output = ""
 
-        for attempt in range(2):
+        for attempt in range(_MAX_SCHEMA_CORRECTIONS + 1):
             if attempt == 0:
                 model_request = request
             else:
+                correction_rules = _CONTRACT_CORRECTION_RULES.get(
+                    contract_name,
+                    (),
+                )
                 model_request = _request_text(
                     {
                         "request": request_payload,
                         "schema_correction": {
+                            "attempt": attempt,
+                            "contract": contract_name,
                             "error": str(last_error),
                             "invalid_output": invalid_output,
+                            "contract_rules": list(correction_rules),
                             "instruction": (
-                                "Return one corrected JSON object only. Do not "
-                                "change the requested goal or omit any clause."
+                                "Return one corrected JSON object only. Preserve "
+                                "the requested goal and semantics, but fix every "
+                                "invalid field shape and count. Do not preserve "
+                                "an invalid array merely to keep clauses separate; "
+                                "merge related clauses when needed to satisfy its "
+                                "bound."
                             ),
                         },
                     }
@@ -337,7 +361,8 @@ class Planner_Agent:
                     invalid_output = "<no visible response>"
 
         raise PlannerOutputError(
-            f"Planner returned invalid {contract_name} JSON after one correction: "
+            f"Planner returned invalid {contract_name} JSON after "
+            f"{_MAX_SCHEMA_CORRECTIONS} schema corrections: "
             f"{last_error}"
         ) from last_error
 

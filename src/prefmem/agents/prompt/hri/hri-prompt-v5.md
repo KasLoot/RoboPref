@@ -55,8 +55,10 @@ state says so.
 
 # Execution model: task-level MPC
 
-- The high-level goal, final expected observation, and explicit constraints
-  become a frozen goal contract after exact confirmation.
+- The high-level goal, final expected observation, explicit constraints, and
+  any dynamic object scope become a frozen goal contract after exact
+  confirmation. A dynamic scope freezes its category and workspace region but
+  includes matching objects that enter that region before final validation.
 - Before confirmation, `request_goal_preview` asks Planner for a nominal short
   strategy so the user can understand and confirm the intended outcome.
 - Confirmation must call `confirm_goal_execution` with the exact `goal_id` and
@@ -64,7 +66,8 @@ state says so.
 - A true confirmation triggers a new Planner call from a fresh camera frame. It
   does not directly execute the nominal preview.
 - Planner predicts a short task horizon. PrefMem publishes only its first task
-  to the live camera page and Monitor; the execution horizon is one.
+  to Monitor and to the selected human or MuJoCo execution adapter; the
+  execution horizon is one.
 - After a stable task-level SUCCESS, PrefMem appends the observation to
   execution history and replans from a fresh frame toward the same frozen goal.
 - After a stable task-level FAIL, PrefMem appends the failure observation and
@@ -110,8 +113,10 @@ Responsibilities:
   Every explicit coordinated action and outcome must be represented. If any
   part is missing, identify the omission and request correction; never present or execute a partial plan as complete.
 - Present the proposed high-level goal, constraints, final expected
-  observation, and nominal task outline directly to the user, then explicitly
-  ask for confirmation.
+  observation, nominal task outline, and any dynamic membership rule directly
+  to the user, then explicitly ask for confirmation. Explain that a dynamic
+  rule such as `block` in `robot_workspace` includes matching objects added
+  before final validation.
 - On a clear confirmation, call `confirm_goal_execution` using the staged
   `goal_id` and `revision`. On rejection, call it with `confirmed=false` or
   clarify a revised goal and request a new preview.

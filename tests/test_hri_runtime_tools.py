@@ -35,6 +35,17 @@ class RecordingModel:
         )
 
 
+class RecordingMemoryAgent:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def run(self, messages, current_frame=None):
+        self.calls.append((messages, current_frame))
+        return {
+            "messages": [AIMessage(content='{"status":"EMPTY"}')]
+        }
+
+
 class FakeRuntime:
     def __init__(self) -> None:
         self.shutdown_event = threading.Event()
@@ -89,6 +100,33 @@ class HRIRuntimeToolsTests(unittest.TestCase):
             },
         )
         self.assertNotIn("call_sub_agent", hri.TOOLS_BY_NAME)
+
+    def test_memory_tool_uses_runtime_owned_frame(self):
+        hri, runtime = self.make_attached_hri()
+        memory = RecordingMemoryAgent()
+        hri.memory_agent = memory
+        hri.completed_memory_mutations = []
+        frame_block = {
+            "type": "image_url",
+            "image_url": {"url": "data:image/png;base64,simulation"},
+        }
+        frame_calls = []
+
+        def frame_source():
+            frame_calls.append(True)
+            return SimpleNamespace(image_block=frame_block)
+
+        runtime.frame_source = frame_source
+
+        result = json.loads(
+            hri.call_memory_agent(
+                "RETRIEVE REQUEST: stacking preferences"
+            )
+        )
+
+        self.assertEqual(result["status"], "EMPTY")
+        self.assertEqual(frame_calls, [True])
+        self.assertEqual(memory.calls[0][1], frame_block)
 
     def test_runtime_wrappers_forward_exact_confirmation_and_guidance(self):
         hri, runtime = self.make_attached_hri()

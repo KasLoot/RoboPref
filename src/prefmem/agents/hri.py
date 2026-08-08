@@ -398,6 +398,22 @@ class HRI_Agent:
             message=message,
         )
 
+    def _runtime_current_frame(self):
+        """Return the attached runtime's image block, when one is available."""
+
+        runtime = getattr(self, "runtime", None)
+        frame_source = getattr(runtime, "frame_source", None)
+        if not callable(frame_source):
+            return None
+
+        frame = frame_source()
+        try:
+            return frame.image_block
+        except AttributeError as error:
+            raise TypeError(
+                "runtime.frame_source must return an object with image_block"
+            ) from error
+
     def _record_completed_memory_mutation(
         self,
         request: str,
@@ -475,7 +491,14 @@ class HRI_Agent:
 
             
         if sub_agent_name == "MEMORY_AGENT":
-            memory_state = self.memory_agent.run(messages=message)
+            current_frame = self._runtime_current_frame()
+            if current_frame is None:
+                memory_state = self.memory_agent.run(messages=message)
+            else:
+                memory_state = self.memory_agent.run(
+                    messages=message,
+                    current_frame=current_frame,
+                )
             memory_output = memory_state["messages"][-1].content
             if not isinstance(memory_output, str):
                 memory_output = json.dumps(
@@ -758,6 +781,11 @@ class HRI_Agent:
         ):
             if self._runtime_shutdown_requested():
                 break
+            if self._runtime_output_pending():
+                if active_section is not None:
+                    print()
+                    active_section = None
+                self._print_runtime_notifications()
             if part["type"] == "messages":
                 chunk, metadata = part["data"]
 
@@ -918,8 +946,11 @@ class HRI_Agent:
                         m.pretty_print()
                 continue
 
-            # start_frame, last_frame = get_start_end_frames(self.args)
-            start_frame = get_live_frame()
+            # Use the runtime-owned frame source so simulation and physical
+            # camera modes share the exact same HRI/Planner observation.
+            start_frame = self._runtime_current_frame()
+            if start_frame is None:
+                start_frame = get_live_frame()
             
             # build message
             messages = [
@@ -952,11 +983,22 @@ class HRI_Agent:
         shutdown_event = getattr(runtime, "shutdown_event", None)
         return bool(shutdown_event is not None and shutdown_event.is_set())
 
+    def _runtime_output_pending(self) -> bool:
+        runtime = getattr(self, "runtime", None)
+        for name in ("notifications", "monitor_events"):
+            channel = getattr(runtime, name, None)
+            if channel is None:
+                continue
+            try:
+                if not channel.empty():
+                    return True
+            except Exception:
+                continue
+        return False
+
     def _print_runtime_notifications(self) -> None:
         runtime = getattr(self, "runtime", None)
         notifications = getattr(runtime, "notifications", None)
-        if notifications is None:
-            return
         authoritative_state = None
         context_dict = getattr(runtime, "context_dict", None)
         if callable(context_dict):
@@ -968,16 +1010,109 @@ class HRI_Agent:
                 authoritative_state = self._enum_text(
                     runtime_context.get("state")
                 )
+        if notifications is not None:
+            while True:
+                try:
+                    notification = notifications.get_nowait()
+                except queue.Empty:
+                    break
+                rendered = self._render_runtime_notification(
+                    notification,
+                    authoritative_state=authoritative_state,
+                )
+                print(colored(f"PrefMem: {rendered}", "white", "on_green"))
+        self._print_monitor_events()
+
+    def _print_monitor_events(self) -> None:
+        runtime = getattr(self, "runtime", None)
+        events = getattr(runtime, "monitor_events", None)
+        if events is None:
+            return
+        args = getattr(self, "args", None)
+        mode = str(getattr(args, "monitor_events", "off")).casefold()
         while True:
             try:
-                notification = notifications.get_nowait()
+                event = events.get_nowait()
             except queue.Empty:
                 return
-            rendered = self._render_runtime_notification(
-                notification,
-                authoritative_state=authoritative_state,
+            mapping = self._notification_mapping(event)
+            if mapping is None or mode == "off":
+                continue
+            event_name = self._enum_text(mapping.get("event"))
+            if mode == "summary" and event_name in {
+                "INFERENCE_STARTED",
+                "INFERENCE_COMPLETED",
+            }:
+                continue
+            rendered = self._render_monitor_event(mapping)
+            if rendered:
+                print(colored(rendered, "cyan"))
+
+    @classmethod
+    def _render_monitor_event(cls, event: dict) -> str:
+        event_name = cls._enum_text(event.get("event")) or "EVENT"
+        publication_id = cls._brief_text(event.get("publication_id"))
+        frame_sequence = event.get("frame_sequence")
+        step_id = cls._brief_text(event.get("step_id"))
+        prefix = f"[Monitor] {event_name.lower().replace('_', ' ')}"
+        details: list[str] = []
+        if frame_sequence is not None:
+            details.append(f"frame={frame_sequence}")
+        if step_id:
+            details.append(f"step={step_id}")
+        if publication_id:
+            details.append(f"publication={publication_id}")
+        elapsed = event.get("elapsed_seconds")
+        if isinstance(elapsed, (int, float)):
+            details.append(f"latency={float(elapsed):.2f}s")
+
+        if event_name == "ASSESSMENT":
+            status = cls._enum_text(event.get("task_status")) or "UNKNOWN"
+            disposition = cls._enum_text(event.get("disposition")) or "UNKNOWN"
+            details.extend((f"status={status}", f"disposition={disposition}"))
+            executor_state = cls._enum_text(event.get("executor_state"))
+            if executor_state:
+                details.append(f"executor={executor_state}")
+            confirmation_key = (
+                "failure_confirmation" if status == "FAIL" else "success_confirmation"
             )
-            print(colored(f"PrefMem: {rendered}", "white", "on_green"))
+            confirmation = cls._notification_mapping(event.get(confirmation_key))
+            if confirmation is not None:
+                count = confirmation.get("count")
+                required = confirmation.get("required")
+                if isinstance(count, int) and isinstance(required, int) and count:
+                    details.append(f"confirmation={count}/{required}")
+
+        lines = [prefix + (" " + " ".join(details) if details else "")]
+        if event_name == "TASK_PUBLISHED":
+            instruction = cls._brief_text(event.get("instruction"))
+            if instruction:
+                lines.append(f"  instruction: {instruction}")
+        if event_name == "ASSESSMENT":
+            criteria = event.get("criteria") or []
+            if isinstance(criteria, (list, tuple)):
+                for raw in criteria:
+                    criterion = cls._notification_mapping(raw)
+                    if criterion is None:
+                        continue
+                    state = cls._enum_text(criterion.get("state")) or "UNKNOWN"
+                    label = cls._brief_text(
+                        criterion.get("description") or criterion.get("id")
+                    )
+                    if label:
+                        lines.append(f"  {state}: {label}")
+            observation = cls._brief_text(event.get("observation"))
+            if observation:
+                lines.append(f"  observation: {observation}")
+            failure = cls._notification_mapping(event.get("failure"))
+            if failure is not None:
+                description = cls._brief_text(failure.get("description"))
+                if description:
+                    lines.append(f"  failure: {description}")
+        message = cls._brief_text(event.get("message"))
+        if message:
+            lines.append(f"  message: {message}")
+        return "\n".join(lines)
 
     @staticmethod
     def _notification_mapping(value) -> dict | None:

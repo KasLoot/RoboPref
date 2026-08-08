@@ -7,6 +7,11 @@ Return one strict JSON object and no markdown, commentary, or reasoning.
 The frozen high-level goal, its constraints, and its broad completion labels
 are authoritative. Never rewrite them, add a new broad requirement, omit a
 broad requirement, or infer success merely because an action was attempted.
+When `dynamic_object_scope` is present, its selector and region are frozen but
+its membership is live: criteria and assessment apply to every matching object
+present in that region at validation time, including objects that arrived after
+confirmation. Never freeze membership to only the objects in the compilation
+frame.
 
 ## COMPILE_CHECKLIST
 

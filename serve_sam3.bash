@@ -166,6 +166,8 @@ SERVER_PY="${REPO_DIR}/sam31_server.py"
 
 cat > "${SERVER_PY}" <<'PY'
 import asyncio
+import base64
+import io
 import os
 import tempfile
 from contextlib import asynccontextmanager
@@ -204,6 +206,8 @@ def masks_to_detections(outputs):
     """
     obj_ids = np.asarray(outputs.get("out_obj_ids", []))
     masks = np.asarray(outputs.get("out_binary_masks", []))
+    raw_scores = outputs.get("out_probs", outputs.get("out_scores", []))
+    scores = np.asarray([] if raw_scores is None else raw_scores).reshape(-1)
 
     if masks.size == 0:
         return []
@@ -238,14 +242,23 @@ def masks_to_detections(outputs):
         y2 = int(ys.max()) + 1
 
         object_id = int(obj_ids[i]) if i < len(obj_ids) else i
+        mask_image = Image.fromarray(mask.astype(np.uint8) * 255, mode="L")
+        mask_buffer = io.BytesIO()
+        mask_image.save(mask_buffer, format="PNG", optimize=True)
 
-        detections.append(
-            {
-                "object_id": object_id,
-                "box_xyxy": [x1, y1, x2, y2],
-                "mask_area": int(mask.sum()),
-            }
-        )
+        detection = {
+            "object_id": object_id,
+            "box_xyxy": [x1, y1, x2, y2],
+            "mask_area": int(mask.sum()),
+            "mask_png_base64": base64.b64encode(
+                mask_buffer.getvalue()
+            ).decode("ascii"),
+        }
+        if i < len(scores) and np.isfinite(scores[i]):
+            score = float(scores[i])
+            if 0.0 <= score <= 1.0:
+                detection["score"] = score
+        detections.append(detection)
 
     return detections
 
@@ -322,7 +335,8 @@ async def detect(
       threshold  SAM output probability threshold
 
     Output:
-      pixel-space bounding boxes [x1, y1, x2, y2]
+      pixel-space bounding boxes [x1, y1, x2, y2], lossless PNG masks,
+      and model scores when SAM exposes calibrated probabilities
     """
     if not prompt.strip():
         raise HTTPException(400, "prompt must not be empty")

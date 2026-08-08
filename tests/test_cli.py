@@ -28,6 +28,7 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual(args.model, DEFAULT_MODEL)
         self.assertEqual(args.model_provider, "ollama")
         self.assertIsNone(args.model_base_url)
+        self.assertEqual(args.monitor_events, "off")
 
     def test_path_and_boolean_options(self) -> None:
         args = parse_args(
@@ -53,6 +54,61 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual(args.transcript, Path("runs/session.txt"))
         self.assertTrue(args.display_all)
         self.assertTrue(args.resize_images)
+
+    def test_mujoco_executor_options(self) -> None:
+        args = parse_args(
+            [
+                "--executor",
+                "mujoco",
+                "--sam-base-url",
+                "http://127.0.0.1:9000",
+                "--sam-threshold",
+                "0.65",
+                "--simulation-seed",
+                "17",
+                "--no-simulation-viewer",
+                "--simulation-render-size",
+                "320",
+            ]
+        )
+        self.assertEqual(args.executor, "mujoco")
+        self.assertEqual(args.sam_threshold, 0.65)
+        self.assertEqual(args.simulation_seed, 17)
+        self.assertFalse(args.simulation_viewer)
+        self.assertEqual(args.simulation_render_size, 320)
+        self.assertEqual(args.simulation_viewer_camera, "overview")
+        self.assertEqual(args.monitor_events, "summary")
+
+    def test_fixed_task_camera_can_be_selected_explicitly(self) -> None:
+        args = parse_args(
+            ["--executor", "mujoco", "--simulation-viewer-camera", "task"]
+        )
+
+        self.assertEqual(args.simulation_viewer_camera, "task")
+
+    def test_explicit_monitor_event_verbosity_is_preserved(self) -> None:
+        args = parse_args(
+            ["--executor", "mujoco", "--monitor-events", "verbose"]
+        )
+
+        self.assertEqual(args.monitor_events, "verbose")
+
+    def test_sam_threshold_rejects_values_outside_probability_range(self) -> None:
+        for value in ("-0.01", "1.01"):
+            with self.subTest(value=value):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit):
+                        parse_args(["--sam-threshold", value])
+
+    def test_sam_endpoint_must_remain_on_loopback(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parse_args(["--sam-base-url", "https://sam.example.test"])
+
+    def test_simulation_render_size_rejects_oversized_framebuffer(self) -> None:
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parse_args(["--simulation-render-size", "1025"])
 
     def test_display_all_spellings_are_equivalent(self) -> None:
         for spelling in ("--display_all", "--display-all"):

@@ -90,6 +90,18 @@ class ExecutionOutcome(str, Enum):
     INTERRUPTED = "INTERRUPTED"
 
 
+class GoalRegion(str, Enum):
+    """A host-understood region used by an open-set goal."""
+
+    ROBOT_WORKSPACE = "robot_workspace"
+
+
+class ObjectMembershipRule(str, Enum):
+    """When objects become members of an open-set goal."""
+
+    PRESENT_AT_VALIDATION = "PRESENT_AT_VALIDATION"
+
+
 def _text(value: object, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{field_name} must be a non-empty string")
@@ -314,6 +326,59 @@ class PlannerPlan:
 
 
 @dataclass(frozen=True, slots=True)
+class DynamicObjectScope:
+    """Open-set membership frozen with a goal, not a frozen object list.
+
+    The selector and region are immutable after confirmation. Membership is
+    evaluated against the live scene, so matching objects that enter the
+    workspace during execution remain part of the goal.
+    """
+
+    selector: str
+    region: GoalRegion = GoalRegion.ROBOT_WORKSPACE
+    membership_rule: ObjectMembershipRule = ObjectMembershipRule.PRESENT_AT_VALIDATION
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "selector", _text(self.selector, "selector"))
+        try:
+            region = GoalRegion(self.region)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid dynamic object region: {self.region!r}") from error
+        try:
+            rule = ObjectMembershipRule(self.membership_rule)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"invalid object membership rule: {self.membership_rule!r}"
+            ) from error
+        object.__setattr__(self, "region", region)
+        object.__setattr__(self, "membership_rule", rule)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> DynamicObjectScope:
+        payload = _mapping(payload, "dynamic_object_scope")
+        _reject_unknown_keys(
+            payload,
+            {"selector", "region", "membership_rule"},
+            "dynamic_object_scope",
+        )
+        return cls(
+            selector=payload.get("selector"),
+            region=payload.get("region", GoalRegion.ROBOT_WORKSPACE.value),
+            membership_rule=payload.get(
+                "membership_rule",
+                ObjectMembershipRule.PRESENT_AT_VALIDATION.value,
+            ),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "selector": self.selector,
+            "region": self.region.value,
+            "membership_rule": self.membership_rule.value,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class GoalProposal:
     """Nominal, user-facing proposal produced before execution consent.
 
@@ -327,6 +392,7 @@ class GoalProposal:
     constraints: tuple[str, ...] = ()
     nominal_tasks: tuple[str, ...] = ()
     reason: str | None = None
+    dynamic_object_scope: DynamicObjectScope | None = None
 
     def __post_init__(self) -> None:
         try:
@@ -353,6 +419,11 @@ class GoalProposal:
         if reason is not None:
             reason = _text(reason, "reason")
         object.__setattr__(self, "reason", reason)
+        scope = self.dynamic_object_scope
+        if scope is not None and not isinstance(scope, DynamicObjectScope):
+            raise ValueError(
+                "dynamic_object_scope must be a DynamicObjectScope or None"
+            )
         if status is PlanStatus.READY and not nominal:
             raise ValueError("a READY proposal needs at least one nominal task")
         if status is not PlanStatus.READY and nominal:
@@ -374,6 +445,7 @@ class GoalProposal:
                 "constraints",
                 "nominal_tasks",
                 "reason",
+                "dynamic_object_scope",
             },
             "goal proposal",
         )
@@ -387,6 +459,11 @@ class GoalProposal:
             constraints=payload.get("constraints", ()),
             nominal_tasks=payload.get("nominal_tasks", ()),
             reason=payload.get("reason"),
+            dynamic_object_scope=(
+                None
+                if payload.get("dynamic_object_scope") is None
+                else DynamicObjectScope.from_dict(payload["dynamic_object_scope"])
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -397,6 +474,11 @@ class GoalProposal:
             "constraints": list(self.constraints),
             "nominal_tasks": list(self.nominal_tasks),
             "reason": self.reason,
+            "dynamic_object_scope": (
+                None
+                if self.dynamic_object_scope is None
+                else self.dynamic_object_scope.to_dict()
+            ),
         }
 
 
@@ -410,6 +492,7 @@ class GoalContract:
     final_expected_observation: tuple[str, ...]
     constraints: tuple[str, ...] = ()
     nominal_tasks: tuple[str, ...] = ()
+    dynamic_object_scope: DynamicObjectScope | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "goal_id", _identifier(self.goal_id, "goal_id"))
@@ -435,6 +518,11 @@ class GoalContract:
             "nominal_tasks",
             _string_tuple(self.nominal_tasks, "nominal_tasks"),
         )
+        scope = self.dynamic_object_scope
+        if scope is not None and not isinstance(scope, DynamicObjectScope):
+            raise ValueError(
+                "dynamic_object_scope must be a DynamicObjectScope or None"
+            )
 
     @classmethod
     def from_proposal(
@@ -455,6 +543,7 @@ class GoalContract:
             final_expected_observation=proposal.final_expected_observation,
             constraints=proposal.constraints,
             nominal_tasks=proposal.nominal_tasks,
+            dynamic_object_scope=proposal.dynamic_object_scope,
         )
 
     @classmethod
@@ -469,6 +558,7 @@ class GoalContract:
                 "final_expected_observation",
                 "constraints",
                 "nominal_tasks",
+                "dynamic_object_scope",
             },
             "goal contract",
         )
@@ -482,6 +572,11 @@ class GoalContract:
             ),
             constraints=payload.get("constraints", ()),
             nominal_tasks=payload.get("nominal_tasks", ()),
+            dynamic_object_scope=(
+                None
+                if payload.get("dynamic_object_scope") is None
+                else DynamicObjectScope.from_dict(payload["dynamic_object_scope"])
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -492,6 +587,11 @@ class GoalContract:
             "final_expected_observation": list(self.final_expected_observation),
             "constraints": list(self.constraints),
             "nominal_tasks": list(self.nominal_tasks),
+            "dynamic_object_scope": (
+                None
+                if self.dynamic_object_scope is None
+                else self.dynamic_object_scope.to_dict()
+            ),
         }
 
 
@@ -1092,6 +1192,8 @@ def freeze_validation_contract(
         raise ValueError(
             "checklist draft must map exactly once to every frozen broad outcome"
         )
+
+
     broad_items = tuple(
         BroadValidationItem(
             broad_id=f"{safe_validation_id}:b{index + 1}",

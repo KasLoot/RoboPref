@@ -14,6 +14,8 @@ from prefmem.agents.monitor import (
     HTTPFrameSource,
     MonitorErrorEvent,
     MonitorService,
+    MonitorTelemetryEvent,
+    MonitorTelemetryKind,
 )
 from prefmem.agents.validator import (
     ValidatorErrorEvent,
@@ -28,6 +30,7 @@ from prefmem.contracts import (
     PlannerCycleRequest,
     PublishedTask,
     TaskPhase,
+    TaskStatus,
     ValidationAssessment,
     ValidationContract,
     ValidationReport,
@@ -58,7 +61,7 @@ class RuntimeClosedError(RuntimeError):
 
 
 class PrefMemRuntime:
-    """Own Planner cycles, publication, Monitor, Validator, and shutdown.
+    """Own Planner cycles, publication, execution, observation, and shutdown.
 
     Planner, Monitor, and Validator remain model boundaries.  This runtime is
     the only component allowed to append execution history, select the first
@@ -86,6 +89,8 @@ class PrefMemRuntime:
         max_cycles: int = 20,
         session_id: str | None = None,
         reset_display: bool = True,
+        executor: Any | None = None,
+        owned_resources: Sequence[Any] = (),
     ) -> None:
         if not hasattr(planner, "preview") or not hasattr(planner, "plan_cycle"):
             raise TypeError("planner must expose preview() and plan_cycle()")
@@ -101,7 +106,23 @@ class PrefMemRuntime:
         self.publisher = task_publisher or CameraTaskPublisher(camera_base_url)
         snapshot_url = f"{camera_base_url.rstrip('/')}/snapshot.jpg"
         self.frame_source = frame_source or HTTPFrameSource(snapshot_url)
+        self.executor = executor
+        self._owned_resources = tuple(owned_resources)
+        if executor is not None:
+            for method_name in ("publish", "retire", "stop", "is_settled"):
+                if not callable(getattr(executor, method_name, None)):
+                    raise TypeError(
+                        f"executor must expose callable {method_name}()"
+                    )
+            executor.on_event = self._on_execution_event
+            executor.on_scene_change = self._on_execution_scene_change
         self.notifications: queue.SimpleQueue[Any] = queue.SimpleQueue()
+        # High-rate Monitor telemetry is isolated from user/action
+        # notifications. The bounded, drop-oldest queue guarantees that a
+        # slow console can never block observation or robot control.
+        self.monitor_events: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=256)
+        self._monitor_event_lock = threading.Lock()
+        self._monitor_elapsed: dict[tuple[str, int | None], float] = {}
         self._planning_lock = threading.Lock()
         self._display_lock = threading.Lock()
         self._display_sequence = 0
@@ -119,8 +140,10 @@ class PrefMemRuntime:
         self.monitor = monitor or MonitorService(
             self._on_monitor_assessment,
             on_error=self._on_monitor_error,
+            on_event=self._on_monitor_telemetry,
             emergency=self.emergency,
             snapshot_url=snapshot_url,
+            frame_source=self.frame_source,
             min_interval_seconds=monitor_min_interval,
             model_name=model_name,
             model_base_url=model_base_url,
@@ -131,6 +154,7 @@ class PrefMemRuntime:
             on_error=self._on_validator_error,
             emergency=self.emergency,
             snapshot_url=snapshot_url,
+            frame_source=self.frame_source,
             min_interval_seconds=monitor_min_interval,
             model_name=model_name,
             model_base_url=model_base_url,
@@ -355,6 +379,17 @@ class PrefMemRuntime:
         return self.context_dict()
 
     def check_timeout(self) -> bool:
+        active_task = self.controller.snapshot.current_task
+        if (
+            self.executor is not None
+            and active_task is not None
+            and active_task.phase is TaskPhase.STEP
+            and not self.executor.is_settled(active_task.publication_id)
+        ):
+            # Compiler, detector, and motion-controller calls have their own
+            # bounded failures. Do not apply the visual no-progress timeout to
+            # an executor that is still preparing or moving.
+            return False
         transition = self.controller.check_timeout()
         if transition is None:
             return False
@@ -420,13 +455,22 @@ class PrefMemRuntime:
         if self._closed:
             return
         self._closed = True
-        for service in (self.monitor, self.validator):
+        for service in (self.executor, self.monitor, self.validator):
+            if service is None:
+                continue
             try:
                 service.stop()
             except Exception:
                 # Closing the task surface below is still useful if a
                 # third-party observation service cannot stop cleanly.
                 pass
+        for resource in self._owned_resources:
+            close = getattr(resource, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:
+                    pass
         snapshot = self.controller.snapshot
         if snapshot.state in {
             RecedingControllerState.PLANNING,
@@ -503,20 +547,186 @@ class PrefMemRuntime:
                     attention.snapshot.attention_reason or "Planner cycle failed"
                 )
 
+    def _queue_monitor_event(self, payload: dict[str, Any]) -> None:
+        """Publish best-effort telemetry without blocking an agent thread."""
+
+        event = dict(payload)
+        event["kind"] = "MONITOR_EVENT"
+        try:
+            self.monitor_events.put_nowait(event)
+            return
+        except queue.Full:
+            pass
+        try:
+            self.monitor_events.get_nowait()
+        except queue.Empty:
+            pass
+        try:
+            self.monitor_events.put_nowait(event)
+        except queue.Full:
+            # A racing producer refilled the queue. Telemetry may be dropped;
+            # controller and emergency paths remain authoritative.
+            pass
+
+    def _on_monitor_telemetry(self, event: MonitorTelemetryEvent) -> None:
+        if not isinstance(event, MonitorTelemetryEvent):
+            return
+        if event.kind is MonitorTelemetryKind.INFERENCE_COMPLETED:
+            with self._monitor_event_lock:
+                if event.elapsed_seconds is not None:
+                    self._monitor_elapsed[
+                        (event.publication_id, event.frame_sequence)
+                    ] = event.elapsed_seconds
+        self._queue_monitor_event(
+            {
+                "event": event.kind.value,
+                "publication_id": event.publication_id,
+                "frame_sequence": event.frame_sequence,
+                "observed_at": event.observed_at,
+                "elapsed_seconds": event.elapsed_seconds,
+                "message": event.message,
+            }
+        )
+
+    def _take_monitor_elapsed(self, assessment: MonitorAssessment) -> float | None:
+        key = (assessment.publication_id or "", assessment.frame_sequence)
+        with self._monitor_event_lock:
+            return self._monitor_elapsed.pop(key, None)
+
+    def _executor_state_for(self, publication_id: str | None) -> str | None:
+        if self.executor is None or publication_id is None:
+            return None
+        state_reader = getattr(self.executor, "state", None)
+        if callable(state_reader):
+            try:
+                state = state_reader(publication_id)
+            except Exception:
+                state = None
+            if state is not None:
+                return str(getattr(state, "value", state))
+        try:
+            return (
+                "SETTLED"
+                if self.executor.is_settled(publication_id)
+                else "ACTIVE"
+            )
+        except Exception:
+            return "UNKNOWN"
+
+    def _emit_monitor_assessment_event(
+        self,
+        assessment: MonitorAssessment,
+        *,
+        disposition: str,
+        task: PublishedTask | None,
+        snapshot: RecedingControllerSnapshot,
+    ) -> None:
+        descriptions = {
+            criterion.criterion_id: criterion.description
+            for criterion in (() if task is None else task.expected_observation)
+        }
+        success_required = getattr(
+            self.controller,
+            "success_confirmations",
+            getattr(self.controller, "_success_confirmations", None),
+        )
+        failure_required = getattr(
+            self.controller,
+            "failure_confirmations",
+            getattr(self.controller, "_failure_confirmations", None),
+        )
+        success_count = snapshot.consecutive_successes
+        failure_count = snapshot.consecutive_failures
+        if assessment.task_status is TaskStatus.SUCCESS and disposition in {
+            RecedingResult.REPLAN_REQUESTED.value,
+            RecedingResult.COMPLETE.value,
+        }:
+            success_count = success_required
+        if assessment.task_status is TaskStatus.FAIL and disposition in {
+            RecedingResult.REPLAN_REQUESTED.value,
+            RecedingResult.NEEDS_ATTENTION.value,
+        }:
+            failure_count = failure_required
+        self._queue_monitor_event(
+            {
+                "event": "ASSESSMENT",
+                "publication_id": assessment.publication_id,
+                "cycle_id": None if task is None else task.cycle_id,
+                "step_id": assessment.step_id,
+                "frame_sequence": assessment.frame_sequence,
+                "elapsed_seconds": self._take_monitor_elapsed(assessment),
+                "task_status": assessment.task_status.value,
+                "criteria": [
+                    {
+                        "id": criterion.criterion_id,
+                        "description": descriptions.get(criterion.criterion_id),
+                        "state": criterion.state.value,
+                    }
+                    for criterion in assessment.criteria
+                ],
+                "observation": assessment.observation,
+                "failure": (
+                    None
+                    if assessment.failure is None
+                    else assessment.failure.to_dict()
+                ),
+                "disposition": disposition,
+                "executor_state": self._executor_state_for(
+                    assessment.publication_id
+                ),
+                "success_confirmation": {
+                    "count": success_count,
+                    "required": success_required,
+                },
+                "failure_confirmation": {
+                    "count": failure_count,
+                    "required": failure_required,
+                },
+            }
+        )
+
     def _on_monitor_assessment(self, assessment: MonitorAssessment) -> None:
         """Monitor callback; controller decides whether one report is terminal."""
 
         if self._closed or self.emergency.latched:
             return
-        current_task = self.controller.snapshot.current_task
+        before = self.controller.snapshot
+        current_task = before.current_task
         if (
             current_task is None
             or current_task.phase is not TaskPhase.STEP
             or assessment.publication_id != current_task.publication_id
         ):
             # Per-step Monitor has no authority during final validation.
+            self._emit_monitor_assessment_event(
+                assessment,
+                disposition=RecedingResult.IGNORED_STALE.value,
+                task=current_task,
+                snapshot=before,
+            )
+            return
+        if (
+            self.executor is not None
+            and assessment.task_status is not TaskStatus.ONGOING
+            and not self.executor.is_settled(current_task.publication_id)
+        ):
+            # Transient views while the robot is moving cannot finish or fail
+            # a task. The Monitor remains completion authority once motion has
+            # settled and the camera has an unobstructed post-state.
+            self._emit_monitor_assessment_event(
+                assessment,
+                disposition="IGNORED_EXECUTOR_ACTIVE",
+                task=current_task,
+                snapshot=before,
+            )
             return
         transition = self.controller.record_assessment(assessment)
+        self._emit_monitor_assessment_event(
+            assessment,
+            disposition=transition.result.value,
+            task=current_task,
+            snapshot=transition.snapshot,
+        )
         if transition.result in {
             RecedingResult.IGNORED_STALE,
             RecedingResult.IGNORED_INVALID,
@@ -540,6 +750,12 @@ class PrefMemRuntime:
             # Monitor errors are task-scoped.  An error emitted just as a task
             # is retired must not pause its replacement publication.
             return
+        with self._monitor_event_lock:
+            stale_keys = [
+                key for key in self._monitor_elapsed if key[0] == task.publication_id
+            ]
+            for key in stale_keys:
+                self._monitor_elapsed.pop(key, None)
         attention = self.controller.record_system_error(
             f"{event.kind.value}: {event.message}"
         )
@@ -691,6 +907,11 @@ class PrefMemRuntime:
         # is consequently best-effort and can never delay the stop action.
         self._publish_transition(transition, best_effort=True)
         self.notifications.put(f"EMERGENCY STOP: {event.reason}")
+        if self.executor is not None:
+            try:
+                self.executor.emergency_stop()
+            except Exception:
+                pass
         # Stop both observation loops immediately as part of the orderly
         # process-exit handoff.  Their stop methods are safe from worker threads.
         for service in (self.monitor, self.validator):
@@ -702,10 +923,34 @@ class PrefMemRuntime:
                 pass
 
     def _publish_task(self, task: PublishedTask) -> None:
-        """Route one publication to exactly one observation service."""
+        """Route one publication to its phase-specific observation/execution path."""
 
         if task.phase is TaskPhase.STEP:
+            self._queue_monitor_event(
+                {
+                    "event": "TASK_PUBLISHED",
+                    "publication_id": task.publication_id,
+                    "cycle_id": task.cycle_id,
+                    "step_id": task.step_id,
+                    "instruction": task.instruction,
+                    "criteria": [
+                        {
+                            "id": criterion.criterion_id,
+                            "description": criterion.description,
+                        }
+                        for criterion in task.expected_observation
+                    ],
+                }
+            )
             self.monitor.publish(task)
+            if self.executor is not None:
+                goal = self.controller.snapshot.goal
+                scope = None if goal is None else goal.dynamic_object_scope
+                try:
+                    self.executor.publish(task, scope)
+                except Exception:
+                    self._retire_task(task)
+                    raise
             return
         contract = self._validation_contract
         if contract is None:
@@ -735,7 +980,98 @@ class PrefMemRuntime:
     def _retire_task(self, task: PublishedTask) -> bool:
         if task.phase is TaskPhase.FINAL_VALIDATION:
             return bool(self.validator.retire(task.publication_id))
-        return bool(self.monitor.retire(task.publication_id))
+        retired = bool(self.monitor.retire(task.publication_id))
+        if self.executor is not None:
+            retired = bool(self.executor.retire(task.publication_id)) or retired
+        with self._monitor_event_lock:
+            stale_keys = [
+                key for key in self._monitor_elapsed if key[0] == task.publication_id
+            ]
+            for key in stale_keys:
+                self._monitor_elapsed.pop(key, None)
+        if retired:
+            self._queue_monitor_event(
+                {
+                    "event": "TASK_RETIRED",
+                    "publication_id": task.publication_id,
+                    "cycle_id": task.cycle_id,
+                    "step_id": task.step_id,
+                }
+            )
+        return retired
+
+    def _on_execution_event(self, event: Any) -> None:
+        """Pause on executor faults; ordinary completion remains Monitor-owned."""
+
+        from prefmem.execution.contracts import ExecutionEvent, ExecutionState
+
+        if (
+            self._closed
+            or self.emergency.latched
+            or not isinstance(event, ExecutionEvent)
+        ):
+            return
+        snapshot = self.controller.snapshot
+        task = snapshot.current_task
+        if (
+            task is None
+            or task.phase is not TaskPhase.STEP
+            or task.publication_id != event.publication_id
+        ):
+            return
+        if event.state is ExecutionState.FAULT:
+            try:
+                self._retire_task(task)
+            except Exception:
+                pass
+            attention = self.controller.record_system_error(event.message)
+            self._publish_transition(attention, best_effort=True)
+            self.notifications.put(event.message)
+        elif event.state in {
+            ExecutionState.PREPARING,
+            ExecutionState.RUNNING,
+            ExecutionState.SETTLED,
+        }:
+            self.controller.record_execution_progress(event.publication_id)
+
+    def _on_execution_scene_change(self, event: Any) -> None:
+        """Safely replan an open-set goal after the controller has stopped."""
+
+        from prefmem.execution.contracts import SceneChangeEvent
+
+        if (
+            self._closed
+            or self.emergency.latched
+            or not isinstance(event, SceneChangeEvent)
+        ):
+            return
+        snapshot = self.controller.snapshot
+        task = snapshot.current_task
+        if (
+            snapshot.state is not RecedingControllerState.EXECUTING
+            or task is None
+            or task.publication_id != event.publication_id
+        ):
+            return
+        try:
+            self._retire_task(task)
+        except Exception:
+            pass
+        attention = self.controller.record_system_error(event.description)
+        self._publish_transition(attention, best_effort=True)
+        self.notifications.put(
+            f"Scene changed; safely stopped and replanning: {event.description}"
+        )
+        try:
+            self.request_replan(
+                operator_guidance=(
+                    "The workspace gained a matching object during execution. "
+                    "Re-evaluate every object in the dynamic goal scope and "
+                    "choose the next safe task from the current frame."
+                )
+            )
+        except Exception as error:
+            self.notifications.put(f"Automatic scene-change replan failed: {error}")
 
     def _clear_validation_state(self) -> None:
         self._validation_contract = None
@@ -993,17 +1329,69 @@ def build_runtime(args):
     from prefmem.agents.hri import HRI_Agent
 
     hri = HRI_Agent(model_config=args.model_config, args=args)
-    runtime = PrefMemRuntime(
-        hri.planner_agent,
-        camera_base_url=args.camera_base_url,
-        monitor_min_interval=args.monitor_min_interval,
-        model_base_url="http://localhost:8000/v1",
-        metrics=hri.metrics,
-        success_confirmations=args.success_confirmations,
-        success_stability_seconds=args.success_stability_seconds,
-        failure_confirmations=args.failure_confirmations,
-        ongoing_timeout_seconds=args.monitor_timeout,
-        max_cycles=args.max_planning_cycles,
-    )
+    executor = None
+    frame_source = None
+    task_publisher = None
+    owned_resources: tuple[Any, ...] = ()
+    if getattr(args, "executor", "human") == "mujoco":
+        from prefmem.execution.gemma import GemmaExecutionCompiler
+        from prefmem.execution.grounding import RGBDGrounder
+        from prefmem.execution.sam import Sam3Client
+        from prefmem.execution.service import ExecutionService
+        from simulation.controller import PandaPickPlaceController
+        from simulation.stacking import InMemoryTaskPublisher, StackingEnvironment
+
+        environment = StackingEnvironment(
+            seed=args.simulation_seed,
+            width=args.simulation_render_size,
+            height=args.simulation_render_size,
+            render_hz=args.simulation_render_hz,
+            viewer=args.simulation_viewer,
+            viewer_camera=args.simulation_viewer_camera,
+        )
+        sam = Sam3Client(
+            args.sam_base_url,
+            threshold=args.sam_threshold,
+        )
+        compiler = GemmaExecutionCompiler(
+            model_name=args.execution_model,
+            model_base_url=args.execution_model_base_url,
+        )
+        controller = PandaPickPlaceController(environment)
+        executor = ExecutionService(
+            compiler,
+            RGBDGrounder(sam),
+            controller,
+            environment.rgbd_frame,
+        )
+        frame_source = environment.captured_frame
+        task_publisher = InMemoryTaskPublisher()
+        owned_resources = (sam, environment)
+
+    try:
+        runtime = PrefMemRuntime(
+            hri.planner_agent,
+            camera_base_url=args.camera_base_url,
+            task_publisher=task_publisher,
+            frame_source=frame_source,
+            monitor_min_interval=args.monitor_min_interval,
+            model_base_url="http://localhost:8000/v1",
+            metrics=hri.metrics,
+            success_confirmations=args.success_confirmations,
+            success_stability_seconds=args.success_stability_seconds,
+            failure_confirmations=args.failure_confirmations,
+            ongoing_timeout_seconds=args.monitor_timeout,
+            max_cycles=args.max_planning_cycles,
+            executor=executor,
+            owned_resources=owned_resources,
+        )
+    except Exception:
+        if executor is not None:
+            executor.stop()
+        for resource in owned_resources:
+            close = getattr(resource, "close", None)
+            if callable(close):
+                close()
+        raise
     hri.attach_runtime(runtime)
     return runtime, hri

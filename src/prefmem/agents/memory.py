@@ -1,5 +1,7 @@
 import uuid
 
+from collections.abc import Mapping
+
 from langchain.tools import tool
 from langchain.chat_models import init_chat_model
 from langchain.messages import AIMessage, AnyMessage
@@ -994,7 +996,7 @@ class Memory_Agent:
         
 
 
-    def run(self, messages):
+    def run(self, messages, current_frame=None):
 
         request_type = None
         for message in reversed(messages):
@@ -1010,9 +1012,18 @@ class Memory_Agent:
             break
 
         self._reset_request_state(request_type)
-        # start_frame, last_frame = get_start_end_frames(self.args)
-        start_frame = get_live_frame()
+        # Runtime callers provide the observation they own.  The webcam fetch
+        # remains only as a backwards-compatible fallback for standalone use.
+        if current_frame is None:
+            current_frame = get_live_frame()
+        if not isinstance(current_frame, Mapping):
+            raise TypeError(
+                "current_frame must be a model-compatible image mapping"
+            )
         print(colored(f"\nMemory Agent:", "white", "on_blue"))
-        response = self.invoke_agent(messages, current_frame=start_frame)
+        response = self.invoke_agent(
+            messages,
+            current_frame=dict(current_frame),
+        )
 
         return response

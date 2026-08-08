@@ -626,6 +626,14 @@ class RecedingHorizonController:
         with self._lock:
             return self._snapshot_locked()
 
+    @property
+    def success_confirmations(self) -> int:
+        return self._success_confirmations
+
+    @property
+    def failure_confirmations(self) -> int:
+        return self._failure_confirmations
+
     def stage_goal(self, goal: GoalContract) -> RecedingTransition:
         if not isinstance(goal, GoalContract):
             raise TypeError("goal must be a GoalContract")
@@ -973,6 +981,27 @@ class RecedingHorizonController:
             self._reset_streaks_locked()
             self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
             return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+
+    def record_execution_progress(self, publication_id: str) -> bool:
+        """Refresh no-progress timing for a matching lower-level executor.
+
+        This is only a liveness heartbeat. It cannot satisfy visual criteria,
+        advance a task, append history, or alter controller state.
+        """
+
+        if not isinstance(publication_id, str) or not publication_id.strip():
+            raise ValueError("publication_id must be non-empty")
+        with self._lock:
+            task = self._current_task
+            if (
+                self._state is not RecedingControllerState.EXECUTING
+                or task is None
+                or task.phase is not TaskPhase.STEP
+                or task.publication_id != publication_id
+            ):
+                return False
+            self._last_progress_at = self._clock()
+            return True
 
     def resume_after_attention(
         self,
