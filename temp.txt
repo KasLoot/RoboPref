@@ -1,0 +1,4 @@
+The current task execution is relying on human. I now want to design an execution agent.
+The execution agent:
+1. Works in a simulation environement (MuJoCo)
+2. Use a object detection model to 
