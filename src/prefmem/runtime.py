@@ -1348,6 +1348,7 @@ def build_runtime(args):
             render_hz=args.simulation_render_hz,
             viewer=args.simulation_viewer,
             viewer_camera=args.simulation_viewer_camera,
+            scene_path=getattr(args, "simulation_scene", None),
         )
         sam = Sam3Client(
             args.sam_base_url,
