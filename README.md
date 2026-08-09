@@ -1,7 +1,7 @@
 # RoboPref
 A robotic agent system, enhancing human-robot interaction capabilities by leveraging interactive history and experiences.
 
-Version: `2.2.0`
+Version: `2.2.1`
 
 ## System Workflow
 

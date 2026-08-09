@@ -204,6 +204,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--simulation-seed", type=int, default=0)
     parser.add_argument(
+        "--simulation-scene",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Optional MuJoCo XML scene. The default is the built-in block "
+            "stacking scene."
+        ),
+    )
+    parser.add_argument(
         "--simulation-viewer",
         action=argparse.BooleanOptionalAction,
         default=True,

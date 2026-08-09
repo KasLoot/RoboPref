@@ -23,6 +23,7 @@ class CliParserTests(unittest.TestCase):
         self.assertIsNone(args.preference_store)
         self.assertEqual(args.username, "default")
         self.assertEqual(args.transcript, DEFAULT_TRANSCRIPT)
+        self.assertIsNone(args.simulation_scene)
         self.assertFalse(args.display_all)
         self.assertFalse(args.resize_images)
         self.assertEqual(args.model, DEFAULT_MODEL)
@@ -78,6 +79,11 @@ class CliParserTests(unittest.TestCase):
         self.assertEqual(args.simulation_render_size, 320)
         self.assertEqual(args.simulation_viewer_camera, "overview")
         self.assertEqual(args.monitor_events, "summary")
+
+    def test_custom_simulation_scene_can_be_selected(self) -> None:
+        args = parse_args(["--simulation-scene", "scenes/custom.xml"])
+
+        self.assertEqual(args.simulation_scene, Path("scenes/custom.xml"))
 
     def test_fixed_task_camera_can_be_selected_explicitly(self) -> None:
         args = parse_args(
