@@ -1,2 +1,0 @@
-2026-08-11T07:09:12.364445Z +1.954382s attempt S000001-A1 started with robopref_production_t5_mujoco_v1
-2026-08-11T07:09:18.997358Z +8.587295s INVALID_HARNESS: HarnessInvalid: hri request did not contain its exact recorded frame

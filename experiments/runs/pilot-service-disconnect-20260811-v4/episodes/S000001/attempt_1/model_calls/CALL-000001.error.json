@@ -1,4 +1,0 @@
-{
-  "message": "Gemma transport failed and the independent model-registry probe failed",
-  "type": "InfrastructureInterruption"
-}

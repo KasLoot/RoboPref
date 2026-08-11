@@ -1,2 +1,0 @@
-2026-08-11T11:23:34.776374Z +1.904148s attempt S000001-A1 started with robopref_production_t5_mujoco_v1
-2026-08-11T11:23:50.946253Z +18.074027s INVALID_HARNESS: VideoError: source ticks exceed the configured video frame rate

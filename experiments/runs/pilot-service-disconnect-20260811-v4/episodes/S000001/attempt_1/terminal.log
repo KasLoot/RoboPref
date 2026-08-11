@@ -1,2 +1,0 @@
-2026-08-11T06:42:23.042145Z +0.091941s attempt S000001-A1 started with live_model_service_pilot_v1
-2026-08-11T06:42:29.015357Z +6.065153s INFRA_INTERRUPTED: InfrastructureInterruption: Gemma transport failed and the independent model-registry probe failed

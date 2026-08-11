@@ -1,0 +1,540 @@
+You are the principal experiment engineer and reproducibility lead for the
+RoboPref research project.
+
+Your objective is to implement and execute the publication-grade experiment
+suite described in this repository. Do not merely advise me or produce a plan:
+inspect the system, implement the necessary experiment infrastructure, test it,
+run pilots, freeze the protocol, and—after the mandatory approval gate—execute
+the locked experiment campaign and produce auditable results.
+
+If this Codex interface supports durable goals, create a goal for this objective
+and maintain it until the campaign is genuinely complete.
+
+======================================================================
+1. MANDATORY READING
+======================================================================
+
+Before changing code or starting experiments, read completely:
+
+1. PROJECT_CONTEXT.md
+2. The "System Workflow" section of README.md
+3. experiments/EXPERIMENT_SUITE_DESIGN.md
+4. experiments/README.md
+5. Existing reports, audits, failure analyses, run artifacts, and experiment
+   scripts under experiments/
+6. The relevant agent, runtime, Webots, recording, monitoring, validation, and
+   model-client source code
+
+Treat EXPERIMENT_SUITE_DESIGN.md as the target scientific protocol. Treat the
+actual source code as authoritative about current implementation behavior.
+
+Create a requirements crosswalk mapping every experiment-suite requirement to:
+
+- implementation status;
+- source file or experiment profile;
+- test or preflight check;
+- generated artifact;
+- unresolved gap.
+
+Do not silently omit or weaken any experiment, ablation, metric, scenario,
+recording requirement, or statistical control.
+
+======================================================================
+2. AUTHORITY AND SAFETY
+======================================================================
+
+You are authorized to:
+
+- inspect and modify code inside this repository;
+- implement experiment profiles, ablation systems, instrumentation, recording,
+  auditing, and analysis tools;
+- execute simulation experiments;
+- reconnect the three explicitly listed SSH tunnels when necessary;
+- resume interrupted experiment batches according to the retry protocol below.
+
+You are not authorized to:
+
+- expose, read, copy, or print private SSH-key contents;
+- publish or commit credentials or private connection details;
+- kill unknown processes or use broad commands such as killall;
+- push commits or open pull requests unless I separately ask;
+- run human-participant studies without confirmed ethics/consent procedures;
+- run unsafe real-robot ablations without separate authorization;
+- alter unrelated user work in a dirty working tree.
+
+Preserve existing changes. Record the repository commit and a content/diff hash
+for every campaign. A clean, frozen commit is strongly preferred for locked
+runs.
+
+======================================================================
+3. NON-NEGOTIABLE SCIENTIFIC RULES
+======================================================================
+
+1. Separate development, calibration, pilot, and locked-test data.
+2. Never tune prompts, thresholds, scenarios, stopping rules, or code using
+   locked-test outcomes.
+3. Freeze before the locked campaign:
+   - hypotheses and estimands;
+   - scenario catalog and split;
+   - agent-system profiles and model mappings;
+   - prompts and thresholds;
+   - seeds and randomized execution schedule;
+   - oracle definitions;
+   - retry/exclusion rules;
+   - metrics and statistical analysis scripts.
+4. Hash the frozen protocol and all relevant configuration files.
+5. Do not edit the frozen configuration after locked execution begins.
+6. If a substantive fix becomes necessary, terminate that campaign version,
+   increment the campaign version, document the change, and restart every
+   affected condition. Do not mix incompatible campaign versions.
+7. Preserve every attempt, including failures, timeouts, interruptions, aborted
+   runs, and invalid harness attempts. Never overwrite or cherry-pick runs.
+8. A valid system failure is experimental data and must not be retried merely
+   because it failed.
+9. Infrastructure interruptions may be retried only under the predeclared
+   infrastructure retry policy.
+10. Run variants sequentially by default to avoid resource contention unless
+    deterministic resource isolation has been demonstrated.
+
+Use explicit run statuses:
+
+- VALID_PASS
+- VALID_SYSTEM_FAILURE
+- INFRA_INTERRUPTED
+- INVALID_HARNESS
+- ABORTED_SAFETY
+- NOT_RUN
+
+Keep the oracle verdict separate from the later root-cause diagnosis.
+
+======================================================================
+4. EXECUTION PHASES AND APPROVAL GATES
+======================================================================
+
+Phase A — Audit and scaffold
+
+- Inspect the repository, existing experiments, services, and working tree.
+- Produce the requirement crosswalk and implementation plan.
+- Estimate total run count, inference calls, wall-clock time, and video storage.
+- Check available disk space with a safety margin.
+- Create a deterministic campaign directory and run registry.
+- Do not stop after planning; proceed directly to implementation.
+
+Phase B — Implement the suite
+
+- Implement the full-system profiles, topology ablations, mechanism ablations,
+  baselines, scenarios, metrics, oracles, and configuration validation specified
+  by EXPERIMENT_SUITE_DESIGN.md.
+- Keep variants configuration-driven where scientifically valid.
+- Where topology ablations require different code paths, implement explicit
+  profile factories and verify the actual instantiated agent graph.
+- Record the logical agent topology, model mapping, and enabled mechanisms in
+  every setup artifact.
+
+Phase C — Implement provenance and recording
+
+- Implement all artifact requirements in Section 5 below.
+- Make the machine-readable event log the source of truth.
+- Generate the Markdown records from the machine-readable data.
+- Add artifact integrity checks and checksums.
+
+Phase D — Test and pilot
+
+- Run deterministic unit and integration tests.
+- Run preflight checks for every system profile.
+- Verify that a requested ablation is genuinely active rather than only renamed.
+- Run at least one successful pilot and one controlled failure pilot for each
+  materially distinct recording/execution path.
+- Confirm that videos, request frames, timestamps, events, outputs, oracle
+  results, and diagnoses are mutually aligned.
+- Test tunnel disconnection handling without relabeling a system failure as
+  infrastructure failure.
+- Audit pilot artifacts independently.
+
+MANDATORY GATE 1 — Protocol freeze
+
+After the pilot, stop and present:
+
+- implementation summary;
+- changed-file summary;
+- test and pilot results;
+- unresolved limitations;
+- total locked-run count and resource estimate;
+- storage estimate and available capacity;
+- frozen protocol path and SHA-256 hash;
+- scenario/config/prompt/source hashes;
+- proposed randomized schedule;
+- exact command that will start or resume the locked campaign;
+- artifact examples with links.
+
+Do not begin locked runs until I send:
+
+APPROVE LOCKED CAMPAIGN <campaign_id> <protocol_sha256>
+
+Phase E — Locked campaign
+
+After approval:
+
+- verify that the supplied protocol hash matches;
+- re-run preflight without changing the protocol;
+- execute the frozen schedule;
+- checkpoint the run registry after every attempt;
+- preserve partial results and remain safely resumable;
+- provide concise progress updates;
+- never silently reduce the number of seeds, repetitions, scenarios, variants,
+  recordings, metrics, or artifact checks.
+
+Phase F — Analysis and final audit
+
+- Run only the predeclared statistical analysis on locked data.
+- Generate all tables and plots directly from machine-readable artifacts.
+- Produce robustness, ablation, failure-mode, latency, and cost analyses defined
+  by the suite.
+- Clearly separate confirmatory, secondary, exploratory, and post-hoc results.
+- Run an independent completeness and checksum audit.
+- Report exclusions and missing data without hiding them.
+- Do not claim completion while scheduled entries remain unresolved.
+
+======================================================================
+5. CAMPAIGN AND EPISODE ARTIFACT CONTRACT
+======================================================================
+
+Use existing repository conventions if compatible. Otherwise use:
+
+experiments/runs/<campaign_id>/
+  CAMPAIGN_MANIFEST.json
+  PROTOCOL.md
+  PROTOCOL.sha256
+  REQUIREMENTS_CROSSWALK.md
+  RUN_STATE.json
+  run_schedule.csv
+  run_index.csv
+  EXCLUSIONS.md
+  CHANGELOG.md
+  environment/
+  analysis/
+  artifact_audit/
+  episodes/
+    <schedule_id>/
+      attempt_<number>/
+
+Every attempt directory, including interrupted attempts, must contain:
+
+- SETUP.md
+- setup.json
+- experiment_record.md
+- diagnosis.md
+- events.jsonl
+- frame_requests.jsonl
+- model_calls.jsonl
+- runtime_states.jsonl
+- inputs.json
+- results.json
+- results.md
+- terminal.log
+- initial_state.json
+- final_state.json when available
+- initial.png
+- final.png when available
+- frames/
+- model_calls/
+- video.mp4
+- robot_camera.mp4
+- video_metadata.json
+- artifact_checks.json
+- checksums.sha256
+
+If a process dies before an artifact can be finalized, retain the partial file,
+mark it clearly, and report its status. Never pretend it is complete.
+
+======================================================================
+6. SETUP.md REQUIREMENTS
+======================================================================
+
+SETUP.md must be generated from setup.json and include:
+
+- campaign ID, schedule ID, attempt ID, and run status;
+- UTC start/end time and monotonic clock origin;
+- repository commit and dirty-tree/source-manifest hash;
+- operating system, dependency versions, simulator version, and relevant
+  hardware/GPU information;
+- experiment family, variant/profile, repetition, scenario, and seed;
+- instantiated logical agent graph;
+- model/service mapping for every logical agent;
+- model IDs reported by the servers;
+- prompt, configuration, profile, scenario, and oracle hashes;
+- all relevant timeouts, thresholds, budgets, and stopping rules;
+- scene/world/controller and initial-state information;
+- user task and expected oracle conditions;
+- randomized schedule position;
+- video and camera configuration;
+- local service endpoints and health-check results;
+- tunnel epoch identifiers without exposing secrets or private key contents;
+- exact reproducibility command;
+- known deviations, if any.
+
+Do not include private SSH-key material or secrets. Public artifacts should use
+service labels and localhost ports rather than publishing private infrastructure
+details unnecessarily.
+
+======================================================================
+7. experiment_record.md REQUIREMENTS
+======================================================================
+
+events.jsonl is the append-only source of truth. experiment_record.md is its
+human-readable chronological rendering.
+
+Every event must have a stable event ID such as E000123 and include, where
+applicable:
+
+- UTC and monotonic timestamps;
+- elapsed video time;
+- robot/simulator state before and after;
+- user input;
+- receiving logical agent;
+- exact model request ID;
+- camera/frame reference;
+- system or model output;
+- parsed output;
+- tool/action request and result;
+- command publication and execution events;
+- Monitor and Validator decisions;
+- trigger/interrupt events;
+- oracle observations;
+- latency, timeout, retry, and error information.
+
+Use stable anchors so diagnosis.md can link directly to evidence, for example:
+
+[Event E000123](./experiment_record.md#event-e000123)
+
+Link both the relevant request frame and video timestamp:
+
+[request frame](./frames/<sha256>.png)
+[video 00:01:23.400](./video.mp4#t=83.4)
+
+For every request made to HRI, Planner, Executor, Monitor, Validator, or another
+agent, save the exact camera bytes actually supplied to that request.
+
+frame_requests.jsonl must map:
+
+- request ID;
+- logical agent;
+- capture timestamp;
+- camera/view ID;
+- frame sequence number;
+- image path;
+- SHA-256 of the raw image;
+- SHA-256 of the encoded request payload;
+- prompt/request-body hash;
+- corresponding response and event IDs.
+
+Identical images may be content-deduplicated, but every request must retain its
+own logical reference. Do not substitute a later screenshot for the image that
+was actually sent to the model.
+
+Store each raw model request and response under model_calls/ with secrets
+redacted. Preserve malformed or unsuccessful responses as evidence.
+
+======================================================================
+8. diagnosis.md REQUIREMENTS
+======================================================================
+
+Create diagnosis.md only after the run outcome and raw record are finalized.
+Diagnosis must never feed back into the running episode.
+
+Include:
+
+- run status and oracle verdict;
+- concise behavioral summary;
+- expected versus observed behavior;
+- safety and liveness consequences;
+- first divergence point;
+- causal timeline;
+- likely failure layer:
+  - perception/SAM;
+  - embedding/retrieval;
+  - HRI;
+  - planning;
+  - execution;
+  - monitoring;
+  - validation;
+  - coordination/state management;
+  - simulator/robot;
+  - model service/infrastructure;
+  - recorder/oracle/harness;
+- primary diagnosis and confidence;
+- competing explanations and disconfirming evidence;
+- whether behavior reflects the studied system or invalid infrastructure;
+- recommended follow-up, without modifying locked results;
+- reviewer notes and unresolved ambiguity.
+
+Every factual diagnosis claim must cite one or more experiment_record.md event
+anchors, request frames, raw model calls, or video timestamps. Example:
+
+The monitor failed to react for 4.2 seconds after obstacle appearance
+([E000143](./experiment_record.md#event-e000143),
+[video 00:02:14.100](./video.mp4#t=134.1)).
+
+Do not present speculative root causes as established facts.
+
+======================================================================
+9. FULL VIDEO RECORDING REQUIREMENTS
+======================================================================
+
+Record every attempt, including pilots, valid failures, infrastructure
+interruptions, and safety aborts.
+
+Follow the experiment-suite recording specification. Unless the existing design
+specifies otherwise, use a synchronized 1920×1080, 10 FPS composite video with:
+
+- third-person simulator view;
+- exact robot-camera view;
+- current episode/variant/seed;
+- UTC and monotonic elapsed time;
+- current system state and active logical agent;
+- latest user request and high-level system output;
+- safety/monitor/validator events;
+- a terminal/event-log pane with secrets redacted.
+
+Also save robot_camera.mp4 as the clean first-person stream.
+
+Start recording before scene reset and before the first user input. Stop only
+after the final state, oracle result, and a short final-state hold have been
+captured.
+
+Use a single monotonic time origin to align video, events, camera frames, model
+calls, and runtime state. Store the mapping in video_metadata.json.
+
+Validate automatically:
+
+- file exists and is non-empty;
+- expected codec, resolution, and frame rate;
+- decodable first, middle, and last frames;
+- sensible frame count and duration;
+- no blank/frozen pane beyond a declared threshold;
+- coverage from pre-task setup through final hold;
+- event/video duration agreement;
+- required overlay visibility;
+- request-frame timestamps fall within the recording interval.
+
+A run cannot pass its artifact audit if its required recording is missing or
+corrupt.
+
+======================================================================
+10. MODEL SERVICES AND TUNNEL RECOVERY
+======================================================================
+
+Services are forwarded locally as follows:
+
+- Gemma:          127.0.0.1:8000
+- SAM 3.1:        127.0.0.1:9000
+- EmbeddingGemma: 127.0.0.1:8080
+
+The following exact tunnel destinations are authorized for reconnection. Use
+persistent terminal sessions and retain local operational logs. Keep public
+artifacts redacted.
+
+Gemma:
+
+ssh -N -T \
+  -L 8000:127.0.0.1:8000 \
+  -p 21314 \
+  -i ~/.ssh/id_ed25519 \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  root@185.216.21.214
+
+SAM:
+
+ssh -N -T \
+  -L 9000:127.0.0.1:9000 \
+  -p 11204 \
+  -i ~/.ssh/id_ed25519 \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  root@213.173.103.97
+
+EmbeddingGemma:
+
+ssh -N -T \
+  -L 8080:127.0.0.1:8080 \
+  -p 11204 \
+  -i ~/.ssh/id_ed25519 \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  root@213.173.103.97
+
+Before creating a tunnel:
+
+1. Check whether the local port is already listening.
+2. Test whether the existing service is healthy.
+3. Reuse a healthy tunnel.
+4. If unhealthy, identify the exact owning process.
+5. Never terminate an unknown process. Ask me if ownership is ambiguous.
+6. Do not weaken SSH host-key checking.
+
+Discover actual service protocols and model IDs from the clients and health
+endpoints. For OpenAI-compatible services, /v1/models may be used. Inspect the
+SAM client to determine its correct health check instead of guessing.
+
+Use finite connection and response timeouts for all service calls. Before every
+batch, require two consecutive successful health checks and one small
+non-mutating inference/embedding/segmentation smoke test.
+
+If a tunnel or service fails during an episode:
+
+1. stop the robot safely;
+2. stop and finalize the current recording where possible;
+3. mark the attempt INFRA_INTERRUPTED;
+4. preserve all partial artifacts;
+5. record the precise failure and health-check evidence;
+6. restore and verify the service;
+7. restart the scheduled episode from a fresh scene and a new attempt directory,
+   using the same scheduled seed;
+8. never splice two attempts into one canonical recording.
+
+Allow at most three infrastructure attempts per scheduled episode unless the
+frozen protocol states otherwise. After that, quarantine the entry and report
+the blocker. Do not retry a valid semantic, planning, monitoring, execution, or
+safety failure.
+
+======================================================================
+11. COMPLETION CRITERIA
+======================================================================
+
+The campaign is complete only when:
+
+- every scheduled entry has a valid final outcome or a documented unresolved
+  infrastructure disposition;
+- every topology and mechanism ablation was verified as genuinely instantiated;
+- every required video and request frame passed integrity checks;
+- every diagnosis links to its supporting record evidence;
+- no attempt has been overwritten or silently excluded;
+- campaign manifests and checksums validate;
+- tables and plots regenerate from immutable raw artifacts;
+- exclusions and deviations are fully documented;
+- the requirements crosswalk has no silent omissions;
+- a final report identifies confirmatory, secondary, exploratory, and post-hoc
+  findings separately;
+- exact reproduction and resume commands are documented.
+
+At final handoff, report:
+
+- completed and unresolved run counts by status;
+- suite coverage;
+- artifact-audit results;
+- protocol and source hashes;
+- primary results with uncertainty estimates;
+- ablation results;
+- safety and failure-mode findings;
+- compute, latency, token, and storage costs;
+- limitations and threats to validity;
+- paths to the campaign manifest, run index, analyses, videos, representative
+  episode records, and diagnoses.
+
+Begin now by reading the mandatory files and auditing the current repository.
+Do not stop after writing a plan; continue through implementation, tests, and
+pilots until Mandatory Gate 1.

@@ -1,3 +1,0 @@
-{"elapsed_seconds":2.179309961,"monotonic_ns":19237052350462,"state":{"active_agent":"host","state":"PRE_RESET"},"utc":"2026-08-11T06:31:33.718101Z"}
-{"elapsed_seconds":2.604758291,"monotonic_ns":19237477798792,"state":{"active_agent":"hri","state":"READY"},"utc":"2026-08-11T06:31:34.143549Z"}
-{"elapsed_seconds":3.437334063,"monotonic_ns":19238310374564,"state":{"active_agent":"validator","state":"NEEDS_ATTENTION"},"utc":"2026-08-11T06:31:34.976125Z"}

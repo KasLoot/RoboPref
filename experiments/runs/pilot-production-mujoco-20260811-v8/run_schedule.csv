@@ -1,2 +1,0 @@
-schedule_id,schedule_position,block_id,block_position,matrix_id,scenario_id,scenario_variant_id,profile_id,model_backbone,repetition,seed,split,executor,crn_key,reuse_group
-S000001,1,B-19119cdbfbf0,1,production_mujoco_path,NM02,NM02-pilot-v1,T5,primary,1,9085004927924788278,pilot,mujoco,production_mujoco_path:NM02-pilot-v1:primary:1:mujoco,
