@@ -1,0 +1,27 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "{\"emergency_stop\":false,\"emergency_reason\":null,\"criteria\":[{\"id\":\"goal-413d9e33115b4a3fa55f0137bfbebd47:r1:validation:b1:c1\",\"state\":\"MET\",\"evidence\":\"The red cube is sitting in the center of the white target pad.\"}],\"observation\":\"The red cube is successfully placed on the white target pad.\"}",
+  "id": "lc_run--019ff09e-35e0-7382-841d-21ddd1574772-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "stop",
+    "id": "chatcmpl-a77ea983c2ddff94",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

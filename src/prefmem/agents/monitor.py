@@ -25,6 +25,7 @@ from urllib.request import Request, urlopen
 from langchain.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from prefmem.agents.metrics import MetricsRecordingError
 from prefmem.agents.vision import DEFAULT_LIVE_FRAME_URL, image_data_url
 from prefmem.contracts import MonitorAssessment
 from prefmem.emergency import EmergencyStopCoordinator
@@ -57,6 +58,7 @@ class MonitorErrorKind(str, Enum):
     MODEL = "MODEL_ERROR"
     OUTPUT = "OUTPUT_ERROR"
     CALLBACK = "CALLBACK_ERROR"
+    RECORDING = "RECORDING_ERROR"
 
 
 class MonitorTelemetryKind(str, Enum):
@@ -754,6 +756,14 @@ class MonitorService:
                         response=response,
                         elapsed_seconds=elapsed,
                     )
+                except MetricsRecordingError as error:
+                    self._emit_error_if_current(
+                        task,
+                        generation,
+                        MonitorErrorKind.RECORDING,
+                        error,
+                    )
+                    continue
                 except BaseException:
                     LOGGER.exception("Could not record monitor metrics")
 

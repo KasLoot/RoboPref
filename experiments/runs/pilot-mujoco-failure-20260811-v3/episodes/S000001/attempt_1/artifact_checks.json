@@ -1,0 +1,79 @@
+{
+  "checked_artifacts": [
+    "SETUP.md",
+    "artifact_checks.json",
+    "checksums.sha256",
+    "diagnosis.json",
+    "diagnosis.md",
+    "events.jsonl",
+    "experiment_record.md",
+    "frame_requests.jsonl",
+    "frames/",
+    "initial.png",
+    "initial_state.json",
+    "inputs.json",
+    "model_calls.jsonl",
+    "model_calls/",
+    "results.json",
+    "results.md",
+    "robot_camera.mp4",
+    "runtime_states.jsonl",
+    "setup.json",
+    "terminal.log",
+    "video.mp4",
+    "video_metadata.json"
+  ],
+  "checksum": {
+    "errors": [],
+    "passed": true,
+    "verified": 29
+  },
+  "effective_run_status": "VALID_SYSTEM_FAILURE",
+  "errors": [],
+  "event_count": 22,
+  "frame_request_count": 1,
+  "model_call_count": 1,
+  "passed": true,
+  "schema_version": 1,
+  "video": {
+    "composite": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 4.7,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 47,
+      "height": 1080,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-mujoco-failure-20260811-v3/episodes/S000001/attempt_1/video.mp4",
+      "sha256": "a68577ff47fcfeb1ef21e6cd767fcdb7dc0d7dab23df491e42eed0b101057435",
+      "width": 1920
+    },
+    "errors": [],
+    "passed": true,
+    "robot_camera": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 4.7,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 47,
+      "height": 480,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-mujoco-failure-20260811-v3/episodes/S000001/attempt_1/robot_camera.mp4",
+      "sha256": "3098183ad4cbf5a9ce12448b480301f4134c8a5766029aa3d8a5428c060c292c",
+      "width": 640
+    },
+    "schema_version": 1,
+    "source_link_count": 47
+  },
+  "warnings": []
+}

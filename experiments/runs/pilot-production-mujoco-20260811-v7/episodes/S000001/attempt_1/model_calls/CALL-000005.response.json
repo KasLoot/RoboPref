@@ -1,0 +1,27 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "I encountered an error while trying to start the task. Please try again in a moment.",
+  "id": "lc_run--019ff090-825b-7823-881c-9869f3720725-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "stop",
+    "id": "chatcmpl-94bdd566c5cbef41",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

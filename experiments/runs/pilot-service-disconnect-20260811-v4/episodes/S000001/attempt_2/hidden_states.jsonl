@@ -1,0 +1,4 @@
+{"elapsed_seconds":0.10019329,"monotonic_ns":19955444938167,"state":{"fixture":{"instrumentation_only":true,"live_service":true},"goal":{"completed":false},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:43:32.110688Z"}
+{"elapsed_seconds":7.103384545,"monotonic_ns":19962448129422,"state":{"fixture":{"instrumentation_only":true,"live_service":true},"goal":{"completed":true},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:43:39.113880Z"}
+{"elapsed_seconds":7.105262623,"monotonic_ns":19962450007500,"state":{"fixture":{"instrumentation_only":true,"live_service":true},"goal":{"completed":true},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:43:39.115758Z"}
+{"elapsed_seconds":7.117580705,"monotonic_ns":19962462325582,"state":{"fixture":{"instrumentation_only":true,"live_service":true},"goal":{"completed":true},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:43:39.128076Z"}

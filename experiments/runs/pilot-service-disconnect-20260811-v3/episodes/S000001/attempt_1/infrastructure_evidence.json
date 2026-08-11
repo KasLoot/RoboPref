@@ -1,0 +1,22 @@
+{
+  "classification": "INFRA_INTERRUPTED",
+  "endpoint_label": "loopback-gemma-pilot",
+  "failure_kind": "transport_and_health_probe_failed",
+  "health_observations": [
+    {
+      "check_id": "health-probe-001",
+      "endpoint_label": "loopback-gemma-pilot",
+      "error_type": "ConnectError",
+      "observed_utc": "2026-08-11T06:32:58.209807Z",
+      "ok": false,
+      "passed": false,
+      "probe": "model_registry_after_transport_failure",
+      "service_id": "gemma-alternate-pilot"
+    }
+  ],
+  "message": "Gemma transport failed and the independent model-registry probe failed",
+  "safe_stop_confirmed": true,
+  "schema_version": 1,
+  "service_label": "gemma-alternate-pilot",
+  "transport_error_type": "ConnectError"
+}

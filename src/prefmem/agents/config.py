@@ -30,7 +30,13 @@ class OllamaConfig:
 
 
 class Global_Model_Config:
-    def __init__(self, model_config):
+    def __init__(
+        self,
+        model_config,
+        *,
+        model: str | None = None,
+        model_base_url: str | None = None,
+    ):
 
         if model_config == "vllm":
             self.model_config = VLLMConfig()
@@ -38,12 +44,20 @@ class Global_Model_Config:
             self.model_config = OllamaConfig()
         else:
             raise ValueError(f"Unsupported model configuration: {model_config}")
+        if model is not None:
+            if not isinstance(model, str) or not model.strip():
+                raise ValueError("model must be a non-empty string")
+            self.model_config.model = model.strip()
+        if model_base_url is not None:
+            if not isinstance(model_base_url, str) or not model_base_url.strip():
+                raise ValueError("model_base_url must be a non-empty string")
+            self.model_config.model_base_url = model_base_url.rstrip("/")
 
 
 
 class HRI_Config(Global_Model_Config):
-    def __init__(self, model_config):
-        super().__init__(model_config)
+    def __init__(self, model_config, **overrides):
+        super().__init__(model_config, **overrides)
         self.model = self.model_config.model
         self.model_base_url = self.model_config.model_base_url
         
@@ -53,8 +67,8 @@ class HRI_Config(Global_Model_Config):
 
 
 class Planner_Config(Global_Model_Config):
-    def __init__(self, model_config):
-        super().__init__(model_config)
+    def __init__(self, model_config, **overrides):
+        super().__init__(model_config, **overrides)
         self.model = self.model_config.model
         self.model_base_url = self.model_config.model_base_url
         
@@ -64,8 +78,8 @@ class Planner_Config(Global_Model_Config):
 
 
 class Monitor_Config(Global_Model_Config):
-    def __init__(self, model_config):
-        super().__init__(model_config)
+    def __init__(self, model_config, **overrides):
+        super().__init__(model_config, **overrides)
         self.model = self.model_config.model
         self.model_base_url = self.model_config.model_base_url
         self.system_prompt = (
@@ -74,8 +88,15 @@ class Monitor_Config(Global_Model_Config):
 
 
 class Memory_Config(Global_Model_Config):
-    def __init__(self, model_config):
-        super().__init__(model_config)
+    def __init__(
+        self,
+        model_config,
+        *,
+        embedding_model: str | None = None,
+        embedding_model_base_url: str | None = None,
+        **overrides,
+    ):
+        super().__init__(model_config, **overrides)
         self.model = self.model_config.model
         self.model_base_url = self.model_config.model_base_url
         
@@ -85,6 +106,19 @@ class Memory_Config(Global_Model_Config):
 
         self.embedding_model = "/data/models/embeddinggemma-300m"
         self.embedding_model_base_url = "http://localhost:8080/v1"
+        if embedding_model is not None:
+            if not isinstance(embedding_model, str) or not embedding_model.strip():
+                raise ValueError("embedding_model must be a non-empty string")
+            self.embedding_model = embedding_model.strip()
+        if embedding_model_base_url is not None:
+            if (
+                not isinstance(embedding_model_base_url, str)
+                or not embedding_model_base_url.strip()
+            ):
+                raise ValueError(
+                    "embedding_model_base_url must be a non-empty string"
+                )
+            self.embedding_model_base_url = embedding_model_base_url.rstrip("/")
         self.embedding_dimensions = 768
         self.top_k = 5
         self.top_cap_k = 10

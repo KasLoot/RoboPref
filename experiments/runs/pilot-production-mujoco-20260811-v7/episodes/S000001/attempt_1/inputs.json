@@ -1,0 +1,18 @@
+{
+  "crn_key": "production_mujoco_path:NM02-pilot-v1:primary:1:mujoco",
+  "scenario_id": "NM02",
+  "seed": 9085004927924788278,
+  "split_variant": {
+    "distractor_family": "shape_pilot_NM02",
+    "language_family": "paraphrase_pilot_NM02",
+    "layout_family": "radial_pilot_NM02",
+    "perturbation_boundary": "mid_pilot_before_goal_proposal_NM02",
+    "preference_history": "medium_pilot_NM02",
+    "semantic_family": "unseen_transfer_NM02",
+    "variant_id": "NM02-pilot-v1"
+  },
+  "user_script": [
+    "Put the red cube on the target pad.",
+    "Confirm goal NM02 revision 1."
+  ]
+}

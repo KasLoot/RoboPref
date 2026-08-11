@@ -1,0 +1,27 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "```json\n{\n  \"status\": \"READY\",\n  \"goal\": \"Put the red cube on the white target pad.\",\n  \"final_expected_observation\": [\n    \"the red cube is on the white target pad\"\n  ],\n  \"constraints\": [],\n  \"nominal_tasks\": [\n    \"pick up the red cube and place it on the white target pad\"\n  ],\n  \"reason\": null,\n  \"dynamic_object_scope\": null\n}\n```",
+  "id": "lc_run--019ff073-afa5-7c02-9f2a-2c590c1912d2-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "stop",
+    "id": "chatcmpl-bc14c06b514c8e05",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

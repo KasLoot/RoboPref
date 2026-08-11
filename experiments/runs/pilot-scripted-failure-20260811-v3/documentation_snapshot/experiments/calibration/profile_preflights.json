@@ -1,0 +1,1965 @@
+{
+  "passed": true,
+  "profile_count": 18,
+  "profiles": [
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-Confirmation",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 5,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 5,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "29b764da21e63f94c3f6548baf27bd454f26b80e7c1f35bf55b6651a49eb3569",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-Confirmation:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "aaa8c4a3444655e32b29a2b7ec591a5e2356c7b4c06e0cab5fb5b2815ef9a2c7",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-Confirmation:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "c5b2726bd011515608dfae042748b610ec777c83446c7f683df310aee7496af0",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-Confirmation:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "cc52de8118f9592d9c73e7f0037aab647d3db5097b3ef16e5ec3bc60aea8551e",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-Confirmation:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "ff4c8f12afe5631898fa77a8182c530597fd6fca10093aa1ee3481ee1d3f81b4",
+            "factory_ordinal": 5,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-Confirmation:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "1a08ae7f92a6a6b126f2b1307b14808690f9a8594c9401fd7b0dfb3b477d01cf",
+        "profile_id": "A-Confirmation",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-DynamicGuard",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 5,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 5,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "04d746e66b076fca16a45bc93453e91a41f85a874e37b63831cabc93939e026d",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-DynamicGuard:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "366428a67f8d81cdea42cdf28c21d47bbdba445b8431515ee896b45e2606be6e",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-DynamicGuard:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "d89b554e4bcfcd9531f9ed0d8a1deead2933c41d4043a126566c0d7a92c6b40c",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-DynamicGuard:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "ef6709a1af19a8f97e4e512e795ad7ac64a37b579e044b96d97cf231f46d3d41",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-DynamicGuard:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "98d242a7832b384137e6237dea77e2aed05945bf057310b64b7d3785fd7a6206",
+            "factory_ordinal": 5,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-DynamicGuard:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "0ebdbf525b261e57bdaa66f960acb88b93e60774636b546eb25bf917e7932e50",
+        "profile_id": "A-DynamicGuard",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "DirectPlannerInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-HRI",
+      "role_probe_calls": 4,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 4,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 4,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "0c21c21a5cf09b6b449d3eb9c6f246ede851f3ff170f3233960c4b61bc52c0e9",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-HRI:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "f71a03698a16702dd3d5a215722816de83ee3a9f9b496e39268ae07059683892",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-HRI:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "744f9e6040690811e153e5a32409a41e147d2d95c921b4eae4532757a5fe53ce",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-HRI:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "36732adc054e2094ce95b566131a15688214100fb99ea74f04436cee79a03a30",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-HRI:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": null,
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "883f0eb3ee7eb43db0270443f7853951bcf02162b1f498affec49a8d56515b51",
+        "profile_id": "A-HRI",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "synthetic_event",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-HostFence",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 5,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 5,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "b38095e7fc4f815a385b91aa9a63d7e98fb34bcacb0bc035ab9bd9f6ccc19fc1",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-HostFence:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "812903a2d4ec8a9309e4f37c09d1ab2b24a8d8458720399cabce8f239b5065a4",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-HostFence:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "76d4e15a6391ef6cdb5aafaabc266054b7e5f7d6ceae833508fe90a01a84c8ef",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-HostFence:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "6afcd5a630a4224c877209f52fa70e5dfd7a52f3c62455b0be71a17d62bf5a0d",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-HostFence:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "d09cbec4650e116f35e76cdad8f163ac07f774ea4e109f3a66d826e071d8aa47",
+            "factory_ordinal": 5,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-HostFence:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "390a3e241bd0c699080f4d35d1d640e3da8e659bb4e368550a243ddb166f9582",
+        "profile_id": "A-HostFence",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "DisabledMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "False",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-Memory",
+      "role_probe_calls": 4,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 4,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 4,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "22dde3f11721f771c2031bc22af13d5cf84ccf7b16a8b9fac345f3400d4da385",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-Memory:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "51acfa06d0352a0cf4b8977361d962bedb7951dbb83dd35e363a72532b5ffb45",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-Memory:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "801648078dd7545092de50e7106ecc8d67c0c4281e06ff5ec0d37317802278cf",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-Memory:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "feb4d8c39f643f69f802c4ccc2d968adc716b6712a980ae371275aec03291db2",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-Memory:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": null,
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "47f7109311b261b189b70229cbb0e79bd7dd3a4a7bdc1c54d956f82d8124afd2",
+        "profile_id": "A-Memory",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "SyntheticSettledMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-Monitor",
+      "role_probe_calls": 4,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 4,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 4,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "f2cd17e50087c614cb8c0eb2029eb6c59b56928b534793cbe8a6167f3a4a9dca",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-Monitor:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "16e1ba09fb3a1f1ebcc1a9342951b2429918dbfd0d4873a6825dd2d99ef137fb",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-Monitor:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "08dd6d7887db913ff3266432d1456cc960d7cfe8791a3d6c2ccddb00e0e1dbc8",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-Monitor:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "fa48fce07cca85e7e24b2b74a8042acc29642d436e6714e68a2446cc3c5c007e",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-Monitor:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": null,
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "7379ddfd0867f68d478a2ce126f8b67fa2589728c3828a720d71c6a84038a0ea",
+        "profile_id": "A-Monitor",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "FrozenOpenLoopPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-OpenLoop",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 5,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 5,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "50b35dbab60c222f94863e55d513c53b8821f503e07a9eb3cfb1cfc42e2e42b8",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-OpenLoop:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "1c8b0211b977b3dc7f97bb914b640785fc0200aea8795a163a8ecaab148f24dc",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-OpenLoop:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "e4bd5fa39670abc99a4dba880c4f74fe58a75a9a9765b21739b246f981fdaf18",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-OpenLoop:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "82ffd463c83a9fc95fa8e0c452c18f0649b4bb29ac7ebb93203b50f8ba117f54",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-OpenLoop:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "75d30384783b4f9f8d26e279b301f181787d09b2beafcf098b383e4b6d53220b",
+            "factory_ordinal": 5,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-OpenLoop:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "d38ec11068d87adc9dab519eac404a78dc493bf7ee934ebcd013e39c5467bd58",
+        "profile_id": "A-OpenLoop",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-SingleEvidence",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 5,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 5,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "246147da52c69f0051bc2bb972ceb066c422be913273f59524430ee92a7c434f",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-SingleEvidence:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "1be63900595f5f760bc533a44e9cbb02ed9d1751211998b975b935efe7ec9ed6",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-SingleEvidence:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "7dbf919dc4552901ee915287639aa56f555b88c03bbdb29062e43b265ffa5a30",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-SingleEvidence:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "83843982521f45c51c69dd1c9bc44d9633754c0bb2a44122e29ecf2dc821c686",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-SingleEvidence:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "8a416f5e9d389ae7d2a6b15950c8906085cc23e881adccecef0c9ee23f61103e",
+            "factory_ordinal": 5,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "A-SingleEvidence:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "771e8a94d07edb56fd9bcf13d02fb5a51d0d11cba258ef83df192ec9f8bb56aa",
+        "profile_id": "A-SingleEvidence",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "PlannerSelfCompletionAdapter"
+      },
+      "passed": true,
+      "profile_id": "A-Validator",
+      "role_probe_calls": 4,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 4,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 4,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "5e679d0d6265baf2b3f2d69051f1f7b7a1fe2736f3f1ca53ab41e7271fda107d",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "A-Validator:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "88828048e2a393cf0c2f71f997dd3d79d6e40706fa8d824762453b2f22d55968",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "A-Validator:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "53387fea61c3c04e1fa365c2be5153ada0cb740a26f58bb40e555f5f2bf3f406",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "A-Validator:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "bc025f626e0e58af7a4b5ef0dc19adde274b01c45f43ef0a4aaf209a08be5b5b",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "A-Validator:monitor-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": null
+        },
+        "manifest_sha256": "b4f15afe73d47ff823829797a625696a3924fad6ce64bdcde99918e026baea73",
+        "profile_id": "A-Validator",
+        "profile_kind": "ablation",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "DirectPlannerInteractionAdapter",
+        "memory": "DisabledMemoryAdapter",
+        "monitor": "DisabledMonitorAdapter",
+        "personalization_enabled": "False",
+        "planning": "FrozenOpenLoopPlanningAdapter",
+        "validator": "DisabledValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "B1",
+      "role_probe_calls": 1,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 1,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 1,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "6d2383fa8e9df856e0723f4e728af90298b9fe1f9eb955d8c3c0da90730ce3d7",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "open-loop-llm-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "B1:open-loop-llm-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": null,
+          "memory": null,
+          "monitor": null,
+          "planner": "open-loop-llm-1",
+          "validator": null
+        },
+        "manifest_sha256": "d32f934e3128cb8759850e10d8fcd0a00b3f9297ccae788378082f90eadc1bb5",
+        "profile_id": "B1",
+        "profile_kind": "baseline",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "DirectPlannerInteractionAdapter",
+        "memory": "DisabledMemoryAdapter",
+        "monitor": "TextFeedbackMonitorAdapter",
+        "personalization_enabled": "False",
+        "planning": "FeedbackPlanningAdapter",
+        "validator": "DisabledValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "B2",
+      "role_probe_calls": 1,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 1,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 1,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "4d58dbdddcce2dafcc14b6e18416f49fd40d9f2771afbfd9c7ec7a08dee9fe8c",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "feedback-planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "B2:feedback-planner-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": null,
+          "memory": null,
+          "monitor": null,
+          "planner": "feedback-planner-1",
+          "validator": null
+        },
+        "manifest_sha256": "2811df7ed0230135e02feca83a76c8b0d6c1b8e9309d2cba4609a37d58899905",
+        "profile_id": "B2",
+        "profile_kind": "baseline",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "OracleInteractionAdapter",
+        "memory": "OracleMemoryAdapter",
+        "monitor": "OracleMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "OraclePlanningAdapter",
+        "validator": "OracleValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "B3",
+      "role_probe_calls": 0,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 0,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 0,
+        "instances": [],
+        "logical_to_instance": {
+          "hri": null,
+          "memory": null,
+          "monitor": null,
+          "planner": null,
+          "validator": null
+        },
+        "manifest_sha256": "4b7558ef6a833c7fb4ef148bdf5a048cf0b6e40e7196988a1c81e7999dc548a2",
+        "profile_id": "B3",
+        "profile_kind": "baseline",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "DisabledMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "False",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "B4",
+      "role_probe_calls": 4,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 4,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 4,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "8ff336b0fd69f5f843cda78a52030914f05c9a0e0840d4dacb7afc7ca811d63c",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "B4:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "9332b169dd73d90cf353c7ab656c13e3916298c629aae2b092b1795a9fa94064",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "B4:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "2aaed2cb03cd9ad934c395bb84bc7c87f607d495b21f91c568d8c50be6d8b418",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "B4:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "1baa86ecd7a370d8efd7ed4dabae68fce1eccfa11b93e5ebd7f910d5a0468215",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "B4:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": null,
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "34eba73b6f89ecb9f8583b01b0d608ed72ad6769e79f90509eb1e5da5b8a505c",
+        "profile_id": "B4",
+        "profile_kind": "baseline",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "T1",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 1,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 1,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "3e8ecb078f821aaa3a12fc0e17f2062fc21f87dc193c45f65c4886e626b0ef91",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri",
+              "memory",
+              "planner",
+              "monitor",
+              "validator"
+            ],
+            "model_instance_id": "unified-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md",
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md",
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md",
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md",
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput",
+              "memory": "src.prefmem.agents.hri.MemoryToolInput",
+              "monitor": "src.prefmem.contracts.MonitorAssessment",
+              "planner": "src.prefmem.contracts.PlannerDecision",
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "T1:unified-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "unified-1",
+          "memory": "unified-1",
+          "monitor": "unified-1",
+          "planner": "unified-1",
+          "validator": "unified-1"
+        },
+        "manifest_sha256": "a04d5f7071494a78433c813516be978c9e6ff53e9ec74abd1e2f957028d66882",
+        "profile_id": "T1",
+        "profile_kind": "topology",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "T2",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 2,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 2,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "b661bcac5bb49c94faf3b2872466c243fe1cfa0db8824fea36ddebdbc72304ee",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri",
+              "memory",
+              "planner"
+            ],
+            "model_instance_id": "actor-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md",
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md",
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput",
+              "memory": "src.prefmem.agents.hri.MemoryToolInput",
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "T2:actor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "797c02f39973d911df7a7b587b5b0e837d6374202168b59351d68bc07711e8bd",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "monitor",
+              "validator"
+            ],
+            "model_instance_id": "critic-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md",
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment",
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "T2:critic-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "actor-1",
+          "memory": "actor-1",
+          "monitor": "critic-1",
+          "planner": "actor-1",
+          "validator": "critic-1"
+        },
+        "manifest_sha256": "3fe9f9b83e6d95e1561e0accaf36d0b2c5c80f237e4451bc1a899bc3f44bf38e",
+        "profile_id": "T2",
+        "profile_kind": "topology",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "T3",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 3,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 3,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "2827ab317b0c067f67acb8cf54196f08bcf7dfdeaa0b82591a37641ca1f13735",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri",
+              "memory"
+            ],
+            "model_instance_id": "interaction-memory-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md",
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput",
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "T3:interaction-memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "1d21348c816e0fa844fa8df0a80946e2dd16222e8afbd261204f315e8ba67d17",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "T3:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "d0bd37b4843893cbd8c0e18caa9c29060486a4d3b7dbf3c912bd4baa0da71d77",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "monitor",
+              "validator"
+            ],
+            "model_instance_id": "verifier-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md",
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment",
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "T3:verifier-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "interaction-memory-1",
+          "memory": "interaction-memory-1",
+          "monitor": "verifier-1",
+          "planner": "planner-1",
+          "validator": "verifier-1"
+        },
+        "manifest_sha256": "b3cea928de22d68f7c1956c7e60e8a82795aa2c6042c1507758c8cf988bd08ce",
+        "profile_id": "T3",
+        "profile_kind": "topology",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "T4",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 4,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 4,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "3c465da28115460eab8ac8da3d0ab694c2fb5990904ba066a98ceb48b72463c0",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri",
+              "memory"
+            ],
+            "model_instance_id": "interaction-memory-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md",
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput",
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "T4:interaction-memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "2b0fdce1a18f81b5917ec7f88d94c450e1e9540fe6cc4e7d129fa6633bbea5f2",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "T4:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "e6541f6da586a59ba439303cf758a8ed2371c67cbd98fdb857b7ffabad33f45a",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "T4:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "c286a2783504c1184ea429973373699dc322775c5310f4c8705e710b37edfcae",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "T4:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "interaction-memory-1",
+          "memory": "interaction-memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "83ee0ec0f807c4db167340f7ae7741865b463ae84dfde642d365f053457330e7",
+        "profile_id": "T4",
+        "profile_kind": "topology",
+        "schema_version": 1
+      }
+    },
+    {
+      "assertions": {
+        "all_active_roles_invoked": true,
+        "confirmation_adapter_executable": true,
+        "dynamic_guard_adapter_executable": true,
+        "evidence_adapter_executable": true,
+        "manifest_hash_present": true,
+        "session_sharing_matches_mapping": true,
+        "unique_instance_count_matches": true
+      },
+      "errors": [],
+      "executor": "mujoco",
+      "mechanism_adapters": {
+        "confirmation": "ConfirmationPolicy",
+        "dynamic_guard": "DynamicGuardPolicy",
+        "evidence": "EvidencePolicy",
+        "host_fence": "HostFencePolicy",
+        "interaction": "RoutedInteractionAdapter",
+        "memory": "RoutedMemoryAdapter",
+        "monitor": "VisualMonitorAdapter",
+        "personalization_enabled": "True",
+        "planning": "RecedingHorizonPlanningAdapter",
+        "validator": "IndependentValidatorAdapter"
+      },
+      "passed": true,
+      "profile_id": "T5",
+      "role_probe_calls": 5,
+      "topology_manifest": {
+        "assembled_unique_agent_count": 5,
+        "assertions": {
+          "distinct_backends_across_instances": true,
+          "mapping_matches_profile": true,
+          "no_component_cross_instance_aliasing": true,
+          "one_context_ledger_per_instance": true,
+          "one_root_backend_per_instance": true
+        },
+        "declared_unique_agent_count": 5,
+        "instances": [
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "8516a20b2e2ca54e2d46d97bd4558200a4d4e23db1d5b51ff086546617525b74",
+            "factory_ordinal": 1,
+            "logical_roles": [
+              "hri"
+            ],
+            "model_instance_id": "hri-1",
+            "prompt_refs": {
+              "hri": "src/prefmem/agents/prompt/hri/hri-prompt-v5.md"
+            },
+            "schema_refs": {
+              "hri": "src.prefmem.agents.hri.GoalPreviewToolInput"
+            },
+            "session_id": "T5:hri-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "e9ffedbe35c9dfb85ca8996c9b6664243e1987763c88094f95b6d0916015d43c",
+            "factory_ordinal": 2,
+            "logical_roles": [
+              "memory"
+            ],
+            "model_instance_id": "memory-1",
+            "prompt_refs": {
+              "memory": "src/prefmem/agents/prompt/memory/memory-prompt-v3.md"
+            },
+            "schema_refs": {
+              "memory": "src.prefmem.agents.hri.MemoryToolInput"
+            },
+            "session_id": "T5:memory-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "1e78d653ce5264d6a6620067b25fc6e28156cad1af6a0cc9324f71f062f1719b",
+            "factory_ordinal": 3,
+            "logical_roles": [
+              "planner"
+            ],
+            "model_instance_id": "planner-1",
+            "prompt_refs": {
+              "planner": "src/prefmem/agents/prompt/planner/planner-prompt-v2.md"
+            },
+            "schema_refs": {
+              "planner": "src.prefmem.contracts.PlannerDecision"
+            },
+            "session_id": "T5:planner-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "3ab1e6c7e57f28fac346c8d25283f7830d0726eb875280ab1bec235d3de7003c",
+            "factory_ordinal": 4,
+            "logical_roles": [
+              "monitor"
+            ],
+            "model_instance_id": "monitor-1",
+            "prompt_refs": {
+              "monitor": "src/prefmem/agents/prompt/monitor/monitor-prompt-v1.md"
+            },
+            "schema_refs": {
+              "monitor": "src.prefmem.contracts.MonitorAssessment"
+            },
+            "session_id": "T5:monitor-1"
+          },
+          {
+            "backend_type": "experiments.harness.profile_preflight._ProbeBackend",
+            "context_ledger_id": "65f6ae9052aa54ca1573047cb52092a5c754a4b0ddaf143af02d4ba30c0a8702",
+            "factory_ordinal": 5,
+            "logical_roles": [
+              "validator"
+            ],
+            "model_instance_id": "validator-1",
+            "prompt_refs": {
+              "validator": "src/prefmem/agents/prompt/validator/validator-prompt-v1.md"
+            },
+            "schema_refs": {
+              "validator": "src.prefmem.contracts.ValidationAssessment"
+            },
+            "session_id": "T5:validator-1"
+          }
+        ],
+        "logical_to_instance": {
+          "hri": "hri-1",
+          "memory": "memory-1",
+          "monitor": "monitor-1",
+          "planner": "planner-1",
+          "validator": "validator-1"
+        },
+        "manifest_sha256": "24105b8295651ca89b4a33c0dc6cf6acfaf461780375aea0925440b112f617bf",
+        "profile_id": "T5",
+        "profile_kind": "topology",
+        "schema_version": 1
+      }
+    }
+  ],
+  "schema_version": 1,
+  "scope": "construction_and_mechanism_activation_no_remote_inference"
+}

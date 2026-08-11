@@ -248,6 +248,23 @@ class StackingSimulationTests(unittest.TestCase):
         self.assertEqual(target.shape, (7,))
         self.assertTrue(np.all(np.isfinite(target)))
 
+    def test_ik_deterministic_restart_escapes_reachable_local_basin(self):
+        controller = PandaPickPlaceController(self.environment)
+        # This independently calibrated reachable pose stalls the primary
+        # home-seeded damped solve near 6 mm error.  Deterministic posture
+        # restarts must recover it without changing the Cartesian target.
+        target = controller.solve_ik(
+            np.array(
+                [
+                    0.30447238504259644,
+                    0.06198249161232905,
+                    0.15062411061370554,
+                ]
+            )
+        )
+        self.assertEqual(target.shape, (7,))
+        self.assertTrue(np.all(np.isfinite(target)))
+
     def test_controller_respects_speed_and_settles_without_overshoot(self):
         controller = PandaPickPlaceController(self.environment)
         start = self.environment.arm_qpos()

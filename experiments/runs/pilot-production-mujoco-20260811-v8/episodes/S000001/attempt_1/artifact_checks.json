@@ -1,0 +1,87 @@
+{
+  "checked_artifacts": [
+    "SETUP.md",
+    "artifact_checks.json",
+    "checksums.sha256",
+    "diagnosis.json",
+    "diagnosis.md",
+    "events.jsonl",
+    "experiment_record.md",
+    "frame_requests.jsonl",
+    "frames/",
+    "initial.png",
+    "initial_state.json",
+    "inputs.json",
+    "model_calls.jsonl",
+    "model_calls/",
+    "results.json",
+    "results.md",
+    "robot_camera.mp4",
+    "runtime_states.jsonl",
+    "setup.json",
+    "terminal.log",
+    "video.mp4",
+    "video_metadata.json"
+  ],
+  "checksum": {
+    "errors": [],
+    "passed": true,
+    "verified": 71
+  },
+  "effective_run_status": "VALID_PASS",
+  "errors": [
+    "video: undeclared frozen source panes last 56.6s (limit 30.0s)"
+  ],
+  "event_count": 147,
+  "frame_request_count": 18,
+  "model_call_count": 19,
+  "passed": false,
+  "schema_version": 1,
+  "video": {
+    "composite": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 255.9,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 2559,
+      "height": 1080,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-production-mujoco-20260811-v8/episodes/S000001/attempt_1/video.mp4",
+      "sha256": "de147fed769ee86bc9524ec1a30cca9836ee640b0c8e0d24f735ca5d61fe6a2f",
+      "width": 1920
+    },
+    "errors": [
+      "undeclared frozen source panes last 56.6s (limit 30.0s)"
+    ],
+    "passed": false,
+    "robot_camera": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 255.9,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 2559,
+      "height": 480,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-production-mujoco-20260811-v8/episodes/S000001/attempt_1/robot_camera.mp4",
+      "sha256": "e014e51004e60accdee696df5ce912886f862e0ba0287b3ef5090b36eb6db75c",
+      "width": 640
+    },
+    "schema_version": 1,
+    "source_link_count": 2559
+  },
+  "warnings": [
+    "visual provenance: model call CALL-000003 whole-request digest crosscheck is limited by a validated redaction record; exact image and ID crosschecks remain mandatory",
+    "visual provenance: model call CALL-000004 whole-request digest crosscheck is limited by a validated redaction record; exact image and ID crosschecks remain mandatory",
+    "visual provenance: model call CALL-000008 whole-request digest crosscheck is limited by a validated redaction record; exact image and ID crosschecks remain mandatory"
+  ]
+}

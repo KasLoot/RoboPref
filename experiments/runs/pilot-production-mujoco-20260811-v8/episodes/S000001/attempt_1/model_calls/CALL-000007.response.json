@@ -1,0 +1,27 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "```json\n{\n  \"schema_version\": 1,\n  \"skill\": \"pick_place\",\n  \"source\": {\n    \"query\": \"red cube\",\n    \"anchor\": \"top_center\"\n  },\n  \"target\": {\n    \"query\": \"white target pad\",\n    \"anchor\": \"surface_center\"\n  },\n  \"relation\": \"on_top\",\n  \"orientation\": \"tool_down\",\n  \"waypoints\": [\n    {\n      \"kind\": \"approach_source\",\n      \"clearance_m\": 0.1,\n      \"gripper\": \"open\"\n    },\n    {\n      \"kind\": \"grasp_source\",\n      \"clearance_m\": 0.0,\n      \"gripper\": \"close\"\n    },\n    {\n      \"kind\": \"lift\",\n      \"clearance_m\": 0.1,\n      \"gripper\": \"hold\"\n    },\n    {\n      \"kind\": \"approach_target\",\n      \"clearance_m\": 0.1,\n      \"gripper\": \"hold\"\n    },\n    {\n      \"kind\": \"place_target\",\n      \"clearance_m\": 0.0,\n      \"gripper\": \"open\"\n    },\n    {\n      \"kind\": \"retreat\",\n      \"clearance_m\": 0.1,\n      \"gripper\": \"hold\"\n    }\n  ]\n}\n```",
+  "id": "lc_run--019ff09b-3148-7600-a31c-c4e477177939-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "stop",
+    "id": "chatcmpl-8f0741dd565bc216",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

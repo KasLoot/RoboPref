@@ -71,7 +71,8 @@ class PandaPickPlaceController:
         self.settle_position_tolerance_radians = 0.008
         self.settle_velocity_tolerance_radians = 0.05
         self.settle_stability_seconds = 0.20
-        self.settle_timeout_seconds = 3.0
+        self.settle_timeout_seconds = 20.0
+        self.tracking_control_error_limit_radians = 0.010
         self._command_lock = threading.RLock()
         self._site_id = mujoco.mj_name2id(
             self.model, mujoco.mjtObj.mjOBJ_SITE, "gripper"
@@ -150,66 +151,107 @@ class PandaPickPlaceController:
             raise InverseKinematicsError(
                 f"destination lies outside the configured Panda workspace: {target}"
             )
-        q = (
+        primary_seed = (
             self.environment.arm_qpos()
             if seed is None
             else np.asarray(seed, dtype=np.float64).copy()
         )
-        if q.shape != (7,) or not np.all(np.isfinite(q)):
+        if primary_seed.shape != (7,) or not np.all(np.isfinite(primary_seed)):
             raise ValueError("IK seed must contain seven finite values")
-        q = np.clip(q, self._joint_ranges[:, 0], self._joint_ranges[:, 1])
-        scratch = mujoco.MjData(self.model)
-        jacobian_position = np.zeros((3, self.model.nv), dtype=np.float64)
-        jacobian_rotation = np.zeros((3, self.model.nv), dtype=np.float64)
-
+        if (
+            isinstance(maximum_iterations, bool)
+            or not isinstance(maximum_iterations, int)
+            or maximum_iterations <= 0
+        ):
+            raise ValueError("maximum_iterations must be a positive integer")
+        primary_seed = np.clip(
+            primary_seed, self._joint_ranges[:, 0], self._joint_ranges[:, 1]
+        )
+        # Damped least-squares IK can settle in a singular local basin even for
+        # a reachable Cartesian target.  Try small, fixed posture perturbations
+        # before one deterministic global restart.  The primary seed remains
+        # first, so ordinary trajectory continuity is unchanged.
+        offsets = (
+            np.zeros(7, dtype=np.float64),
+            np.array([0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0]),
+            np.array([0.0, 0.0, -0.5, 0.0, 0.0, 0.0, 0.0]),
+            np.array([0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            np.array([-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+        )
+        candidate_seeds = [
+            np.clip(
+                primary_seed + offset,
+                self._joint_ranges[:, 0],
+                self._joint_ranges[:, 1],
+            )
+            for offset in offsets
+        ]
+        restart_rng = np.random.default_rng(0x524F424F)
+        candidate_seeds.append(
+            restart_rng.uniform(
+                self._joint_ranges[:, 0], self._joint_ranges[:, 1]
+            )
+        )
         last_position_error = math.inf
         last_rotation_error = math.inf
-        for _ in range(maximum_iterations):
-            scratch.qpos[self._qpos_addresses] = q
-            mujoco.mj_forward(self.model, scratch)
-            current_position = scratch.site_xpos[self._site_id]
-            current_rotation = scratch.site_xmat[self._site_id].reshape(3, 3)
-            position_error = target - current_position
-            rotation_error = 0.5 * sum(
-                (
-                    np.cross(current_rotation[:, index], self._tool_down_rotation[:, index])
-                    for index in range(3)
-                ),
-                start=np.zeros(3, dtype=np.float64),
-            )
-            last_position_error = float(np.linalg.norm(position_error))
-            last_rotation_error = float(np.linalg.norm(rotation_error))
-            if last_position_error < 0.0015 and last_rotation_error < 0.025:
-                return q.copy()
-            jacobian_position.fill(0.0)
-            jacobian_rotation.fill(0.0)
-            mujoco.mj_jacSite(
-                self.model,
-                scratch,
-                jacobian_position,
-                jacobian_rotation,
-                self._site_id,
-            )
-            position_jacobian = jacobian_position[:, self._dof_addresses]
-            rotation_jacobian = jacobian_rotation[:, self._dof_addresses]
-            orientation_weight = 0.30
-            jacobian = np.vstack(
-                (position_jacobian, orientation_weight * rotation_jacobian)
-            )
-            error = np.concatenate(
-                (position_error, orientation_weight * rotation_error)
-            )
-            damping = 0.035
-            update = jacobian.T @ np.linalg.solve(
-                jacobian @ jacobian.T + damping**2 * np.eye(6), error
-            )
-            update_norm = float(np.linalg.norm(update))
-            if update_norm > 0.12:
-                update *= 0.12 / update_norm
-            # A weak home regularizer avoids joint-limit solutions without
-            # materially moving the Cartesian destination.
-            update += 0.001 * (HOME_QPOS[:7] - q)
-            q = np.clip(q + update, self._joint_ranges[:, 0], self._joint_ranges[:, 1])
+        for candidate_seed in candidate_seeds:
+            q = candidate_seed.copy()
+            scratch = mujoco.MjData(self.model)
+            jacobian_position = np.zeros((3, self.model.nv), dtype=np.float64)
+            jacobian_rotation = np.zeros((3, self.model.nv), dtype=np.float64)
+            for _ in range(maximum_iterations):
+                scratch.qpos[self._qpos_addresses] = q
+                mujoco.mj_forward(self.model, scratch)
+                current_position = scratch.site_xpos[self._site_id]
+                current_rotation = scratch.site_xmat[self._site_id].reshape(3, 3)
+                position_error = target - current_position
+                rotation_error = 0.5 * sum(
+                    (
+                        np.cross(
+                            current_rotation[:, index],
+                            self._tool_down_rotation[:, index],
+                        )
+                        for index in range(3)
+                    ),
+                    start=np.zeros(3, dtype=np.float64),
+                )
+                last_position_error = float(np.linalg.norm(position_error))
+                last_rotation_error = float(np.linalg.norm(rotation_error))
+                if last_position_error < 0.0015 and last_rotation_error < 0.025:
+                    return q.copy()
+                jacobian_position.fill(0.0)
+                jacobian_rotation.fill(0.0)
+                mujoco.mj_jacSite(
+                    self.model,
+                    scratch,
+                    jacobian_position,
+                    jacobian_rotation,
+                    self._site_id,
+                )
+                position_jacobian = jacobian_position[:, self._dof_addresses]
+                rotation_jacobian = jacobian_rotation[:, self._dof_addresses]
+                orientation_weight = 0.30
+                jacobian = np.vstack(
+                    (position_jacobian, orientation_weight * rotation_jacobian)
+                )
+                error = np.concatenate(
+                    (position_error, orientation_weight * rotation_error)
+                )
+                damping = 0.035
+                update = jacobian.T @ np.linalg.solve(
+                    jacobian @ jacobian.T + damping**2 * np.eye(6), error
+                )
+                update_norm = float(np.linalg.norm(update))
+                if update_norm > 0.12:
+                    update *= 0.12 / update_norm
+                # A weak home regularizer avoids joint-limit solutions without
+                # materially moving the Cartesian destination.
+                update += 0.001 * (HOME_QPOS[:7] - q)
+                q = np.clip(
+                    q + update,
+                    self._joint_ranges[:, 0],
+                    self._joint_ranges[:, 1],
+                )
 
         raise InverseKinematicsError(
             "IK did not converge for destination "
@@ -301,8 +343,10 @@ class PandaPickPlaceController:
         cancel_event: threading.Event,
     ) -> None:
         target = np.asarray(target, dtype=np.float64)
-        start = self.environment.arm_qpos()
-        start_control = self.environment.snapshot().control[:7].copy()
+        initial_snapshot = self.environment.snapshot()
+        start = initial_snapshot.qpos[self._qpos_addresses].copy()
+        start_control = initial_snapshot.control[:7].copy()
+        motion_started_at = initial_snapshot.simulation_time
         maximum_delta = float(np.max(np.abs(target - start)))
         duration = self._motion_duration(maximum_delta)
         steps = max(2, int(math.ceil(duration / self.control_period)))
@@ -324,20 +368,29 @@ class PandaPickPlaceController:
                 self._actuator_control_ranges[:, 0],
                 self._actuator_control_ranges[:, 1],
             )
+            command = self._tracking_limited_command(command)
             self.environment.set_control(arm=command)
-            if cancel_event.wait(self.control_period):
-                self.safe_hold()
-                raise InterruptedError("execution was cancelled during motion")
+            self._wait_for_simulation_time(
+                motion_started_at + index * self.control_period,
+                cancel_event,
+                phase="motion",
+            )
 
         # Hold with model-based gravity feed-forward.  The former accumulating
         # trim could wind the command past the target while the physical arm
         # was still catching up, which caused visible overshoot.
-        command = self._gravity_compensated_control(target)
+        command = self._tracking_limited_command(
+            self._gravity_compensated_control(target)
+        )
         self.environment.set_control(arm=command)
-        deadline = time.monotonic() + self.settle_timeout_seconds
+        settle_started_at = self.environment.snapshot().simulation_time
+        settle_deadline = settle_started_at + self.settle_timeout_seconds
         stable_since: float | None = None
-        while time.monotonic() < deadline:
+        while True:
             self._check_cancel(cancel_event)
+            simulation_time = self.environment.snapshot().simulation_time
+            if simulation_time >= settle_deadline:
+                break
             actual, velocity = self.environment.arm_state()
             joint_error = target - actual
             position_error = float(np.max(np.abs(joint_error)))
@@ -347,17 +400,26 @@ class PandaPickPlaceController:
                 and speed <= self.settle_velocity_tolerance_radians
             ):
                 if stable_since is None:
-                    stable_since = time.monotonic()
+                    stable_since = simulation_time
                 elif (
-                    time.monotonic() - stable_since
+                    simulation_time - stable_since
                     >= self.settle_stability_seconds
                 ):
                     return
             else:
                 stable_since = None
+            command = self._tracking_limited_command(
+                self._gravity_compensated_control(target)
+            )
             self.environment.set_control(arm=command)
-            if cancel_event.wait(self.control_period):
-                break
+            self._wait_for_simulation_time(
+                min(
+                    simulation_time + self.control_period,
+                    settle_deadline,
+                ),
+                cancel_event,
+                phase="settling",
+            )
         self.safe_hold()
         if cancel_event.is_set():
             raise InterruptedError("execution was cancelled while settling")
@@ -368,6 +430,62 @@ class PandaPickPlaceController:
             "Panda arm did not settle at its joint target "
             f"(maximum error {final_error:.3f} rad, maximum speed "
             f"{final_speed:.3f} rad/s)"
+        )
+
+    def _wait_for_simulation_time(
+        self,
+        target_time: float,
+        cancel_event: threading.Event,
+        *,
+        phase: str,
+    ) -> None:
+        """Pace commands against MuJoCo time, not renderer-dependent wall time.
+
+        Evidence rendering can take longer than one control period.  Advancing
+        the command trajectory on wall time in that case compresses it in
+        simulated time and can violate the published joint-speed limit.  The
+        simulator clock is therefore authoritative for trajectory pacing,
+        while the short wall wait keeps cancellation responsive.
+        """
+
+        if not math.isfinite(target_time) or target_time < 0:
+            raise ValueError("target simulation time must be finite and non-negative")
+        last_simulation_time = self.environment.snapshot().simulation_time
+        last_progress_wall = time.monotonic()
+        while last_simulation_time + 1e-12 < target_time:
+            if cancel_event.wait(min(0.002, self.control_period / 4.0)):
+                self.safe_hold()
+                raise InterruptedError(
+                    f"execution was cancelled during {phase}"
+                )
+            self._check_cancel(cancel_event)
+            simulation_time = self.environment.snapshot().simulation_time
+            if simulation_time > last_simulation_time + 1e-12:
+                last_simulation_time = simulation_time
+                last_progress_wall = time.monotonic()
+            elif time.monotonic() - last_progress_wall > 10.0:
+                self.safe_hold()
+                raise MotionControlError(
+                    f"MuJoCo simulation time stalled during {phase}"
+                )
+
+    def _tracking_limited_command(self, requested: np.ndarray) -> np.ndarray:
+        """Bound position-servo error while retaining gravity feed-forward."""
+
+        desired_control = np.asarray(requested, dtype=np.float64)
+        if desired_control.shape != (7,) or not np.all(np.isfinite(desired_control)):
+            raise ValueError("requested arm control must contain seven finite values")
+        actual = self.environment.arm_qpos()
+        gravity_hold = self._gravity_compensated_control(actual)
+        tracking_offset = np.clip(
+            desired_control - gravity_hold,
+            -self.tracking_control_error_limit_radians,
+            self.tracking_control_error_limit_radians,
+        )
+        return np.clip(
+            gravity_hold + tracking_offset,
+            self._actuator_control_ranges[:, 0],
+            self._actuator_control_ranges[:, 1],
         )
 
     def _motion_duration(self, maximum_delta: float) -> float:

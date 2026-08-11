@@ -1,0 +1,124 @@
+# Campaign analysis
+
+- Campaign: `pilot-service-live-20260811-v3`
+- Protocol: `124e57a852f062388306fe254b6957cd121aa9d1fbe4018657f9a628fc2cb927`
+- Tier: `pilot_nonconfirmatory`
+- Experimental unit: episode
+- Outcome: `contract_success`
+
+## ITT summaries
+
+- `T5`: 1.0000; assigned=1, missing=0
+
+## Machine-readable report
+
+```json
+{
+  "analysis_gate": {
+    "execution_authorized": true,
+    "live_source_checked": true,
+    "registry_complete": true,
+    "request_matches_frozen_analysis_spec": true,
+    "resolved_attempts_without_passing_audit": 0,
+    "unresolved_outcomes": 0
+  },
+  "analysis_spec": {
+    "confirmatory_outcomes": [
+      "contract_success"
+    ],
+    "experimental_unit": "episode",
+    "families": [
+      {
+        "comparison_profiles": [],
+        "matrix_id": "instrumentation_scripted",
+        "reference_profile": "T5"
+      }
+    ],
+    "multiplicity_method": "Holm within matrix",
+    "pairing_key": "crn_key",
+    "reference_profile": "T5",
+    "schema_version": 1
+  },
+  "analysis_tier": "pilot_nonconfirmatory",
+  "attempt_history": {
+    "artifact_audit_failures": 0,
+    "preserved_attempts": 1,
+    "retry_attempts": 0,
+    "scheduled_episodes": 1,
+    "status_counts": {
+      "ABORTED_SAFETY": 0,
+      "INFRA_INTERRUPTED": 0,
+      "INVALID_HARNESS": 0,
+      "NOT_RUN": 0,
+      "VALID_PASS": 1,
+      "VALID_SYSTEM_FAILURE": 0
+    }
+  },
+  "by_profile": [
+    {
+      "assigned": 1,
+      "confidence": 0.95,
+      "estimable": true,
+      "estimate": 1.0,
+      "experimental_unit": "episode",
+      "failures": 0,
+      "matrix_id": "instrumentation_scripted",
+      "missing": 0,
+      "missing_by_status": {},
+      "observed_rate": 1.0,
+      "observed_wilson_interval": [
+        0.20654931437723745,
+        1.0
+      ],
+      "outcome": "contract_success",
+      "profile_id": "T5",
+      "resolved": 1,
+      "success_rate_bounds": [
+        1.0,
+        1.0
+      ],
+      "successes": 1,
+      "wilson_interval": [
+        0.20654931437723745,
+        1.0
+      ]
+    }
+  ],
+  "campaign_id": "pilot-service-live-20260811-v3",
+  "episode_count": 1,
+  "failure_taxonomy": {
+    "episodes": 1,
+    "experimental_unit": "episode",
+    "failure_layer_counts": {},
+    "note": "oracle outcomes and post-run diagnoses are distinct fields",
+    "primary_diagnosis_counts": {},
+    "status_counts": {
+      "ABORTED_SAFETY": 0,
+      "INFRA_INTERRUPTED": 0,
+      "INVALID_HARNESS": 0,
+      "NOT_RUN": 0,
+      "VALID_PASS": 1,
+      "VALID_SYSTEM_FAILURE": 0
+    },
+    "unresolved_or_invalid": 0
+  },
+  "live_attempt_audits": [
+    {
+      "attempt_number": 1,
+      "audit_report_sha256": "d722ef5e6ea484938e7aa7a9b24950224d1f7606c04c9a4894db2a299ea50b4a",
+      "errors": [],
+      "passed": true,
+      "registry_audit_passed": true,
+      "schedule_id": "S000001"
+    }
+  ],
+  "mode": "pilot",
+  "multiplicity_family": "reference-profile pairwise comparisons within matrix",
+  "multiplicity_method": "Holm",
+  "outcome": "contract_success",
+  "paired_comparisons": {},
+  "protocol_sha256": "124e57a852f062388306fe254b6957cd121aa9d1fbe4018657f9a628fc2cb927",
+  "reference_profile": "T5",
+  "schema_version": 1
+}
+```

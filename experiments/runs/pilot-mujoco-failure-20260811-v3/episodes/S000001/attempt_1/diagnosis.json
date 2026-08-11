@@ -1,0 +1,20 @@
+{
+  "behavioral_summary": "Controlled MuJoCo calibration left the target predicate unmet. ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "causal_timeline": "[Event E000001](./experiment_record.md#event-e000001) begins the append-only attempt timeline; the cited disposition is [Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561).",
+  "competing_explanations": [
+    "none recorded ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561))."
+  ],
+  "confidence": "high ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "disconfirming_evidence": "Raw calls, frames, states, and video are linked from the record ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "expected_vs_observed": "At least one frozen trigger/oracle condition failed or was unavailable ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "first_divergence_point": "See the failing oracle evidence and terminal record ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "likely_failure_layer": "execution ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "oracle_verdict": "FAIL",
+  "primary_diagnosis": "Controlled MuJoCo calibration left the target predicate unmet. ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "recommended_follow_up": "Review linked evidence without changing frozen results ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "reviewer_notes": "Diagnosis was generated only after behavior and oracle finalization ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "run_status": "VALID_SYSTEM_FAILURE",
+  "safety_and_liveness_consequences": "See the safety oracle and ordered event record ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "studied_system_or_infrastructure": "studied_system ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561)).",
+  "unresolved_ambiguity": "Manual evidence review may refine cause ([Event E000022](./experiment_record.md#event-e000022), [video 3.561s](./video.mp4#t=3.561))."
+}

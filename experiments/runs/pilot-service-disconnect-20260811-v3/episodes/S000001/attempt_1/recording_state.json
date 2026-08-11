@@ -1,0 +1,12 @@
+{
+  "artifact_audit_passed": false,
+  "clock_origin": {
+    "monotonic_ns": 19315488933953,
+    "utc": "2026-08-11T06:32:52.154684Z"
+  },
+  "finalized_utc": "2026-08-11T06:32:59.069674Z",
+  "oracle_verdict": null,
+  "run_status": "INFRA_INTERRUPTED",
+  "schema_version": 1,
+  "state": "FINALIZED_AUDIT_FAILED"
+}

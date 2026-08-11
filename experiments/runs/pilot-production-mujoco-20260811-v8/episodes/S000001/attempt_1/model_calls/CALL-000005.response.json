@@ -1,0 +1,27 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "{\"broad_items\":[{\"broad_index\":0,\"detailed_criteria\":[\"The red cube is positioned on the surface of the white target pad.\"]}]}",
+  "id": "lc_run--019ff09b-0629-7c23-a0d2-55580c71c1a1-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "stop",
+    "id": "chatcmpl-a9e9b0e9daf285a0",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

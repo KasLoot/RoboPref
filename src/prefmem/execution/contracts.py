@@ -261,12 +261,23 @@ class ExecutionState(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class ExecutionErrorKind(str, Enum):
+    COMPILER = "COMPILER_ERROR"
+    FRAME = "FRAME_ERROR"
+    GROUNDING = "GROUNDING_ERROR"
+    CONTROL = "CONTROL_ERROR"
+    UNKNOWN = "UNKNOWN_ERROR"
+
+
 @dataclass(frozen=True, slots=True)
 class ExecutionEvent:
     publication_id: str
     state: ExecutionState
     message: str
     observed_at: float
+    error_kind: ExecutionErrorKind | None = None
+    exception_type: str | None = None
+    traceback_text: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -281,6 +292,21 @@ class ExecutionEvent:
         object.__setattr__(
             self, "observed_at", _finite_float(self.observed_at, "observed_at")
         )
+        if self.error_kind is not None:
+            try:
+                error_kind = ExecutionErrorKind(self.error_kind)
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"invalid execution error kind: {self.error_kind!r}"
+                ) from error
+            if state is not ExecutionState.FAULT:
+                raise ValueError("error_kind is permitted only for FAULT events")
+            object.__setattr__(self, "error_kind", error_kind)
+        for name in ("exception_type", "traceback_text"):
+            value = getattr(self, name)
+            if value is not None:
+                value = str(value).strip()
+                object.__setattr__(self, name, value or None)
 
 
 @dataclass(frozen=True, slots=True)

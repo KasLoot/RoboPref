@@ -1,0 +1,113 @@
+{
+  "checked_artifacts": [
+    "SETUP.md",
+    "artifact_checks.json",
+    "checksums.sha256",
+    "diagnosis.json",
+    "diagnosis.md",
+    "events.jsonl",
+    "experiment_record.md",
+    "frame_requests.jsonl",
+    "frames/",
+    "initial.png",
+    "initial_state.json",
+    "inputs.json",
+    "model_calls.jsonl",
+    "model_calls/",
+    "results.json",
+    "results.md",
+    "robot_camera.mp4",
+    "runtime_states.jsonl",
+    "setup.json",
+    "terminal.log",
+    "video.mp4",
+    "video_metadata.json"
+  ],
+  "checksum": {
+    "errors": [],
+    "passed": true,
+    "verified": 26
+  },
+  "effective_run_status": "VALID_SYSTEM_FAILURE",
+  "errors": [
+    "video: event E000001 video timestamp disagrees with origin mapping",
+    "video: event E000002 video timestamp disagrees with origin mapping",
+    "video: event E000003 video timestamp disagrees with origin mapping",
+    "video: event E000004 video timestamp disagrees with origin mapping",
+    "video: event E000005 video timestamp disagrees with origin mapping",
+    "video: event E000006 video timestamp disagrees with origin mapping",
+    "video: event E000007 video timestamp disagrees with origin mapping",
+    "video: event E000008 video timestamp disagrees with origin mapping",
+    "video: event E000009 video timestamp disagrees with origin mapping",
+    "video: event E000010 video timestamp disagrees with origin mapping",
+    "video: event E000011 video timestamp disagrees with origin mapping",
+    "video: event E000012 video timestamp disagrees with origin mapping",
+    "video: event E000013 video timestamp disagrees with origin mapping",
+    "video: event E000014 video timestamp disagrees with origin mapping",
+    "video: event E000015 video timestamp disagrees with origin mapping",
+    "video: event E000016 video timestamp disagrees with origin mapping"
+  ],
+  "event_count": 16,
+  "frame_request_count": 0,
+  "model_call_count": 0,
+  "passed": false,
+  "schema_version": 1,
+  "video": {
+    "composite": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 2.4,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 24,
+      "height": 1080,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-production-mujoco-20260811-v4/episodes/S000001/attempt_1/video.mp4",
+      "sha256": "3522149831c62bac1d49916ae16ee6393cb1c7a64bcac05721415fa68b53eed7",
+      "width": 1920
+    },
+    "errors": [
+      "event E000001 video timestamp disagrees with origin mapping",
+      "event E000002 video timestamp disagrees with origin mapping",
+      "event E000003 video timestamp disagrees with origin mapping",
+      "event E000004 video timestamp disagrees with origin mapping",
+      "event E000005 video timestamp disagrees with origin mapping",
+      "event E000006 video timestamp disagrees with origin mapping",
+      "event E000007 video timestamp disagrees with origin mapping",
+      "event E000008 video timestamp disagrees with origin mapping",
+      "event E000009 video timestamp disagrees with origin mapping",
+      "event E000010 video timestamp disagrees with origin mapping",
+      "event E000011 video timestamp disagrees with origin mapping",
+      "event E000012 video timestamp disagrees with origin mapping",
+      "event E000013 video timestamp disagrees with origin mapping",
+      "event E000014 video timestamp disagrees with origin mapping",
+      "event E000015 video timestamp disagrees with origin mapping",
+      "event E000016 video timestamp disagrees with origin mapping"
+    ],
+    "passed": false,
+    "robot_camera": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 2.4,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 24,
+      "height": 480,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-production-mujoco-20260811-v4/episodes/S000001/attempt_1/robot_camera.mp4",
+      "sha256": "0642b5f2371df4f63d4094330160908eefc9eaf501361146d97333befa52352a",
+      "width": 640
+    },
+    "schema_version": 1,
+    "source_link_count": 24
+  },
+  "warnings": []
+}

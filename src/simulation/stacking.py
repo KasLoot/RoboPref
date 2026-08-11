@@ -38,6 +38,39 @@ class SimulationSnapshot:
     object_positions: dict[str, np.ndarray]
 
 
+@dataclass(frozen=True, slots=True)
+class SimulationVideoFrame:
+    """One synchronized clean task view and full-scene overview view."""
+
+    sequence: int
+    observed_at: float
+    simulation_time: float
+    task_rgb: np.ndarray
+    overview_rgb: np.ndarray
+
+    def __post_init__(self) -> None:
+        if isinstance(self.sequence, bool) or self.sequence < 0:
+            raise ValueError("sequence must be a non-negative integer")
+        task = np.asarray(self.task_rgb)
+        overview = np.asarray(self.overview_rgb)
+        if (
+            task.dtype != np.uint8
+            or overview.dtype != np.uint8
+            or task.ndim != 3
+            or overview.shape != task.shape
+            or task.shape[2] != 3
+        ):
+            raise ValueError("video views must be matching HxWx3 uint8 arrays")
+        task = task.copy()
+        overview = overview.copy()
+        task.setflags(write=False)
+        overview.setflags(write=False)
+        object.__setattr__(self, "task_rgb", task)
+        object.__setattr__(self, "overview_rgb", overview)
+        object.__setattr__(self, "observed_at", float(self.observed_at))
+        object.__setattr__(self, "simulation_time", float(self.simulation_time))
+
+
 class InMemoryTaskPublisher:
     """Single display slot for simulation runs that have no camera HTTP page."""
 
@@ -115,6 +148,7 @@ class StackingEnvironment:
         self.realtime = bool(realtime)
         self.viewer_enabled = bool(viewer)
         self.viewer_camera = viewer_camera
+        self.seed = int(seed)
         self._rng = np.random.default_rng(seed)
         self._lock = threading.RLock()
         self._frame_condition = threading.Condition(self._lock)
@@ -122,6 +156,7 @@ class StackingEnvironment:
         self._thread: threading.Thread | None = None
         self._thread_error: BaseException | None = None
         self._latest_frame: RGBDFrame | None = None
+        self._latest_video_frame: SimulationVideoFrame | None = None
         self._frame_sequence = 0
         self._control_target = np.zeros(self.model.nu, dtype=np.float64)
         self._camera_id = mujoco.mj_name2id(
@@ -134,6 +169,15 @@ class StackingEnvironment:
         # the fixed task camera creates the requested unoccluded first
         # experiment while the interactive viewer still shows the full robot.
         self._task_scene_option.geomgroup[2] = 0
+        self._overview_scene_option = mujoco.MjvOption()
+        self._overview_scene_option.geomgroup[2] = 1
+        self._overview_camera = mujoco.MjvCamera()
+        self._overview_camera.type = mujoco.mjtCamera.mjCAMERA_FREE
+        self._overview_camera.fixedcamid = -1
+        self._overview_camera.lookat[:] = (0.0, -0.15, 0.15)
+        self._overview_camera.distance = 2.5
+        self._overview_camera.azimuth = 145
+        self._overview_camera.elevation = -28
         self._arm_qpos_addresses = self._joint_qpos_addresses(
             tuple(f"joint{index}" for index in range(1, 8))
         )
@@ -181,9 +225,17 @@ class StackingEnvironment:
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=max(0.0, timeout))
 
-    def reset(self) -> None:
+    def reset(self, *, seed: int | None = None) -> SimulationSnapshot:
+        """Reset and return the exact hidden state before the next sim step."""
+
         with self._lock:
+            if seed is not None:
+                if isinstance(seed, bool) or not isinstance(seed, int):
+                    raise TypeError("seed must be an integer or None")
+                self.seed = seed
+                self._rng = np.random.default_rng(seed)
             self._reset_locked()
+            return self.snapshot()
 
     def rgbd_frame(self) -> RGBDFrame:
         with self._lock:
@@ -197,6 +249,30 @@ class StackingEnvironment:
 
     def captured_frame(self):
         return self.rgbd_frame().captured_frame()
+
+    def video_frame(self) -> SimulationVideoFrame:
+        """Return the latest synchronized task and overview RGB views."""
+
+        with self._lock:
+            if self._thread_error is not None:
+                raise RuntimeError("the simulation thread failed") from self._thread_error
+            if self._latest_video_frame is None:
+                raise RuntimeError("the simulator has not rendered a video frame yet")
+            return self._latest_video_frame
+
+    def evidence_frame_pair(self) -> tuple[RGBDFrame, SimulationVideoFrame]:
+        """Return one atomically selected RGB-D/video evidence pair."""
+
+        with self._lock:
+            if self._thread_error is not None:
+                raise RuntimeError("the simulation thread failed") from self._thread_error
+            robot = self._latest_frame
+            video = self._latest_video_frame
+            if robot is None or video is None:
+                raise RuntimeError("the simulator has not rendered an evidence pair yet")
+            if robot.sequence != video.sequence:
+                raise RuntimeError("the simulator retained an unsynchronized evidence pair")
+            return robot, video
 
     def wait_for_frame(
         self,
@@ -217,6 +293,26 @@ class StackingEnvironment:
                     raise TimeoutError("timed out waiting for a simulation frame")
                 self._frame_condition.wait(remaining)
             return self._latest_frame
+
+    def wait_for_video_frame(
+        self,
+        *,
+        after_sequence: int = -1,
+        timeout: float = 5.0,
+    ) -> SimulationVideoFrame:
+        deadline = time.monotonic() + timeout
+        with self._frame_condition:
+            while (
+                self._latest_video_frame is None
+                or self._latest_video_frame.sequence <= after_sequence
+            ):
+                if self._thread_error is not None:
+                    raise RuntimeError("the simulation thread failed") from self._thread_error
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("timed out waiting for a simulation video frame")
+                self._frame_condition.wait(remaining)
+            return self._latest_video_frame
 
     def set_control(
         self,
@@ -362,6 +458,7 @@ class StackingEnvironment:
         self.data.qvel[:] = 0.0
         mujoco.mj_forward(self.model, self.data)
         self._latest_frame = None
+        self._latest_video_frame = None
 
     def _sample_task_positions(self) -> tuple[tuple[float, float], ...]:
         positions: list[tuple[float, float]] = []
@@ -429,7 +526,19 @@ class StackingEnvironment:
                             viewer = None
                     simulation_time = float(self.data.time)
                 if self.realtime:
-                    delay = wall_start + simulation_time - time.monotonic()
+                    now = time.monotonic()
+                    delay = wall_start + simulation_time - now
+                    if delay < -render_period:
+                        # A renderer, driver, or host scheduling stall must not
+                        # be followed by a burst of historical simulation
+                        # frames labelled as contemporary camera acquisitions.
+                        # Rebase the realtime epoch and continue from the
+                        # current physical state at ordinary rate.  The missing
+                        # wall interval remains visible as an evidence-source
+                        # gap and therefore still fails the recorder threshold
+                        # when it is materially long.
+                        wall_start = now - simulation_time
+                        delay = 0.0
                     if delay > 0:
                         self._stop_event.wait(min(delay, 0.01))
         except BaseException as error:
@@ -460,6 +569,13 @@ class StackingEnvironment:
 
     def _render_locked(self, renderer: mujoco.Renderer) -> None:
         renderer.disable_depth_rendering()
+
+        renderer.update_scene(
+            self.data,
+            camera=self._overview_camera,
+            scene_option=self._overview_scene_option,
+        )
+        overview = renderer.render().copy()
         renderer.update_scene(
             self.data,
             camera=self._camera_id,
@@ -485,13 +601,21 @@ class StackingEnvironment:
             camera_rotation=rotation,
         )
         self._frame_sequence += 1
+        observed_at = time.monotonic()
         self._latest_frame = RGBDFrame(
             rgb=rgb,
             depth_m=depth,
             calibration=calibration,
-            observed_at=time.monotonic(),
+            observed_at=observed_at,
             sequence=self._frame_sequence,
             simulation_time=float(self.data.time),
+        )
+        self._latest_video_frame = SimulationVideoFrame(
+            sequence=self._frame_sequence,
+            observed_at=observed_at,
+            simulation_time=float(self.data.time),
+            task_rgb=rgb,
+            overview_rgb=overview,
         )
         self._frame_condition.notify_all()
 
@@ -501,5 +625,6 @@ __all__ = [
     "HOME_QPOS",
     "InMemoryTaskPublisher",
     "SimulationSnapshot",
+    "SimulationVideoFrame",
     "StackingEnvironment",
 ]

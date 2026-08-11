@@ -1,0 +1,4 @@
+{"elapsed_seconds":0.098205525,"monotonic_ns":18056405563194,"state":{"fixture":{"instrumentation_only":true},"goal":{"completed":false},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:11:53.071313Z"}
+{"elapsed_seconds":6.171096006,"monotonic_ns":18062478453675,"state":{"fixture":{"instrumentation_only":true},"goal":{"completed":true},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:11:59.144203Z"}
+{"elapsed_seconds":6.174785437,"monotonic_ns":18062482143106,"state":{"fixture":{"instrumentation_only":true},"goal":{"completed":true},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:11:59.147892Z"}
+{"elapsed_seconds":6.185830661,"monotonic_ns":18062493188330,"state":{"fixture":{"instrumentation_only":true},"goal":{"completed":true},"safety":{"emergency_latched":false}},"utc":"2026-08-11T06:11:59.158938Z"}

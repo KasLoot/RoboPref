@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from functools import lru_cache
+import threading
+from typing import Callable
 from urllib.request import Request, urlopen
 
 from langchain_core.messages import (
@@ -138,6 +140,10 @@ class VLLMTokenCounter:
             return None
 
 
+class MetricsRecordingError(RuntimeError):
+    """A mandatory raw-call observer could not durably record a model call."""
+
+
 @dataclass(slots=True)
 class LLMCallMetric:
     agent: str
@@ -162,12 +168,22 @@ def optional_sum(values: list[int | None]) -> int | None:
 
 
 class TurnMetrics:
-    def __init__(self, token_counter: VLLMTokenCounter | None) -> None:
+    def __init__(
+        self,
+        token_counter: VLLMTokenCounter | None,
+        *,
+        raw_call_observer: Callable[..., None] | None = None,
+    ) -> None:
+        if raw_call_observer is not None and not callable(raw_call_observer):
+            raise TypeError("raw_call_observer must be callable or None")
         self.token_counter = token_counter
         self.calls: list[LLMCallMetric] = []
+        self._raw_call_observer = raw_call_observer
+        self._lock = threading.RLock()
 
     def reset(self) -> None:
-        self.calls.clear()
+        with self._lock:
+            self.calls.clear()
 
     def record(
         self,
@@ -199,8 +215,7 @@ class TurnMetrics:
         server_metrics = response.response_metadata.get("vllm_metrics") or {}
         server_tps = server_metrics.get("tokens_per_second")
 
-        self.calls.append(
-            LLMCallMetric(
+        metric = LLMCallMetric(
                 agent=agent,
                 system_texts=tuple(
                     text
@@ -241,7 +256,32 @@ class TurnMetrics:
                 ),
                 generated_tool_call=bool(response.tool_calls),
             )
-        )
+        if self._raw_call_observer is not None:
+            # The observer deliberately receives the original multimodal
+            # messages and provider response before TurnMetrics reduces them
+            # to text. Experiment recorders can therefore persist the exact
+            # request frame and wire-equivalent response without changing the
+            # production model boundary.
+            try:
+                self._raw_call_observer(
+                    agent=agent,
+                    prompt_messages=tuple(prompt_messages),
+                    response=response,
+                    elapsed_seconds=elapsed_seconds,
+                    metric=metric,
+                )
+            except BaseException as error:
+                raise MetricsRecordingError(
+                    f"raw model-call recording failed for {agent}: {error}"
+                ) from error
+        with self._lock:
+            self.calls.append(metric)
+
+    def snapshot_calls(self) -> tuple[LLMCallMetric, ...]:
+        """Return a stable snapshot while background observers are running."""
+
+        with self._lock:
+            return tuple(self.calls)
 
     def _raw_text_tokens(self, texts: tuple[str, ...]) -> int | None:
         if not texts:
@@ -481,25 +521,26 @@ class TurnMetrics:
         }
 
     def summary(self, *, turn_seconds: float) -> dict:
+        calls = list(self.snapshot_calls())
         hri_calls = [
-            call for call in self.calls if call.agent == "HRI Agent"
+            call for call in calls if call.agent == "HRI Agent"
         ]
         internal_calls = [
-            call for call in self.calls if call.agent != "HRI Agent"
+            call for call in calls if call.agent != "HRI Agent"
         ]
 
         input_tokens = optional_sum(
-            [call.input_tokens for call in self.calls]
+            [call.input_tokens for call in calls]
         )
         output_tokens = optional_sum(
-            [call.output_tokens for call in self.calls]
+            [call.output_tokens for call in calls]
         )
         total_tokens = optional_sum(
-            [call.total_tokens for call in self.calls]
+            [call.total_tokens for call in calls]
         )
 
         system_tokens = self._text_tokens(
-            self.calls,
+            calls,
             "system_texts",
         )
         external_query_tokens = self._text_tokens(
@@ -544,9 +585,9 @@ class TurnMetrics:
             ]
         )
 
-        throughput, throughput_source = self._throughput(self.calls)
+        throughput, throughput_source = self._throughput(calls)
 
-        agent_names = dict.fromkeys(call.agent for call in self.calls)
+        agent_names = dict.fromkeys(call.agent for call in calls)
 
         return {
             "total": {
@@ -561,7 +602,7 @@ class TurnMetrics:
                 "other_input_tokens": other_input_tokens,
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
-                **self._output_breakdown(self.calls),
+                **self._output_breakdown(calls),
                 "total_tokens": total_tokens,
                 "throughput_tokens_per_second": throughput,
                 "throughput_source": throughput_source,
@@ -576,7 +617,7 @@ class TurnMetrics:
                 agent: self._agent_summary(
                     [
                         call
-                        for call in self.calls
+                        for call in calls
                         if call.agent == agent
                     ]
                 )

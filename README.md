@@ -10,7 +10,9 @@ controller. Five model-facing agents have distinct roles: HRI, Planner, Memory,
 Monitor, and Validator. A deterministic `PrefMemRuntime` and
 `RecedingHorizonController` own the authoritative goal, state transitions,
 execution history, task identities, publication, temporal evidence rules, and
-loop guards.
+loop guards. MuJoCo mode adds a composite lower-level Execution Agent built
+from a constrained Gemma compiler, SAM/RGB-D grounding, and deterministic Panda
+control; it is not a learned VLA or a sixth conversational graph.
 
 The implemented workflow is:
 
@@ -60,7 +62,7 @@ bright green is successful completion, and red belongs to the emergency path.
 ```mermaid
 flowchart TD
     USER(["User request and feedback"]) --> HRI["HRI Agent<br/>only user-facing agent"]
-    CAMERA[("Live camera<br/>frames and task page")] -.->|current turn frame| HRI
+    CAMERA[("Current visual frame source<br/>webcam HTTP or MuJoCo RGB-D")] -.->|current turn frame| HRI
     HRI -.->|retrieve or consented change| MEMORY["Memory Agent"]
     MEMORY <--> STORE[("preference.json<br/>+ preference.npy")]
     MEMORY -.->|relevant preferences or mutation result| HRI
@@ -83,13 +85,15 @@ flowchart TD
         CYCLE --> DECISION{"Planner decision"}
         DECISION -->|ACT| FIRST["Select candidate task 1 only<br/>discard prediction tail"]
         DECISION -->|REQUEST_FINAL_VALIDATION| FINAL_TASK["Build final-validation publication"]
-        FIRST --> PUBLISH["Publish one current task"]
+        FIRST --> PUBLISH["Publish one current task<br/>HTTP or in-memory display slot"]
         FINAL_TASK --> PUBLISH
         PUBLISH --> PHASE{"Publication phase"}
 
-        PHASE -->|STEP| PAGE["Camera page shows<br/>one physical instruction"]
-        PAGE --> EXECUTOR["Physical executor<br/>human or MuJoCo Panda"]
-        EXECUTOR -->|changes the scene| CAMERA
+        PHASE -->|STEP| STEP_ROUTE["Route exactly one<br/>physical instruction"]
+        STEP_ROUTE --> HUMAN_EXECUTOR["Human camera-page<br/>operator"]
+        STEP_ROUTE --> MUJOCO_EXECUTOR["MuJoCo Execution Agent<br/>and Panda"]
+        HUMAN_EXECUTOR -->|changes the scene| CAMERA
+        MUJOCO_EXECUTOR -->|changes the scene| CAMERA
         PHASE -->|STEP| MONITOR["Monitor<br/>post-publication frames"]
         CAMERA -.->|visual evidence| MONITOR
         MONITOR --> MONITOR_RESULT{"Temporally stable result?"}
@@ -129,9 +133,9 @@ flowchart TD
     classDef terminal fill:#dcfce7,stroke:#15803d,color:#14532d,stroke-width:3px;
     classDef safety fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:3px;
 
-    class USER,EXECUTOR,CAMERA_VIEW human;
-    class HRI,MEMORY,ASK,PREVIEW,PROPOSAL,CYCLE,MONITOR,VALIDATOR agent;
-    class FREEZE,FIRST,FINAL_TASK,PUBLISH,PAGE,HISTORY host;
+    class USER,HUMAN_EXECUTOR,CAMERA_VIEW human;
+    class HRI,MEMORY,ASK,PREVIEW,PROPOSAL,CYCLE,MONITOR,VALIDATOR,MUJOCO_EXECUTOR agent;
+    class FREEZE,FIRST,FINAL_TASK,PUBLISH,STEP_ROUTE,HISTORY host;
     class CAMERA,STORE data;
     class CLEAR,PREVIEW_STATUS,CONFIRM,DECISION,PHASE,MONITOR_RESULT,VALIDATION_RESULT decision;
     class ATTENTION attention;
@@ -144,9 +148,9 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph INTERACTION["1 · Interaction and preference memory"]
-        USER(["User / operator"]) --> FRONTEND["Terminal CLI or operator GUI"]
+        USER(["User / operator"]) --> FRONTEND["Terminal CLI or human-mode operator GUI"]
         FRONTEND --> HRI["HRI Agent"]
-        CAMERA[("Webcam server<br/>stream + snapshot + task API")] -.->|current HRI-turn frame| HRI
+        CAMERA[("Frame/display backend<br/>webcam HTTP or MuJoCo RGB-D + in-memory slot")] -.->|current HRI-turn frame| HRI
         RUNTIME_STATE[("Authoritative runtime state<br/>goal, task, history, validation, attention")] -.->|injected on every model call| HRI
 
         HRI -.->|optional RETRIEVE REQUEST| MEMORY["Memory Agent"]
@@ -201,7 +205,7 @@ flowchart TD
         TAKE_FIRST --> BUILD_STEP["Assign trusted cycle, step,<br/>criterion, and publication IDs"]
         PLANNER_DECISION -->|REQUEST_FINAL_VALIDATION| BUILD_FINAL["Build one FINAL_VALIDATION publication<br/>from frozen broad outcomes"]
         PLANNER_DECISION -->|BLOCKED or NEEDS_USER_INPUT| ATTENTION
-        BUILD_STEP --> PUBLISH["Publish ControllerDisplay<br/>PUT /api/task"]
+        BUILD_STEP --> PUBLISH["Publish ControllerDisplay<br/>PUT /api/task or in-memory slot"]
         BUILD_FINAL --> PUBLISH
         PUBLISH -.->|publication failure| ATTENTION
         PUBLISH --> PHASE{"Task phase"}
@@ -228,7 +232,7 @@ flowchart TD
     end
 
     subgraph VALIDATION["4 · Independent, multi-view final validation"]
-        PHASE -->|FINAL_VALIDATION only| FINAL_PAGE["Browser: keep objects unchanged;<br/>move only the camera as requested"]
+        PHASE -->|FINAL_VALIDATION only| FINAL_PAGE["Display guidance: keep objects unchanged;<br/>move only the camera as requested"]
         PHASE -->|FINAL_VALIDATION only| VALIDATOR["Validator service polls fresh views<br/>against the frozen detailed checklist"]
         CAMERA -.->|post-publication views| VALIDATOR
         VALIDATOR -.->|service error or no-progress timeout| ATTENTION
@@ -308,6 +312,9 @@ cd RoboPref
 uv sync
 ```
 
+The PrefMem package requires Python 3.13 or newer; `uv sync` resolves the
+environment from `pyproject.toml` and `uv.lock`.
+
 ### Serve a Reasoning VLM using vLLM
 
 #### Install vLLM
@@ -353,9 +360,9 @@ vllm serve /workspace/models/gemma-4-26B-A4B-it \
 #### Forward the vLLM server port to your local machine
 
 ```bash
-ssh -N -L 8000:127.0.0.1:8000 \
-  -p 17210 -i ~/.ssh/id_ed25519 \
-  root@103.196.86.101
+ssh -N -L 8080:127.0.0.1:8080 \
+  -p 11204 -i ~/.ssh/id_ed25519 \
+  root@213.173.103.97
 ```
 
 ### Serve Embedding model using vLLM
@@ -471,12 +478,12 @@ during motion cancels to a safe hold before triggering a fresh Planner cycle.
 Stack collapse remains ordinary visual failure evidence for Monitor and is also
 handled by the next receding-horizon cycle.
 
-The Panda controller uses a minimum-jerk joint trajectory capped at 0.6 rad/s
-and 1.2 rad/s\u00b2 by default. Model-based gravity feed-forward holds each IK
-target without accumulating integral trim, and a waypoint is complete only
-after both joint error and joint velocity remain within their settling limits.
-This keeps grasp and placement approaches deliberate and prevents the actuator
-setpoint from winding past the destination.
+The Panda controller computes each minimum-jerk command profile from default
+peak limits of 0.6 rad/s and 1.2 rad/s². Model-based gravity feed-forward
+holds each IK target without accumulating integral trim, and a waypoint is
+complete only after both joint error and joint velocity remain within their
+settling limits. This keeps grasp and placement approaches deliberate and
+prevents the actuator setpoint itself from winding past the destination.
 
 Useful options:
 
@@ -492,7 +499,17 @@ uv run prefmem --executor mujoco --monitor-events verbose
 
 # Inspect the exact fixed camera used by Monitor (this view does not orbit)
 uv run prefmem --executor mujoco --simulation-viewer-camera task
+
+# Load a compatible MuJoCo XML instead of the built-in stacking scene
+uv run prefmem --executor mujoco --simulation-scene /path/to/scene.xml
 ```
+
+`--simulation-scene` swaps the XML used by the existing stacking adapter. It
+does not make arbitrary MuJoCo robots compatible: the scene must retain the
+Panda joints and actuators, gripper site, `task_camera`, named block free
+joints, and framebuffer capacity expected by `StackingEnvironment` and
+`PandaPickPlaceController`. The experiment harness uses this flag for
+scenario-specific props and disturbances.
 
 MuJoCo mode enables concise live Monitor events by default. Each assessment
 shows its frame, status, criterion states, visible observation, executor state,
@@ -513,6 +530,9 @@ the local operator console in place of the terminal `prefmem` process:
 ```bash
 uv run ui --memory-store-path ./memory_store_test
 ```
+
+The current GUI runtime factory uses the human/webcam executor. MuJoCo execution
+and `--simulation-scene` are currently terminal-CLI features.
 
 Open `http://127.0.0.1:8090`. The console combines the live camera feed, HRI
 conversation, exact goal confirmation, current execution state, validation
@@ -561,7 +581,9 @@ PrefMem treats the confirmed high-level goal and constraints as a frozen goal
 contract, not as a frozen stack of actions. Confirmation starts a new Planner
 call with a fresh camera frame. On every cycle the Planner predicts a short
 one-to-three-task horizon, while the controller publishes only its first task
-to the camera page and Monitor (execution horizon 1).
+to Monitor and the selected display/execution adapter: the HTTP camera page in
+human mode or the in-memory display plus `ExecutionService` in MuJoCo mode
+(execution horizon 1).
 
 After stable `SUCCESS`, the result is appended to execution history and a fresh
 Planner cycle chooses what to do next. A stable task-level `FAIL` also replans

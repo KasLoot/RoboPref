@@ -7,7 +7,7 @@ import queue
 import re
 import threading
 import uuid
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 from prefmem.agents.monitor import (
     CapturedFrame,
@@ -91,9 +91,13 @@ class PrefMemRuntime:
         reset_display: bool = True,
         executor: Any | None = None,
         owned_resources: Sequence[Any] = (),
+        event_sink: Callable[[str, Any], None] | None = None,
     ) -> None:
         if not hasattr(planner, "preview") or not hasattr(planner, "plan_cycle"):
             raise TypeError("planner must expose preview() and plan_cycle()")
+        if event_sink is not None and not callable(event_sink):
+            raise TypeError("event_sink must be callable or None")
+        self._event_sink = event_sink
         self.planner = planner
         self.session_id = session_id or uuid.uuid4().hex
         self.controller = controller or RecedingHorizonController(
@@ -173,6 +177,15 @@ class PrefMemRuntime:
                     f"running at {camera_base_url}, then start PrefMem again: "
                     f"{error}"
                 ) from error
+        self._emit_event(
+            "RUNTIME_INITIALIZED",
+            {
+                "session_id": self.session_id,
+                "executor": (
+                    None if self.executor is None else type(self.executor).__name__
+                ),
+            },
+        )
 
     @property
     def shutdown_event(self) -> threading.Event:
@@ -186,6 +199,17 @@ class PrefMemRuntime:
     def pending_goal(self) -> GoalContract | None:
         return self._pending_goal
 
+    def _emit_event(self, kind: str, payload: Any) -> None:
+        """Send one lossless runtime event to an optional durable sink.
+
+        Production leaves the sink unset. Experiment construction supplies a
+        fail-closed append-only journal; callback errors are intentionally not
+        swallowed because an unrecorded experimental action is invalid.
+        """
+
+        if self._event_sink is not None:
+            self._event_sink(kind, payload)
+
     def request_goal_preview(
         self,
         clarified_goal: str,
@@ -196,6 +220,14 @@ class PrefMemRuntime:
         """Ask Planner for the nominal strategy and stage its frozen goal."""
 
         self._ensure_running()
+        self._emit_event(
+            "GOAL_PREVIEW_REQUESTED",
+            {
+                "clarified_goal": clarified_goal,
+                "constraints": list(constraints),
+                "operator_guidance": operator_guidance,
+            },
+        )
         previous = self.controller.snapshot
         if previous.state in {
             RecedingControllerState.PLANNING,
@@ -222,6 +254,7 @@ class PrefMemRuntime:
         result: dict[str, Any] = {"proposal": proposal.to_dict()}
         if proposal.status is PlanStatus.BLOCKED:
             result["confirmation_required"] = False
+            self._emit_event("GOAL_PREVIEW_BLOCKED", result)
             return result
 
         contract = GoalContract.from_proposal(
@@ -254,6 +287,7 @@ class PrefMemRuntime:
                 ),
             }
         )
+        self._emit_event("GOAL_PREVIEW_STAGED", result)
         return result
 
     def confirm_goal(
@@ -266,6 +300,14 @@ class PrefMemRuntime:
         """Start execution with a fresh Planner call after exact confirmation."""
 
         self._ensure_running()
+        self._emit_event(
+            "GOAL_CONFIRMATION_RECEIVED",
+            {
+                "goal_id": goal_id,
+                "revision": revision,
+                "confirmed": confirmed,
+            },
+        )
         goal = self._pending_goal
         if goal is None:
             raise RuntimeError("there is no goal awaiting confirmation")
@@ -284,6 +326,7 @@ class PrefMemRuntime:
             # camera capture or Planner call.
             result = self.context_dict()
             result["confirmation_status"] = "DECLINED"
+            self._emit_event("GOAL_CONFIRMATION_DECLINED", result)
             return result
         confirmation_frame = self._capture_frame()
         try:
@@ -316,6 +359,7 @@ class PrefMemRuntime:
             frame_sequence=frame.sequence,
         )
         self._validation_contract = validation_contract
+        self._emit_event("VALIDATION_CONTRACT_FROZEN", validation_contract)
         self._latest_validation_report = None
         self._latest_validation_publication_id = None
         self._validation_notification_signature = None
@@ -326,7 +370,9 @@ class PrefMemRuntime:
         if not self._publish_transition(transition):
             return self.context_dict()
         self._run_planning_cycle(transition.planner_request, frame=frame)
-        return self.context_dict()
+        result = self.context_dict()
+        self._emit_event("GOAL_CONFIRMATION_ACCEPTED", result)
+        return result
 
     def resume_current_task(self) -> dict[str, Any]:
         self._ensure_running()
@@ -454,6 +500,7 @@ class PrefMemRuntime:
     def close(self) -> None:
         if self._closed:
             return
+        self._emit_event("RUNTIME_CLOSING", self.context_dict())
         self._closed = True
         for service in (self.executor, self.monitor, self.validator):
             if service is None:
@@ -493,6 +540,14 @@ class PrefMemRuntime:
         frame = self.frame_source()
         if not isinstance(frame, CapturedFrame):
             raise TypeError("frame_source must return CapturedFrame")
+        self._emit_event(
+            "FRAME_CAPTURED",
+            {
+                "sequence": frame.sequence,
+                "observed_at": frame.observed_at,
+                "image_block": frame.image_block,
+            },
+        )
         return frame
 
     def _run_planning_cycle(
@@ -515,7 +570,9 @@ class PrefMemRuntime:
                 if frame is None:
                     frame = self._capture_frame()
                 request = self.controller.bind_planning_frame(frame.sequence)
+                self._emit_event("PLANNER_CYCLE_REQUESTED", request)
                 decision = self.planner.plan_cycle(request, frame.image_block)
+                self._emit_event("PLANNER_CYCLE_DECISION", decision)
                 if self.emergency.latched:
                     return
                 transition = self.controller.apply_planner_decision(
@@ -537,6 +594,10 @@ class PrefMemRuntime:
                             or "Observation service publication failed"
                         )
             except Exception as error:
+                self._emit_event(
+                    "PLANNER_CYCLE_ERROR",
+                    {"type": type(error).__name__, "message": str(error)},
+                )
                 if self.emergency.latched:
                     return
                 attention = self.controller.record_system_error(
@@ -569,6 +630,7 @@ class PrefMemRuntime:
             pass
 
     def _on_monitor_telemetry(self, event: MonitorTelemetryEvent) -> None:
+        self._emit_event("MONITOR_TELEMETRY", event)
         if not isinstance(event, MonitorTelemetryEvent):
             return
         if event.kind is MonitorTelemetryKind.INFERENCE_COMPLETED:
@@ -688,6 +750,7 @@ class PrefMemRuntime:
     def _on_monitor_assessment(self, assessment: MonitorAssessment) -> None:
         """Monitor callback; controller decides whether one report is terminal."""
 
+        self._emit_event("MONITOR_ASSESSMENT", assessment)
         if self._closed or self.emergency.latched:
             return
         before = self.controller.snapshot
@@ -739,6 +802,7 @@ class PrefMemRuntime:
             self._run_planning_cycle(transition.planner_request)
 
     def _on_monitor_error(self, event: MonitorErrorEvent) -> None:
+        self._emit_event("MONITOR_ERROR", event)
         if self._closed or self.emergency.latched:
             return
         task = self.controller.snapshot.current_task
@@ -770,6 +834,7 @@ class PrefMemRuntime:
     ) -> None:
         """Validator callback for the frozen high-level completion contract."""
 
+        self._emit_event("VALIDATOR_ASSESSMENT", assessment)
         if self._closed or self.emergency.latched:
             return
         if not isinstance(assessment, ValidationAssessment):
@@ -880,6 +945,7 @@ class PrefMemRuntime:
             )
 
     def _on_validator_error(self, event: ValidatorErrorEvent) -> None:
+        self._emit_event("VALIDATOR_ERROR", event)
         if self._closed or self.emergency.latched:
             return
         task = self.controller.snapshot.current_task
@@ -902,6 +968,7 @@ class PrefMemRuntime:
         )
 
     def _on_emergency_stop(self, event: EmergencyStopEvent) -> None:
+        self._emit_event("EMERGENCY_STOP", event)
         transition = self.controller.emergency_stop(event.reason)
         # The physical/placeholder stop hook ran before this callback.  Page I/O
         # is consequently best-effort and can never delay the stop action.
@@ -925,6 +992,7 @@ class PrefMemRuntime:
     def _publish_task(self, task: PublishedTask) -> None:
         """Route one publication to its phase-specific observation/execution path."""
 
+        self._emit_event("TASK_PUBLICATION_ROUTED", task)
         if task.phase is TaskPhase.STEP:
             self._queue_monitor_event(
                 {
@@ -978,6 +1046,7 @@ class PrefMemRuntime:
         self.validator.publish(task, contract)
 
     def _retire_task(self, task: PublishedTask) -> bool:
+        self._emit_event("TASK_RETIREMENT_REQUESTED", task)
         if task.phase is TaskPhase.FINAL_VALIDATION:
             return bool(self.validator.retire(task.publication_id))
         retired = bool(self.monitor.retire(task.publication_id))
@@ -990,6 +1059,10 @@ class PrefMemRuntime:
             for key in stale_keys:
                 self._monitor_elapsed.pop(key, None)
         if retired:
+            self._emit_event(
+                "TASK_RETIRED",
+                {"publication_id": task.publication_id},
+            )
             self._queue_monitor_event(
                 {
                     "event": "TASK_RETIRED",
@@ -1003,6 +1076,7 @@ class PrefMemRuntime:
     def _on_execution_event(self, event: Any) -> None:
         """Pause on executor faults; ordinary completion remains Monitor-owned."""
 
+        self._emit_event("EXECUTOR_EVENT", event)
         from prefmem.execution.contracts import ExecutionEvent, ExecutionState
 
         if (
@@ -1037,6 +1111,7 @@ class PrefMemRuntime:
     def _on_execution_scene_change(self, event: Any) -> None:
         """Safely replan an open-set goal after the controller has stopped."""
 
+        self._emit_event("EXECUTOR_SCENE_CHANGE", event)
         from prefmem.execution.contracts import SceneChangeEvent
 
         if (
@@ -1212,6 +1287,7 @@ class PrefMemRuntime:
         *,
         best_effort: bool = False,
     ) -> bool:
+        self._emit_event("CONTROLLER_TRANSITION", transition)
         snapshot = transition.snapshot
         if snapshot.goal is None:
             return True
@@ -1328,7 +1404,17 @@ def build_runtime(args):
 
     from prefmem.agents.hri import HRI_Agent
 
-    hri = HRI_Agent(model_config=args.model_config, args=args)
+    provider_matches = getattr(args, "model_provider", None) == args.model_config
+    upper_model = getattr(args, "model", None) if provider_matches else None
+    upper_model_base_url = (
+        getattr(args, "model_base_url", None) if provider_matches else None
+    )
+    hri = HRI_Agent(
+        model_config=args.model_config,
+        args=args,
+        model_name=upper_model,
+        model_base_url=upper_model_base_url,
+    )
     executor = None
     frame_source = None
     task_publisher = None
@@ -1376,7 +1462,8 @@ def build_runtime(args):
             task_publisher=task_publisher,
             frame_source=frame_source,
             monitor_min_interval=args.monitor_min_interval,
-            model_base_url="http://localhost:8000/v1",
+            model_name=hri.config.model,
+            model_base_url=hri.config.model_base_url,
             metrics=hri.metrics,
             success_confirmations=args.success_confirmations,
             success_stability_seconds=args.success_stability_seconds,

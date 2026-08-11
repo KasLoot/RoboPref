@@ -1,0 +1,19 @@
+# PrefMem publication experiment suite design
+
+This is the stable in-directory entry point required by the experiment
+workflow. The single normative design is the repository-root
+[EXPERIMENT_SUITE_DESIGN.md](../EXPERIMENT_SUITE_DESIGN.md). It is not copied
+here because two editable copies could silently diverge before protocol freeze.
+
+At the 2026-08-11 documentation audit, the normative file had 1,510 lines and
+SHA-256
+`55f0905f06ebbf3bd2cb8955cd0a8030e1990e6c7a63d9ed5e355435cb00b0d4`.
+That value is an audit aid, not a substitute for the hash recorded by a future
+campaign manifest. Freeze and live-source verification must recompute the file
+digest from the exact bytes used for that campaign.
+
+The design status is **proposed**, not frozen or approved. The implementation
+source remains authoritative about present behavior. Any scientific narrowing
+or change to the design must be explicit in the dated preregistration and the
+[requirements crosswalk](REQUIREMENTS_CROSSWALK.md); an absent implementation
+must never be treated as an implicit protocol amendment.

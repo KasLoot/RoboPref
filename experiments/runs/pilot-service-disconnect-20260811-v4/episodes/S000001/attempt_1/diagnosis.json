@@ -1,0 +1,20 @@
+{
+  "behavioral_summary": "Attempt terminated with InfrastructureInterruption: Gemma transport failed and the independent model-registry probe failed ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "causal_timeline": "[Event E000001](./experiment_record.md#event-e000001) begins the append-only attempt timeline; the cited disposition is [Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066).",
+  "competing_explanations": [
+    "none recorded ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066))."
+  ],
+  "confidence": "high ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "disconfirming_evidence": "Raw calls, frames, states, and video are linked from the record ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "expected_vs_observed": "At least one frozen trigger/oracle condition failed or was unavailable ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "first_divergence_point": "See the failing oracle evidence and terminal record ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "likely_failure_layer": "recorder/oracle/harness ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "oracle_verdict": null,
+  "primary_diagnosis": "Attempt terminated with InfrastructureInterruption: Gemma transport failed and the independent model-registry probe failed ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "recommended_follow_up": "Review linked evidence without changing frozen results ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "reviewer_notes": "Diagnosis was generated only after behavior and oracle finalization ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "run_status": "INFRA_INTERRUPTED",
+  "safety_and_liveness_consequences": "See the safety oracle and ordered event record ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "studied_system_or_infrastructure": "infrastructure ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066)).",
+  "unresolved_ambiguity": "Manual evidence review may refine cause ([Event E000007](./experiment_record.md#event-e000007), [video 6.066s](./video.mp4#t=6.066))."
+}

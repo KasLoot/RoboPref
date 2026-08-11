@@ -1,0 +1,171 @@
+# Experiment data dictionary
+
+All timestamps are UTC RFC 3339 strings unless a field explicitly says
+monotonic nanoseconds or elapsed seconds. All digests are lowercase hexadecimal
+SHA-256. Empty string in CSV represents JSON `null`; it never means zero or
+failure. The independent experimental unit for system-level analysis is one
+scheduled episode, not a frame, action, model call, or monitor poll.
+
+## Campaign-level artifacts
+
+### `CAMPAIGN_MANIFEST.json`
+
+| Field | Type | Meaning |
+|---|---|---|
+| `schema_version` | integer | Manifest schema, currently 1 |
+| `campaign_id` | string | Versioned, path-safe campaign identity |
+| `mode` | `pilot` or `locked` | Scientific data phase |
+| `frozen_utc` | timestamp | Time the immutable snapshot was created |
+| `protocol_path`, `protocol_sha256` | string, digest | Exact protocol snapshot and content hash |
+| `schedule_path`, `schedule_sha256`, `schedule_size` | string, digest, integer | Frozen randomized CSV and entry count |
+| `sequential_execution` | Boolean | True: at most one registry attempt may be open |
+| `common_random_numbers` | Boolean | True: matched profiles share generated-instance seed/CRN key |
+| `reuse_policy` | enum | `fresh_attempts_only`; shared-reference reuse is reserved and refused |
+| `max_infrastructure_attempts` | integer | Exactly 3; valid system failures never consume a retry |
+| `locked_approval_required` | Boolean | Locked registry refuses `begin` before exact approval |
+| `provenance.git_commit` | string or null | Repository commit at freeze |
+| `provenance.dirty`, `git_status_sha256`, `dirty_patch_sha256` | Boolean/digests | Dirty-state declaration and hashes without secret key material |
+| `provenance.source_roots[]` | paths | Repository-relative roots whose membership is recomputed, including relevant tests |
+| `provenance.source_files[]` | objects | Repository-relative path, content digest, and bytes for every relevant source file |
+| `provenance.frozen_input_roots[]` | paths | Exact config/protocol roots whose membership is recomputed |
+| `provenance.frozen_inputs[]` | objects | Repository-relative path, digest, and bytes for explicit configs/protocol inputs |
+| `manifest_sha256` | digest | Canonical JSON hash computed with this field omitted |
+| `metadata.analysis_spec` | object | Frozen outcomes/reference, episode/CRN/Holm method, and exact schedule-derived matrix/profile families |
+| `metadata.execution_engine` | object | Locked exact engine ID, module, class, repository-relative source, and verified source hash |
+
+`PROTOCOL.md` is the byte-exact protocol snapshot. `PROTOCOL.sha256` contains
+one GNU-style line for it. `environment/provenance.json` duplicates the
+provenance record for direct inspection. `EXCLUSIONS.md` and `CHANGELOG.md` are
+append-only human records; they do not authorize mutation of frozen inputs.
+
+### `run_schedule.csv`
+
+| Column | Type | Meaning |
+|---|---|---|
+| `schedule_id` | string | Stable `S000001`-style randomized assignment ID |
+| `schedule_position` | integer | One-based sole permitted sequential order |
+| `block_id`, `block_position` | string, integer | Matched block and randomized within-block profile position |
+| `matrix_id` | string | Main, topology, ablation, sensitivity, or explicit custom matrix |
+| `scenario_id`, `scenario_variant_id` | strings | Template and split-specific held-out instance definition |
+| `profile_id` | string | Evaluated topology/ablation/baseline profile |
+| `model_backbone` | string | Frozen model label resolved to exact ID/hash in setup provenance |
+| `repetition` | integer | One-based matched repetition within cell |
+| `seed` | non-negative integer | Generated-instance/controller seed shared by the block |
+| `split` | string | `pilot`, `locked`, or `locked_test` as validated by campaign mode |
+| `executor` | string | `synthetic_event`, `mujoco`, `human_executor`, or `real_robot` |
+| `crn_key` | string | Pre-profile matched-instance identity |
+| `reuse_group` | null | Reserved; shared-reference outcome reuse is not implemented |
+
+### `RUN_STATE.json` and `run_index.csv`
+
+`RUN_STATE.json` is authoritative; `run_index.csv` is regenerated from it.
+Top-level fields include the immutable campaign/protocol/schedule identities,
+approval state, retry limit, monotonic `registry_revision`, entries, and an
+append-only transition event list.
+
+Each entry stores the exact schedule assignment, latest `status`, all attempts,
+optional `disposition`, and a one-use `retry_authorization`. Each attempt stores:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `attempt_number`, `attempt_id` | integer, string | Contiguous preserved identity; never reused |
+| `status` | status enum | `NOT_RUN` while open, then sealed once |
+| `started_utc`, `ended_utc` | timestamps | Reservation and seal times |
+| `oracle_verdict` | string or null | Objective oracle result, separate from status/diagnosis |
+| `reason` | string or null | Infrastructure, harness, or safety disposition evidence |
+| `artifact_path` | relative path | Exact `episodes/<schedule>/attempt_<n>` tree |
+| `artifact_audit_passed` | Boolean or null | Result known at registry seal time |
+| `infrastructure_evidence` | object or null | Attempt-local external-outage evidence path and SHA-256, required for infrastructure status |
+| `recovery_authorization` | object or null | Consumed recovery-report path/hash/time binding for a retry |
+
+Statuses have these non-overlapping meanings:
+
+| Status | Meaning and analysis treatment |
+|---|---|
+| `VALID_PASS` | Studied system produced a passing outcome and artifact audit passed; no retry |
+| `VALID_SYSTEM_FAILURE` | Studied system produced a failing outcome and artifact audit passed; retained as data, no retry |
+| `INFRA_INTERRUPTED` | Independently documented external availability interruption; retry blocks until hashed restoration/two-check/smoke evidence is authorized; same seed, maximum three attempts |
+| `INVALID_HARNESS` | Recorder/oracle/driver invalidated measurement; preserved, not silently retried in the same campaign |
+| `ABORTED_SAFETY` | Safe stop occurred; preserved separately and counted per preregistered outcome/exclusion rule |
+| `NOT_RUN` | Randomized assignment has no sealed measurement or its current reservation is open |
+
+An oracle verdict answers whether declared expectations passed. A diagnosis is
+a later causal assessment. Neither field is inferred from the other.
+
+## Attempt-level artifacts
+
+| Artifact | Source-of-truth content |
+|---|---|
+| `setup.json`, `SETUP.md` | Campaign/attempt identity, profile graph, mechanisms, models, hashes, service health, scene, budgets, schedule position, reproduction command |
+| `events.jsonl` | Append-only chronological source of truth with stable event IDs, UTC/monotonic/video time, states, requests, actions, decisions, triggers, observations, errors |
+| `experiment_record.md` | Generated rendering of `events.jsonl`; never hand-authored evidence |
+| `runtime_states.jsonl` | Ordered evaluated-system state snapshots |
+| `hidden_states.jsonl` | Scoring-only simulator state; never an evaluated-agent input |
+| `oracle_observations.jsonl` | Raw objective observations keyed by oracle ID |
+| `frame_requests.jsonl` | Logical request-to-exact-transport-image mapping, optional lossless source-image mapping, and response/event links |
+| `frames/` | Content-addressed exact transport image bytes and, for lossy transports, the lossless source capture from which they were deterministically encoded |
+| `model_calls.jsonl`, `model_calls/` | Timings/IDs plus redacted raw request, response, malformed response, and error artifacts |
+| `inputs.json` | Frozen episode inputs, user script, and generated instance parameters |
+| `initial_state.json`, `final_state.json` | Initial and available final hidden scoring state |
+| `initial.png`, `final.png` | Corresponding visual state when available |
+| `results.json`, `results.md` | Status, separate oracle verdict, outcomes, metrics, and generated rendering |
+| `diagnosis.md` | Post-run expected/observed comparison, first divergence, layer, competing causes, confidence, and evidence links |
+| `terminal.log` | Redacted timestamped operational output |
+| `video.mp4`, `robot_camera.mp4` | Synchronized composite and clean first-person recording |
+| `video_metadata.json` | Monotonic origin, UTC mapping, codec/FPS/resolution/frame/duration and coverage checks |
+| `artifact_checks.json` | Structural, semantic, timing, frame, call, and video audit result |
+| `checksums.sha256` | Sorted digest of every regular attempt artifact except itself |
+
+Every JSONL line is one strict JSON object. Event IDs are contiguous
+`E000001`-style strings. `elapsed_seconds` and `video_time_seconds` share one
+monotonic origin. Secret values are removed; redaction paths/counts are
+evidence, but secret values or reversible derivatives are never retained.
+
+### `frame_requests.jsonl`
+
+Each `frame_request` record maps one logical request to the exact image bytes
+used by its transport:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `request_id`, `logical_agent` | strings | Stable request identity and receiving logical role/service |
+| `capture_utc`, `capture_monotonic_ns`, `capture_elapsed_seconds` | timestamp/integer/number | Capture time on the attempt's shared UTC/monotonic clock |
+| `camera_view_id`, `frame_sequence_number`, `camera_frame_id` | strings/integer/string | Exact camera/view and sequence identity linked to video metadata |
+| `image_path` | relative path | Content-addressed image containing the exact decoded bytes supplied to the transport; this may be a deterministic JPEG for a lossy service such as SAM |
+| `raw_image_sha256` | digest | SHA-256 of the exact transport image bytes stored at `image_path` |
+| `source_image_path` | relative path or null | Optional content-addressed lossless capture used to derive a lossy transport image; null when `image_path` is already the lossless source |
+| `source_raw_image_sha256` | digest or null | SHA-256 of the lossless bytes at `source_image_path`; present and absent together with that path |
+| `source_frame_sha256` | digest | SHA-256 of the decoded lossless source pixels, used to bind the capture to the robot-camera video source |
+| `encoded_request_payload_sha256` | digest | SHA-256 of the exact supplied image payload representation (raw bytes or encoded data URL/base64 text as applicable) |
+| `prompt_request_body_sha256` | digest | SHA-256 of the exact request/body representation associated with this frame |
+| `response_id`, `event_ids` | string/list | Response and stable event links, either on this record or a later `frame_response_link` record |
+
+For a lossy transport, the two representations have different purposes and
+must not be substituted for one another. `image_path`, `raw_image_sha256`, the
+redacted raw request, and the model-call artifact retain the exact JPEG sent to
+SAM. `source_image_path`, `source_raw_image_sha256`, and
+`source_frame_sha256` retain the lossless capture and pixel identity. The video
+auditor decodes the lossless source image and compares its pixel digest and
+camera-frame ID to `video_metadata.json`; it never compares recompressed JPEG
+pixels to a lossless video-source hash.
+
+## Analysis outputs
+
+Binary ITT summaries report assigned, resolved, successes, failures, missing,
+missing-by-status, observed rate, Wilson interval, and fixed-denominator
+best/worst bounds. `estimable=false`, `estimate=null`, and a non-empty `reason`
+are mandatory when assignments remain unresolved.
+
+`analysis_gate` records locked approval, registry completion, unresolved
+outcomes, artifact-audit state, and whether live source was checked. Merely
+having `mode=locked` does not yield the `confirmatory_locked` label.
+
+Matched comparisons report candidate/complete/incomplete blocks, discordant and
+tied pairs, matched risk difference, percentile bootstrap interval, exact
+McNemar/binomial p-value, and Holm-adjusted p-value within the frozen family.
+Pilot power records planned episode-pair count, empirical power, Monte Carlo
+Wilson interval, simulations, alpha, and method. Failure taxonomy counts status,
+post-run failure layer, and primary diagnosis separately.
+
+No `NaN`, infinity, empty-string-as-zero, frame-level pseudo-replication, or
+silent complete-case substitution is permitted in publication tables.

@@ -1,0 +1,37 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "",
+  "id": "lc_run--019ff090-4d9c-7da3-a1ba-1bf945af847b-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "tool_calls",
+    "id": "chatcmpl-8951512ef530451e",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [
+    {
+      "args": {
+        "clarified_goal": "Put the red cube on the white target pad.",
+        "constraints": []
+      },
+      "id": "chatcmpl-tool-97e6452f19be062c",
+      "name": "request_goal_preview",
+      "type": "tool_call"
+    }
+  ],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

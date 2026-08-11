@@ -71,6 +71,35 @@ class OpenVocabularyDetector(Protocol):
     ) -> tuple[SamDetection, ...]: ...
 
 
+class SamExchangeRecorder(Protocol):
+    """Fail-closed observer for the exact SAM HTTP image exchange."""
+
+    def start(
+        self,
+        *,
+        prompt: str,
+        threshold: float,
+        image_jpeg: bytes,
+    ) -> object: ...
+
+    def end(
+        self,
+        token: object,
+        *,
+        status_code: int,
+        response_body: bytes,
+    ) -> None: ...
+
+    def error(
+        self,
+        token: object,
+        *,
+        error: BaseException,
+        status_code: int | None,
+        response_body: bytes | None,
+    ) -> None: ...
+
+
 def _decode_mask(value: object, *, height: int, width: int) -> np.ndarray | None:
     if value is None:
         return None
@@ -101,6 +130,7 @@ class Sam3Client:
         threshold: float = 0.5,
         timeout: float = 60.0,
         client: httpx.Client | None = None,
+        exchange_recorder: SamExchangeRecorder | None = None,
     ) -> None:
         parsed = urlsplit(base_url)
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -122,6 +152,7 @@ class Sam3Client:
         self.threshold = float(threshold)
         self._owns_client = client is None
         self._client = client or httpx.Client(timeout=float(timeout), trust_env=False)
+        self._exchange_recorder = exchange_recorder
 
     def close(self) -> None:
         if self._owns_client:
@@ -149,17 +180,44 @@ class Sam3Client:
         )
         if not ok:
             raise SamServiceError("could not encode the detector input image")
+        image_jpeg = encoded.tobytes()
+        exchange_token = (
+            None
+            if self._exchange_recorder is None
+            else self._exchange_recorder.start(
+                prompt=prompt.strip(),
+                threshold=actual_threshold,
+                image_jpeg=image_jpeg,
+            )
+        )
+        response: httpx.Response | None = None
         try:
             response = self._client.post(
                 f"{self.base_url}/detect",
                 data={"prompt": prompt.strip(), "threshold": str(actual_threshold)},
-                files={"image": ("frame.jpg", encoded.tobytes(), "image/jpeg")},
+                files={"image": ("frame.jpg", image_jpeg, "image/jpeg")},
             )
             response.raise_for_status()
             payload = response.json()
-        except (httpx.HTTPError, ValueError) as error:
+            detections = self._parse_response(payload, image.shape[1], image.shape[0])
+        except (httpx.HTTPError, ValueError, SamServiceError) as error:
+            if self._exchange_recorder is not None:
+                self._exchange_recorder.error(
+                    exchange_token,
+                    error=error,
+                    status_code=None if response is None else response.status_code,
+                    response_body=None if response is None else response.content,
+                )
+            if isinstance(error, SamServiceError):
+                raise
             raise SamServiceError(f"SAM detection request failed: {error}") from error
-        return self._parse_response(payload, image.shape[1], image.shape[0])
+        if self._exchange_recorder is not None:
+            self._exchange_recorder.end(
+                exchange_token,
+                status_code=response.status_code,
+                response_body=response.content,
+            )
+        return detections
 
     @staticmethod
     def _parse_response(
@@ -231,6 +289,7 @@ class Sam3Client:
 
 __all__ = [
     "OpenVocabularyDetector",
+    "SamExchangeRecorder",
     "Sam3Client",
     "SamDetection",
     "SamServiceError",

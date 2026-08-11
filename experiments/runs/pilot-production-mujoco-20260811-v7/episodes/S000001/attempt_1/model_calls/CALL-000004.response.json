@@ -1,0 +1,38 @@
+{
+  "additional_kwargs": {
+    "refusal": null
+  },
+  "content": "",
+  "id": "lc_run--019ff090-7974-7cb2-b9c0-910debee9883-0",
+  "invalid_tool_calls": [],
+  "name": null,
+  "response_metadata": {
+    "finish_reason": "tool_calls",
+    "id": "chatcmpl-bb56e161e6768615",
+    "logprobs": null,
+    "model_name": "/workspace/models/gemma-4-26B-A4B-it",
+    "model_provider": "openai",
+    "system_fingerprint": "vllm-0.27.0-7b6fe8a6",
+    "token_usage": "[REDACTED]"
+  },
+  "tool_calls": [
+    {
+      "args": {
+        "confirmed": true,
+        "goal_id": "goal-edef70e7a64a4642b696394b740afbca",
+        "revision": 1
+      },
+      "id": "chatcmpl-tool-8129c8e74f2ac10c",
+      "name": "confirm_goal_execution",
+      "type": "tool_call"
+    }
+  ],
+  "type": "ai",
+  "usage_metadata": {
+    "input_token_details": "[REDACTED]",
+    "input_tokens": "[REDACTED]",
+    "output_token_details": "[REDACTED]",
+    "output_tokens": "[REDACTED]",
+    "total_tokens": "[REDACTED]"
+  }
+}

@@ -1,0 +1,227 @@
+{
+  "ended_utc": "2026-08-11T10:50:21.185881Z",
+  "passed": true,
+  "schema_version": 1,
+  "services": [
+    {
+      "evidence": [
+        {
+          "attempt": 1,
+          "detail": "model registry healthy",
+          "failure_class": "NONE",
+          "latency_seconds": 0.16577267,
+          "method": "GET",
+          "model_ids": [
+            "/workspace/models/gemma-4-26B-A4B-it"
+          ],
+          "monotonic_ns": 34763500290041,
+          "ok": true,
+          "path": "/v1/models",
+          "phase": "HEALTH",
+          "response_excerpt": "{\"data\": [{\"created\": 1786445420, \"id\": \"/workspace/models/gemma-4-26B-A4B-it\", \"max_model_len\": 32768, \"object\": \"model\", \"owned_by\": \"vllm\", \"parent\": null, \"permission\": [{\"allow_create_engine\": false, \"allow_fine_tuning\": false, \"allow_logprobs\": true, \"allow_sampling\": true, \"allow_search_indices\": false, \"allow_view\": true, \"created\": 1786445420, \"group\": null, \"id\": \"modelperm-b6c025f52b90e4ab\", \"is_blocking\": false, \"object\": \"model_permission\", \"organization\": \"*\"}], \"root\": \"/workspace/models/gemma-4-26B-A4B-it\"}], \"object\": \"list\"}",
+          "sequence": 1,
+          "service_kind": "gemma",
+          "service_label": "gemma-upper-and-execution",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.166025Z"
+        },
+        {
+          "attempt": 2,
+          "detail": "model registry healthy",
+          "failure_class": "NONE",
+          "latency_seconds": 0.082537863,
+          "method": "GET",
+          "model_ids": [
+            "/workspace/models/gemma-4-26B-A4B-it"
+          ],
+          "monotonic_ns": 34763683087105,
+          "ok": true,
+          "path": "/v1/models",
+          "phase": "HEALTH",
+          "response_excerpt": "{\"data\": [{\"created\": 1786445420, \"id\": \"/workspace/models/gemma-4-26B-A4B-it\", \"max_model_len\": 32768, \"object\": \"model\", \"owned_by\": \"vllm\", \"parent\": null, \"permission\": [{\"allow_create_engine\": false, \"allow_fine_tuning\": false, \"allow_logprobs\": true, \"allow_sampling\": true, \"allow_search_indices\": false, \"allow_view\": true, \"created\": 1786445420, \"group\": null, \"id\": \"modelperm-ae49b4a438b68f62\", \"is_blocking\": false, \"object\": \"model_permission\", \"organization\": \"*\"}], \"root\": \"/workspace/models/gemma-4-26B-A4B-it\"}], \"object\": \"list\"}",
+          "sequence": 2,
+          "service_kind": "gemma",
+          "service_label": "gemma-upper-and-execution",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.348826Z"
+        },
+        {
+          "attempt": 1,
+          "detail": "minimal chat completion passed",
+          "failure_class": "NONE",
+          "latency_seconds": 0.124281175,
+          "method": "POST",
+          "model_ids": [
+            "/workspace/models/gemma-4-26B-A4B-it"
+          ],
+          "monotonic_ns": 34763807562460,
+          "ok": true,
+          "path": "/v1/chat/completions",
+          "phase": "SMOKE",
+          "response_excerpt": "{\"choices\": [{\"finish_reason\": \"stop\", \"index\": 0, \"logprobs\": null, \"message\": {\"annotations\": null, \"audio\": null, \"content\": \"OK\", \"function_call\": null, \"reasoning\": null, \"refusal\": null, \"role\": \"assistant\"}, \"routed_experts\": null, \"stop_reason\": 106, \"token_ids\": \"[REDACTED]\"}], \"created\": 1786445420, \"ec_transfer_params\": null, \"id\": \"chatcmpl-90b84703ab28746d\", \"kv_transfer_params\": null, \"metrics\": {\"generation_time_ms\": 7.246808148920536, \"mean_itl_ms\": 7.246808148920536, \"queue_time_ms\": 0.07579522207379341, \"time_to_first_token_ms\": \"[REDACTED]\", \"tokens_per_second\": \"[REDACTED]\"}, \"model\": \"/workspace/models/gemma-4-26B-A4B-it\", \"object\": \"chat.completion\", \"prompt_logprobs\": null, \"prompt_text\": null, \"prompt_token_ids\": \"[REDACTED]\", \"service_tier\": null, \"system_fingerprint\": \"vllm-0.27.0-7b6fe8a6\", \"usage\": {\"completion_tokens\": \"[REDACTED]\", \"prompt_tokens\": \"[REDACTED]\", \"prompt_tokens_details\": \"[REDACTED]\", \"total_tokens\": \"[REDACTED]\"}}",
+          "sequence": 3,
+          "service_kind": "gemma",
+          "service_label": "gemma-upper-and-execution",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.473301Z"
+        }
+      ],
+      "failure_class": "NONE",
+      "health_successes": 2,
+      "model_ids": [
+        "/workspace/models/gemma-4-26B-A4B-it"
+      ],
+      "passed": true,
+      "service_kind": "gemma",
+      "service_label": "gemma-upper-and-execution",
+      "smoke_passed": true
+    },
+    {
+      "evidence": [
+        {
+          "attempt": 1,
+          "detail": "model registry healthy",
+          "failure_class": "NONE",
+          "latency_seconds": 0.0653258,
+          "method": "GET",
+          "model_ids": [
+            "/workspace/models/embeddinggemma-300m"
+          ],
+          "monotonic_ns": 34763876170545,
+          "ok": true,
+          "path": "/v1/models",
+          "phase": "HEALTH",
+          "response_excerpt": "{\"data\": [{\"created\": 1786445420, \"id\": \"/workspace/models/embeddinggemma-300m\", \"max_model_len\": 2048, \"object\": \"model\", \"owned_by\": \"vllm\", \"parent\": null, \"permission\": [{\"allow_create_engine\": false, \"allow_fine_tuning\": false, \"allow_logprobs\": true, \"allow_sampling\": true, \"allow_search_indices\": false, \"allow_view\": true, \"created\": 1786445420, \"group\": null, \"id\": \"modelperm-bb65c07ab4c0e283\", \"is_blocking\": false, \"object\": \"model_permission\", \"organization\": \"*\"}], \"root\": \"/workspace/models/embeddinggemma-300m\"}], \"object\": \"list\"}",
+          "sequence": 4,
+          "service_kind": "embedding",
+          "service_label": "embedding-memory",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.541909Z"
+        },
+        {
+          "attempt": 2,
+          "detail": "model registry healthy",
+          "failure_class": "NONE",
+          "latency_seconds": 0.033457794,
+          "method": "GET",
+          "model_ids": [
+            "/workspace/models/embeddinggemma-300m"
+          ],
+          "monotonic_ns": 34764009928594,
+          "ok": true,
+          "path": "/v1/models",
+          "phase": "HEALTH",
+          "response_excerpt": "{\"data\": [{\"created\": 1786445420, \"id\": \"/workspace/models/embeddinggemma-300m\", \"max_model_len\": 2048, \"object\": \"model\", \"owned_by\": \"vllm\", \"parent\": null, \"permission\": [{\"allow_create_engine\": false, \"allow_fine_tuning\": false, \"allow_logprobs\": true, \"allow_sampling\": true, \"allow_search_indices\": false, \"allow_view\": true, \"created\": 1786445420, \"group\": null, \"id\": \"modelperm-908381e5ae4146f0\", \"is_blocking\": false, \"object\": \"model_permission\", \"organization\": \"*\"}], \"root\": \"/workspace/models/embeddinggemma-300m\"}], \"object\": \"list\"}",
+          "sequence": 5,
+          "service_kind": "embedding",
+          "service_label": "embedding-memory",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.675666Z"
+        },
+        {
+          "attempt": 1,
+          "detail": "minimal embedding passed (768 dimensions)",
+          "failure_class": "NONE",
+          "latency_seconds": 0.062920635,
+          "method": "POST",
+          "model_ids": [
+            "/workspace/models/embeddinggemma-300m"
+          ],
+          "monotonic_ns": 34764073049737,
+          "ok": true,
+          "path": "/v1/embeddings",
+          "phase": "SMOKE",
+          "response_excerpt": "{\"created\": 1786445420, \"data\": [{\"embedding\": [-0.1562206894159317, -0.0011652419343590736, 0.0351402722299099, 0.012656699866056442, -0.019967928528785706, 0.051577724516391754, -0.04112199321389198, -0.019409464672207832, 0.038822002708911896, -0.08017757534980774, 0.019444745033979416, 0.02509835548698902, -0.0015906711341813207, -0.07619252055883408, 0.052450552582740784, 0.006706486456096172, -0.015588545240461826, -0.05458231270313263, -0.06723801791667938, 0.006742598954588175, -0.020538300275802612, 0.0028915165457874537, -0.013508901931345463, -0.024953359737992287, -0.019415777176618576, 0.08782162517309189, 0.05552191659808159, -0.040163829922676086, 0.014873174019157887, -0.04079647734761238, 0.0227220356464386, -0.023256277665495872, 0.036021050065755844, -0.01578337699174881, 0.0769997090101242, 0.016838449984788895, 0.02951417677104473, -0.047691598534584045, 0.0381755605340004, -0.07096166908740997, -0.058353226631879807, 0.055559780448675156, -0.029524298384785652, 0.",
+          "sequence": 6,
+          "service_kind": "embedding",
+          "service_label": "embedding-memory",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.738787Z"
+        }
+      ],
+      "failure_class": "NONE",
+      "health_successes": 2,
+      "model_ids": [
+        "/workspace/models/embeddinggemma-300m"
+      ],
+      "passed": true,
+      "service_kind": "embedding",
+      "service_label": "embedding-memory",
+      "smoke_passed": true
+    },
+    {
+      "evidence": [
+        {
+          "attempt": 1,
+          "detail": "SAM health endpoint ready",
+          "failure_class": "NONE",
+          "latency_seconds": 0.079063723,
+          "method": "GET",
+          "model_ids": [
+            "sam3.1"
+          ],
+          "monotonic_ns": 34764155603654,
+          "ok": true,
+          "path": "/health",
+          "phase": "HEALTH",
+          "response_excerpt": "{\"checkpoint\": \"/workspace/models/sam3.1/sam3.1_multiplex.pt\", \"cuda\": true, \"gpu\": \"NVIDIA GeForce RTX 5090\", \"model\": \"sam3.1\", \"status\": \"ok\"}",
+          "sequence": 7,
+          "service_kind": "sam",
+          "service_label": "sam3.1-grounding",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.821342Z"
+        },
+        {
+          "attempt": 2,
+          "detail": "SAM health endpoint ready",
+          "failure_class": "NONE",
+          "latency_seconds": 0.040434091,
+          "method": "GET",
+          "model_ids": [
+            "sam3.1"
+          ],
+          "monotonic_ns": 34764296140263,
+          "ok": true,
+          "path": "/health",
+          "phase": "HEALTH",
+          "response_excerpt": "{\"checkpoint\": \"/workspace/models/sam3.1/sam3.1_multiplex.pt\", \"cuda\": true, \"gpu\": \"NVIDIA GeForce RTX 5090\", \"model\": \"sam3.1\", \"status\": \"ok\"}",
+          "sequence": 8,
+          "service_kind": "sam",
+          "service_label": "sam3.1-grounding",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:20.961880Z"
+        },
+        {
+          "attempt": 1,
+          "detail": "calibration segmentation request and response schema passed (1 detection(s)); positive grounding is checked per scenario",
+          "failure_class": "NONE",
+          "latency_seconds": 0.223546793,
+          "method": "POST",
+          "model_ids": [
+            "sam3.1"
+          ],
+          "monotonic_ns": 34764519731903,
+          "ok": true,
+          "path": "/detect",
+          "phase": "SMOKE",
+          "response_excerpt": "{\"count\": 1, \"detections\": [{\"box_xyxy\": [24, 24, 72, 72], \"mask_area\": 2304, \"mask_png_base64\": \"iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAAAAADH8yjkAAAAPElEQVR42u3PsQ0AIAwEsYP9d4YJ6EJnty/llAIAoGq9hjN0aP/+QEBAQEBAQEBAQEBAQEBAQEAAAIB5Fx4WAWDYBNkqAAAAAElFTkSuQmCC\", \"object_id\": 0, \"score\": 0.9024390578269958}], \"image\": {\"height\": 96, \"width\": 96}, \"prompt\": \"red square\", \"threshold\": 0.1}",
+          "sequence": 9,
+          "service_kind": "sam",
+          "service_label": "sam3.1-grounding",
+          "status_code": 200,
+          "utc": "2026-08-11T10:50:21.185467Z"
+        }
+      ],
+      "failure_class": "NONE",
+      "health_successes": 2,
+      "model_ids": [
+        "sam3.1"
+      ],
+      "passed": true,
+      "service_kind": "sam",
+      "service_label": "sam3.1-grounding",
+      "smoke_passed": true
+    }
+  ],
+  "started_utc": "2026-08-11T10:50:19.974859Z"
+}

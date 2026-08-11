@@ -1,0 +1,79 @@
+{
+  "checked_artifacts": [
+    "SETUP.md",
+    "artifact_checks.json",
+    "checksums.sha256",
+    "diagnosis.json",
+    "diagnosis.md",
+    "events.jsonl",
+    "experiment_record.md",
+    "frame_requests.jsonl",
+    "frames/",
+    "initial.png",
+    "initial_state.json",
+    "inputs.json",
+    "model_calls.jsonl",
+    "model_calls/",
+    "results.json",
+    "results.md",
+    "robot_camera.mp4",
+    "runtime_states.jsonl",
+    "setup.json",
+    "terminal.log",
+    "video.mp4",
+    "video_metadata.json"
+  ],
+  "checksum": {
+    "errors": [],
+    "passed": true,
+    "verified": 29
+  },
+  "effective_run_status": "VALID_PASS",
+  "errors": [],
+  "event_count": 18,
+  "frame_request_count": 1,
+  "model_call_count": 1,
+  "passed": true,
+  "schema_version": 1,
+  "video": {
+    "composite": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 10.6,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 106,
+      "height": 1080,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-service-live-20260811-v3/episodes/S000001/attempt_1/video.mp4",
+      "sha256": "4ee8819bf087fd3aa6b7c099cbb1343eefcbd812e4fc24512e01b5b3b412ce95",
+      "width": 1920
+    },
+    "errors": [],
+    "passed": true,
+    "robot_camera": {
+      "codec": "h264",
+      "decodable": {
+        "first": true,
+        "last": true,
+        "middle": true
+      },
+      "duration_seconds": 10.6,
+      "errors": [],
+      "fps": 10.0,
+      "frame_count": 106,
+      "height": 480,
+      "passed": true,
+      "path": "/home/yuxin/workspace/RoboPref/experiments/runs/pilot-service-live-20260811-v3/episodes/S000001/attempt_1/robot_camera.mp4",
+      "sha256": "cfbfd66d2ca3064caba7bc01881bd280761e8150b1cea39d9a5fe4818e8a1f26",
+      "width": 640
+    },
+    "schema_version": 1,
+    "source_link_count": 106
+  },
+  "warnings": []
+}

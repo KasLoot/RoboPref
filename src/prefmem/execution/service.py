@@ -5,12 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 import threading
 import time
+import traceback
 from typing import Callable, Protocol
 
 import numpy as np
 
 from prefmem.contracts import DynamicObjectScope, PublishedTask, TaskPhase
 from prefmem.execution.contracts import (
+    ExecutionErrorKind,
     ExecutionEvent,
     ExecutionState,
     ManipulationProgram,
@@ -217,12 +219,15 @@ class ExecutionService:
         guard_stop = threading.Event()
         scene_change: list[tuple[str, int | None]] = []
         guard: threading.Thread | None = None
+        error_kind = ExecutionErrorKind.COMPILER
         try:
             program = self.compiler.compile(task)
             self._raise_if_cancelled(cancel_event)
+            error_kind = ExecutionErrorKind.FRAME
             frame = self.frame_source()
             if not isinstance(frame, RGBDFrame):
                 raise TypeError("execution frame source must return RGBDFrame")
+            error_kind = ExecutionErrorKind.GROUNDING
             source = self.grounder.ground(frame, program.source)
             target = self.grounder.ground(frame, program.target)
             self._raise_if_cancelled(cancel_event)
@@ -251,6 +256,7 @@ class ExecutionService:
                 )
                 guard.start()
 
+            error_kind = ExecutionErrorKind.CONTROL
             self._emit(publication_id, ExecutionState.RUNNING, "Executing motion")
             self.controller.execute_pick_place(
                 program,
@@ -290,6 +296,9 @@ class ExecutionService:
                     publication_id,
                     ExecutionState.FAULT,
                     f"Execution failed: {error}",
+                    error_kind=error_kind,
+                    exception_type=type(error).__name__,
+                    traceback_text=traceback.format_exc(),
                 )
         finally:
             guard_stop.set()
@@ -356,6 +365,10 @@ class ExecutionService:
         publication_id: str,
         state: ExecutionState,
         message: str,
+        *,
+        error_kind: ExecutionErrorKind | None = None,
+        exception_type: str | None = None,
+        traceback_text: str | None = None,
     ) -> None:
         with self._condition:
             self._states[publication_id] = state
@@ -365,6 +378,9 @@ class ExecutionService:
                 state=state,
                 message=message,
                 observed_at=self.clock(),
+                error_kind=error_kind,
+                exception_type=exception_type,
+                traceback_text=traceback_text,
             )
         )
 

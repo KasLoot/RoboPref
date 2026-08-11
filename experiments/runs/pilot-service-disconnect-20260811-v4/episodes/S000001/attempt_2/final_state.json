@@ -1,0 +1,20 @@
+{
+  "frame_sequence": 2,
+  "hidden": {
+    "fixture": {
+      "instrumentation_only": true,
+      "live_service": true
+    },
+    "goal": {
+      "completed": true
+    },
+    "safety": {
+      "emergency_latched": false
+    }
+  },
+  "public": {
+    "active_agent": "validator",
+    "state": "COMPLETE"
+  },
+  "source_event_id": "E000014"
+}

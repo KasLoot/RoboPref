@@ -1,0 +1,291 @@
+# RoboPref experiment suite
+
+This directory contains the publication experiment *infrastructure and
+protocol*, not completed publication evidence. No locked campaign has been run
+or approved in this checkout. A result becomes evidence only when its frozen
+manifest, complete attempt tree, run registry, and independent audit all pass.
+
+The local [design entry point](EXPERIMENT_SUITE_DESIGN.md) identifies and hashes
+the single normative [root design](../EXPERIMENT_SUITE_DESIGN.md). The current
+source is authoritative when prose and implementation disagree.
+In particular, this repository implements **MuJoCo**, not Webots. There is no
+Webots world/controller path to evaluate. Any request or older note that calls
+this a Webots campaign is a simulator mismatch, not an interchangeable label.
+
+The design also refers to an earlier 39-scenario campaign. No compatible,
+auditable campaign under `experiments/runs/` is shipped in this checkout, so
+that history is engineering context only. It must not be pooled with the new
+62-template catalogue or cited as held-out evidence without separately
+recovering and auditing its raw attempts and provenance.
+
+## What is here
+
+- `scenarios.json`: strict 62-template, three-split scenario catalogue.
+- `config/profiles.json`: declarative topology, ablation, and baseline profiles.
+- `harness/oracles.py`: executable temporal and state oracles.
+- `harness/recording.py` and `harness/video.py`: append-only evidence capture and
+  synchronized recording primitives.
+- `harness/preflight.py`: local service health and non-mutating smoke probes.
+- `harness/campaign.py`: deterministic matched schedules, canonical freeze,
+  exact approval gate, and append-only attempt registry.
+- `harness/production_engine.py`: publication-valid integration with the current
+  five-role MuJoCo runtime, deliberately limited to T5/NM02.
+- `harness/analysis.py`: episode-level ITT summaries, Wilson intervals, matched
+  comparisons, bootstrap power, Holm correction, and failure taxonomy.
+- `harness/mixed_effects.py`: fail-closed binary confirmatory GLMM and
+  mixed-model power simulation with immutable input/config-bound CLI outputs.
+- `harness/audit.py`: checksum, structure, registry, and evidence-link audit.
+- [PREREGISTRATION.md](PREREGISTRATION.md): hypotheses, estimands, exclusions,
+  randomization, and stopping rules that must be finalized after pilots.
+- [DATA_DICTIONARY.md](DATA_DICTIONARY.md): machine-readable artifact fields.
+- [REQUIREMENTS_CROSSWALK.md](REQUIREMENTS_CROSSWALK.md): canonical trace from
+  every design/user requirement to code, verification, evidence, and open gap.
+- [CLAIM_EXPERIMENT_CROSSWALK.md](CLAIM_EXPERIMENT_CROSSWALK.md): claims to
+  profiles, scenarios, and evidence as a concise supplement to the canonical
+  requirements crosswalk.
+
+## Readiness snapshot before pilot execution
+
+At the 2026-08-11 documentation audit captured here, the repository had no
+`experiments/runs/` campaign and therefore no pilot result, frozen protocol,
+approval, or locked evidence. Existing calibration evidence was limited to:
+
+- 7,680 passing deterministic traces across all 30 invariant families;
+- construction preflight for all 18 declarative profiles;
+- a 2,300-item Layer-B component catalogue (fixtures, not model results);
+- a passing second mechanism-scene preflight for all 29 calibration-required
+  scenarios, with the failed first attempt retained; and
+- a passing second three-service health/smoke preflight, with the failed first
+  attempt retained.
+
+These files live under `calibration/`. Their presence does not satisfy the
+successful/controlled-failure pilot requirement and does not close Gate 1. The
+canonical crosswalk records their exact scope and open limitations.
+
+## Scientific lifecycle
+
+Development, pilot, and locked data use different scenario variants and
+campaign IDs. Pilot outcomes may tune prompts, thresholds, feasibility rules,
+and `r`; locked outcomes may not. Any substantive post-freeze change requires a
+new campaign version and fresh affected entries.
+
+Create a pilot schedule from explicit cells:
+
+```bash
+.venv/bin/python -m experiments.freeze_protocol \
+  --campaign-id pilot-v1 \
+  --mode pilot \
+  --cells /path/to/pilot_cells.json \
+  --seed 20260811
+```
+
+Inspect and reserve the next sequential attempt:
+
+```bash
+.venv/bin/python -m experiments.run_campaign experiments/runs/pilot-v1 status
+.venv/bin/python -m experiments.run_campaign experiments/runs/pilot-v1 next
+.venv/bin/python -m experiments.run_campaign experiments/runs/pilot-v1 begin
+```
+
+`begin` reserves a new attempt identity but does not manufacture evidence. The
+episode driver must immediately create an `AttemptRecorder` at that exact
+schedule/attempt path, start video before scene reset, and seal the registry
+once. A valid system failure is sealed and retained; it is never retried.
+
+After an independently evidenced infrastructure interruption, retry remains
+blocked until a recovery JSON report and distinct raw records prove service
+restoration, two consecutive successful health checks, and a later
+non-mutating smoke test. Bind that report exactly once with:
+
+```bash
+.venv/bin/python -m experiments.run_campaign \
+  experiments/runs/<campaign_id> authorize-retry \
+  <schedule_id> environment/recovery/<report>.json
+```
+
+The engines in `harness/engines.py` are instrumentation pilots, explicitly
+marked invalid for publication and refused for locked campaigns. Run one
+controlled path (or add `--all`) with:
+
+```bash
+.venv/bin/python -m experiments.run_campaign \
+  experiments/runs/pilot-v1 execute --engine scripted-pass
+.venv/bin/python -m experiments.run_campaign \
+  experiments/runs/pilot-v1 execute --engine scripted-failure
+.venv/bin/python -m experiments.run_campaign \
+  experiments/runs/pilot-v1 execute --engine mujoco-pass
+.venv/bin/python -m experiments.run_campaign \
+  experiments/runs/pilot-v1 execute --engine mujoco-failure
+.venv/bin/python -m experiments.run_campaign \
+  experiments/runs/pilot-v1 execute --engine service-live
+```
+
+The MuJoCo engines validate reset/render/record/oracle plumbing using a declared
+direct scene action; they do not establish robot-trajectory performance.
+`service-live` exercises one real loopback model transport and its
+infrastructure/system-failure classification; it is also pilot-only.
+
+The separate `ProductionMujocoEngine` is marked publication-valid and invokes
+the current role/runtime/MuJoCo stack, but it is intentionally fail-closed to
+exactly profile `T5`, executor `mujoco`, and scenario `NM02`. It rejects merged
+topologies, every ablation/baseline, and the other 61 scenario templates rather
+than simulating them. The runner exposes this path as `--engine
+production-mujoco` for pilots and an exactly approved locked campaign. Locked
+configuration, video settings, setup metadata, engine identity, and live source
+are rebound to the manifest; manual locked `begin`, `seal`, and `reconcile`
+transitions are refused. This command is valid only for supported T5/NM02 cells.
+Consequently, it still cannot execute or resume the full locked matrix.
+
+After pilots pass and the powered repetition count is fixed, freeze a locked
+campaign. Freezing does **not** authorize execution:
+
+```bash
+.venv/bin/python -m experiments.freeze_protocol \
+  --campaign-id locked-v1 \
+  --mode locked \
+  --repetitions <pilot-powered-r> \
+  --seed <frozen-master-seed> \
+  --metadata /path/to/final_locked_metadata.json
+```
+
+Locked metadata must include the exact `execution_engine` identity:
+`engine_id`, dotted `module`, `class_name`, repository-relative `source_path`,
+and `source_sha256`. The source must be covered by provenance. The manifest
+also freezes the outcome/reference and exact matrix/profile contrast families
+derived from the schedule; analysis-time alternatives are post-hoc. The draft
+preregistration, unresolved model IDs/hashes, and unfrozen power decision remain
+hard blockers.
+
+Locked `begin` calls fail until the user sends exactly:
+
+```text
+APPROVE LOCKED CAMPAIGN <campaign_id> <protocol_sha256>
+```
+
+Whitespace changes, extra prose, a different campaign ID, or a different hash
+are rejected. Pilot campaigns need no locked approval. Human-participant work
+is not authorized by this approval: it additionally requires documented ethics
+approval, consent/withdrawal, privacy, retention, recruitment, and compensation
+procedures. Real-robot work is also outside the default campaign and requires a
+separate safety screen and explicit authorization. Unsafe ablations remain
+synthetic/MuJoCo-only.
+
+Regenerate analysis and audit artifacts with:
+
+```bash
+.venv/bin/python -m experiments.analyze experiments/runs/<campaign_id>
+.venv/bin/python -m experiments.audit_campaign \
+  experiments/runs/<campaign_id> --write-checksums --check-live-source
+```
+
+The binary confirmatory fit and its power analysis use explicit immutable JSON
+rows/config inputs and refuse to overwrite outputs:
+
+```bash
+.venv/bin/python -m experiments.harness.mixed_effects fit \
+  --rows /path/to/excluded_pilot_rows.json \
+  --config /path/to/frozen_fit_config.json \
+  --output /path/to/fit.json
+.venv/bin/python -m experiments.harness.mixed_effects power \
+  --rows /path/to/excluded_pilot_rows.json \
+  --config /path/to/frozen_power_config.json \
+  --output /path/to/power.json
+```
+
+Each command writes a source/input/config-bound result and adjacent SHA-256
+file. A command that returns `estimable=false` is a documented analysis
+failure, not permission to fall back to an ordinary logistic model.
+
+`--write-checksums` is one-time finalization. An existing manifest is verified,
+never regenerated over a mismatch. The final `audit.json` is also immutable and
+bound by `audit.sha256`; use `--stdout-only` for later diagnostics.
+
+An incomplete campaign may be inspected with `--allow-incomplete`; that flag
+does not make it complete. Analysis reports unresolved assigned episodes as
+`NOT ESTIMABLE` with bounds rather than silently dropping them.
+
+## Tests
+
+The experiment tests are standard-library `unittest` tests and do not require
+pytest:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -p 'test_experiment_*.py'
+```
+
+Tests validate contracts; they are not a substitute for profile preflights,
+successful and controlled-failure pilots, or artifact review.
+
+Run the calibration entry points separately; each output remains calibration
+evidence rather than an experimental result:
+
+```bash
+.venv/bin/python -m experiments.run_invariants
+.venv/bin/python -m experiments.build_components
+.venv/bin/python -m experiments.preflight_profiles
+.venv/bin/python -m experiments.preflight_scenarios
+```
+
+## Scale and resource estimate
+
+The default fresh-reference schedule contains:
+
+```text
+main comparison        248r episodes
+topology comparison    120r episodes
+mechanism ablations    128r episodes
+model sensitivity      1,200 episodes
+total                   496r + 1,200 episodes
+```
+
+Thus the design range is 6,160 episodes at `r=10`, 8,640 at `r=15`, 11,120 at
+`r=20`, and 13,600 at `r=25`. This intentionally does not reuse T5 results
+across matrices after outcomes are known. The worst-case preservation envelope
+is three times those attempt counts if every entry suffers the maximum allowed
+infrastructure interruptions; it is not an expected run count.
+
+Sequential wall time is `episodes × pilot mean attempt duration`. For planning,
+at 3/5/10 minutes per episode, `r=10` is about 308/513/1,027 hours and `r=25`
+is about 680/1,133/2,267 hours. Inference calls are
+`episodes × pilot mean calls per episode` plus declared preflight calls. A fixed
+call count cannot honestly be quoted before pilots because receding-horizon
+cycles, monitoring polls, repairs, and timeouts vary by observed behavior.
+
+Video capacity is similarly empirical. At five minutes per episode, a combined
+composite-plus-robot-camera bitrate of 6/12/20 Mbit/s produces roughly
+225/450/750 MB per attempt. At `r=10`, video alone is then approximately
+1.39/2.77/4.62 TB; at `r=25`, approximately 3.06/6.12/10.2 TB. Add exact request
+frames, raw model calls, JSONL logs, retry attempts, and at least a 25% safety
+margin. The freeze report must replace these sensitivities with pilot-measured
+duration, bitrate, inference-call, and artifact-size distributions, and must
+record a fresh `df -h` capacity check before asking for locked approval.
+
+## Current limitations
+
+- Publication execution covers only T5/NM02/MuJoCo. The other profiles and
+  scenarios have declarative/adaptor/preflight coverage but no publication
+  engine path, so a full locked campaign would fail closed.
+- No successful pilot, controlled-failure pilot, service-disconnection recovery
+  pilot, independently audited sample attempt, power selection, or pilot-based
+  resource measurement exists under `experiments/runs/` yet.
+- A narrow, auditable Bernoulli-logit GLMM is implemented in
+  `harness/mixed_effects.py` with explicit treatment coding, nested
+  template/instance random intercepts, deterministic nested Gauss-Hermite
+  marginal-likelihood integration with an independent quadrature-order check,
+  fail-closed diagnostics, marginal contrasts, and deterministic mixed-model
+  power simulation. This closes the code-scaffold gap only. It has not been
+  regenerated on real excluded-pilot artifacts, and the exact factors,
+  references, multiplicity-adjusted alpha, seed, sensitivity assumptions, and
+  at least 1,000 simulations per candidate `r` remain unfrozen. The design's
+  negative-binomial, positive-continuous, survival/censored, and human ordinal
+  models are not implemented.
+- Model backbone IDs/hashes and serving parameters must come from live
+  preflight evidence. One primary Gemma model was observed in calibration, but
+  the three immutable VLM backbones required by model sensitivity are not
+  frozen or available as campaign provenance.
+- The preregistration remains a draft, the locked repetition count is unset,
+  and there is no frozen campaign ID, protocol hash, randomized schedule, or
+  exact locked execution command. Exact approval cannot be requested yet.
+- Human and real-robot results are absent and must not be inferred from MuJoCo.
+- One seed, one pilot, deterministic unit tests, or historical screenshots do
+  not establish statistical reliability.

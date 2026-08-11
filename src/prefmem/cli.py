@@ -11,12 +11,14 @@ from urllib.parse import urlsplit
 DEFAULT_DATASET = Path("dataset/v3")
 DEFAULT_TRANSCRIPT = Path("transcripts/transcript.txt")
 DEFAULT_MEMORY_STORE = Path("./memory_store")
-DEFAULT_MODEL = "gemma4:31b-cloud"
+DEFAULT_MODEL = "/workspace/models/gemma-4-26B-A4B-it"
 DEFAULT_MODEL_PROVIDER = "ollama"
 DEFAULT_VLLM_BASE_URL = "http://localhost:8000/v1"
 DEFAULT_CAMERA_BASE_URL = "http://127.0.0.1:1234"
 DEFAULT_SAM_BASE_URL = "http://127.0.0.1:9000"
 DEFAULT_EXECUTION_MODEL = "/workspace/models/gemma-4-26B-A4B-it"
+DEFAULT_EMBEDDING_MODEL = "/data/models/embeddinggemma-300m"
+DEFAULT_EMBEDDING_BASE_URL = "http://localhost:8080/v1"
 MAX_SIMULATION_RENDER_SIZE = 1024
 
 
@@ -33,8 +35,8 @@ def _http_url(value: str, *, allow_path: bool = True) -> str:
     return value.rstrip("/")
 
 
-def _loopback_http_url(value: str) -> str:
-    result = _http_url(value, allow_path=False)
+def _loopback_http_url(value: str, *, allow_path: bool = False) -> str:
+    result = _http_url(value, allow_path=allow_path)
     hostname = urlsplit(result).hostname
     assert hostname is not None
     if hostname.casefold() == "localhost":
@@ -157,6 +159,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--model-config",
         choices=("vllm", "ollama"),
         default="vllm",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=DEFAULT_EMBEDDING_MODEL,
+        help="OpenAI-compatible embedding model used by preference memory.",
+    )
+    parser.add_argument(
+        "--embedding-model-base-url",
+        default=DEFAULT_EMBEDDING_BASE_URL,
+        help="Loopback EmbeddingGemma endpoint.",
     )
 
     parser.add_argument("--interactive", action="store_true")
@@ -303,6 +315,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     except argparse.ArgumentTypeError as error:
         parser.error(f"--sam-base-url {error}")
     try:
+        args.embedding_model_base_url = _loopback_http_url(
+            args.embedding_model_base_url,
+            allow_path=True,
+        )
+    except argparse.ArgumentTypeError as error:
+        parser.error(f"--embedding-model-base-url {error}")
+    try:
         args.execution_model_base_url = _http_url(
             args.execution_model_base_url
         )
@@ -350,6 +369,8 @@ def main(argv: Sequence[str] | None = None) -> None:
 __all__ = [
     "DEFAULT_CAMERA_BASE_URL",
     "DEFAULT_DATASET",
+    "DEFAULT_EMBEDDING_BASE_URL",
+    "DEFAULT_EMBEDDING_MODEL",
     "DEFAULT_EXECUTION_MODEL",
     "DEFAULT_MODEL",
     "DEFAULT_MODEL_PROVIDER",

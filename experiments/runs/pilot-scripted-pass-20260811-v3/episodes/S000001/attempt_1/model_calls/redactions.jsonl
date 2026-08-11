@@ -1,0 +1,2 @@
+{"artifact":"setup.initial.json","elapsed_seconds":0.027625037,"monotonic_ns":19139630868838,"redacted_json_paths":["$.infrastructure_retry_authorization"],"redaction_count":1,"utc":"2026-08-11T06:29:56.296619Z"}
+{"artifact":"setup.json","elapsed_seconds":0.034468711,"monotonic_ns":19139637712512,"redacted_json_paths":["$.infrastructure_retry_authorization"],"redaction_count":1,"utc":"2026-08-11T06:29:56.303463Z"}

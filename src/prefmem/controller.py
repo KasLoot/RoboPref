@@ -565,10 +565,11 @@ class RecedingHorizonController:
         max_consecutive_failures: int = 3,
         max_identical_failed_attempts: int = 2,
         clock: Callable[[], float] = time.monotonic,
+        on_transition: Callable[[RecedingTransition], None] | None = None,
     ) -> None:
         for name, value, minimum in (
-            ("success_confirmations", success_confirmations, 2),
-            ("failure_confirmations", failure_confirmations, 2),
+            ("success_confirmations", success_confirmations, 1),
+            ("failure_confirmations", failure_confirmations, 1),
             ("max_cycles", max_cycles, 1),
             ("max_consecutive_failures", max_consecutive_failures, 1),
             ("max_identical_failed_attempts", max_identical_failed_attempts, 1),
@@ -590,6 +591,8 @@ class RecedingHorizonController:
                 raise ValueError(f"{name} must be a finite {qualifier} number")
         if not callable(clock):
             raise TypeError("clock must be callable")
+        if on_transition is not None and not callable(on_transition):
+            raise TypeError("on_transition must be callable or None")
 
         self._success_confirmations = success_confirmations
         self._success_stability_seconds = float(success_stability_seconds)
@@ -599,6 +602,7 @@ class RecedingHorizonController:
         self._max_consecutive_failures = max_consecutive_failures
         self._max_identical_failed_attempts = max_identical_failed_attempts
         self._clock = clock
+        self._on_transition = on_transition
         self._lock = threading.RLock()
 
         self._state = RecedingControllerState.IDLE
@@ -1292,9 +1296,15 @@ class RecedingHorizonController:
         task_to_publish: PublishedTask | None = None,
         planner_request: PlannerCycleRequest | None = None,
     ) -> RecedingTransition:
-        return RecedingTransition(
+        transition = RecedingTransition(
             result=result,
             snapshot=self._snapshot_locked(),
             task_to_publish=task_to_publish,
             planner_request=planner_request,
         )
+        if self._on_transition is not None:
+            # The callback observes the immutable transition and may fail
+            # closed. Experiment runs use it for a durable state/event ledger;
+            # ordinary production construction leaves it unset.
+            self._on_transition(transition)
+        return transition

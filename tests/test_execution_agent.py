@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import base64
+import json
 import threading
 import time
 import unittest
 
 import cv2
+import httpx
 import numpy as np
 
 from prefmem.contracts import (
@@ -158,6 +160,56 @@ class FakeController:
 
 
 class ExecutionContractTests(unittest.TestCase):
+    def test_sam_exchange_observer_receives_exact_jpeg_and_raw_response(self):
+        class Observer:
+            def __init__(self):
+                self.records = []
+
+            def start(self, **payload):
+                self.records.append(("start", payload))
+                return "exchange-token"
+
+            def end(self, token, **payload):
+                self.records.append(("end", {"token": token, **payload}))
+
+            def error(self, token, **payload):
+                self.records.append(("error", {"token": token, **payload}))
+
+        response_body = json.dumps(
+            {
+                "image": {"width": 5, "height": 4},
+                "count": 0,
+                "detections": [],
+            },
+            separators=(",", ":"),
+        ).encode()
+        transport = httpx.MockTransport(
+            lambda request: httpx.Response(200, content=response_body, request=request)
+        )
+        observer = Observer()
+        client = Sam3Client(
+            client=httpx.Client(transport=transport),
+            exchange_recorder=observer,
+        )
+        self.addCleanup(client._client.close)
+        rgb = np.zeros((4, 5, 3), dtype=np.uint8)
+        rgb[:, :, 0] = 220
+
+        self.assertEqual(client.detect(rgb, "red cube"), ())
+
+        self.assertEqual([kind for kind, _ in observer.records], ["start", "end"])
+        started = observer.records[0][1]
+        ok, expected = cv2.imencode(
+            ".jpg",
+            cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR),
+            [int(cv2.IMWRITE_JPEG_QUALITY), 100],
+        )
+        self.assertTrue(ok)
+        self.assertEqual(started["image_jpeg"], expected.tobytes())
+        self.assertEqual(started["prompt"], "red cube")
+        self.assertEqual(observer.records[1][1]["token"], "exchange-token")
+        self.assertEqual(observer.records[1][1]["response_body"], response_body)
+
     def test_dynamic_scope_round_trips_from_proposal_to_frozen_goal(self):
         proposal = GoalProposal.from_dict(
             {

@@ -122,11 +122,24 @@ class Memory_Agent:
         model_config: str = "vllm",
         args=None,
         metrics: TurnMetrics | None = None,
+        *,
+        model_name: str | None = None,
+        model_base_url: str | None = None,
+        embedding_model_name: str | None = None,
+        embedding_model_base_url: str | None = None,
+        model: object | None = None,
+        embedding_model: object | None = None,
     ):
-        self.config = Memory_Config(model_config)
+        self.config = Memory_Config(
+            model_config,
+            model=model_name,
+            model_base_url=model_base_url,
+            embedding_model=embedding_model_name,
+            embedding_model_base_url=embedding_model_base_url,
+        )
         self.args = args
         self.metrics = metrics
-        self.llm = VLLMChatOpenAI(
+        self.llm = model or VLLMChatOpenAI(
             model=self.config.model,
             api_key="EMPTY",
             base_url=self.config.model_base_url,
@@ -147,8 +160,12 @@ class Memory_Agent:
         self.llm = self.llm.bind_tools(self.TOOLS)
         self.agent = self.build_agent()
         self.system_prompt = self.config.system_prompt
-        self.thinking_enabled = bool(args.think and (args.think == "all" or "Memory" in args.think))
+        think = getattr(args, "think", ())
+        self.thinking_enabled = bool(
+            think and (think == "all" or "Memory" in think)
+        )
         self.print_raw = bool(getattr(args, "print_raw", False))
+        self._injected_embedding_model = embedding_model
 
         self.initialize()
 
@@ -234,7 +251,10 @@ class Memory_Agent:
                 dtype=np.float32,
             )
 
-        self.embedding_model = VLLMEmbeddingGemma(
+        # Some store-validation tests construct an uninitialized instance with
+        # ``__new__`` so they can exercise persistence without creating model
+        # clients.  Keep that established seam compatible with optional DI.
+        self.embedding_model = getattr(self, "_injected_embedding_model", None) or VLLMEmbeddingGemma(
             model=self.config.embedding_model,
             base_url=self.config.embedding_model_base_url,
         )

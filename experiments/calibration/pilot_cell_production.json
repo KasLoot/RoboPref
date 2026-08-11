@@ -1,0 +1,16 @@
+[
+  {
+    "executor": "mujoco",
+    "matrix_id": "production_mujoco_path",
+    "model_backbones": [
+      "primary"
+    ],
+    "profiles": [
+      "T5"
+    ],
+    "repetitions": 1,
+    "reuse_group": null,
+    "scenario_id": "NM02",
+    "scenario_variant_id": "NM02-pilot-v1"
+  }
+]

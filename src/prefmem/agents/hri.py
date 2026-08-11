@@ -25,6 +25,7 @@ from prefmem.agents.memory import Memory_Agent
 import json
 import queue
 import threading
+import uuid
 
 from time import perf_counter
 
@@ -162,11 +163,40 @@ class HRI_Agent:
         "UNKNOWN": "?",
     }
 
-    def __init__(self, model_config, args):
-        self.config = HRI_Config(model_config)
+    def __init__(
+        self,
+        model_config,
+        args,
+        *,
+        model_name: str | None = None,
+        model_base_url: str | None = None,
+        model: object | None = None,
+        planner_agent: object | None = None,
+        memory_agent: object | None = None,
+        metrics: TurnMetrics | None = None,
+        model_instance_id: str = "hri",
+        conversation_id: str | None = None,
+    ):
+        self.config = HRI_Config(
+            model_config,
+            model=model_name,
+            model_base_url=model_base_url,
+        )
         self.args = args
+        if not isinstance(model_instance_id, str) or not model_instance_id.strip():
+            raise ValueError("model_instance_id must be a non-empty string")
+        self.model_instance_id = model_instance_id.strip()
+        if conversation_id is not None and (
+            not isinstance(conversation_id, str) or not conversation_id.strip()
+        ):
+            raise ValueError("conversation_id must be a non-empty string or None")
+        self.conversation_id = (
+            conversation_id.strip()
+            if conversation_id is not None
+            else f"hri-{uuid.uuid4().hex}"
+        )
 
-        self._hri_model = VLLMChatOpenAI(
+        self._hri_model = model or VLLMChatOpenAI(
             model=self.config.model,
             api_key="EMPTY",
             base_url=self.config.model_base_url,
@@ -183,10 +213,13 @@ class HRI_Agent:
         self._install_tools([self.call_sub_agent_tool])
         self.hri_agent = self.build_agent()
         self.system_prompt = self.config.system_prompt
-        self.thinking_enabled = bool(self.args.think and (self.args.think == "all" or "HRI" in self.args.think))
+        think = getattr(self.args, "think", ())
+        self.thinking_enabled = bool(
+            think and (think == "all" or "HRI" in think)
+        )
         self.completed_memory_mutations: list[dict] = []
 
-        self.metrics = TurnMetrics(
+        self.metrics = metrics or TurnMetrics(
             VLLMTokenCounter(
                 base_url=self.config.model_base_url,
                 model=self.config.model,
@@ -195,16 +228,26 @@ class HRI_Agent:
             else None
         )
 
-        self.planner_agent = Planner_Agent(
+        self.planner_agent = planner_agent or Planner_Agent(
             model_config=model_config,
             args=args,
             metrics=self.metrics,
+            model_name=self.config.model,
+            model_base_url=self.config.model_base_url,
         )
 
-        self.memory_agent = Memory_Agent(
+        self.memory_agent = memory_agent or Memory_Agent(
             model_config=model_config,
             args=args,
             metrics=self.metrics,
+            model_name=self.config.model,
+            model_base_url=self.config.model_base_url,
+            embedding_model_name=getattr(args, "embedding_model", None),
+            embedding_model_base_url=getattr(
+                args,
+                "embedding_model_base_url",
+                None,
+            ),
         )
 
     def _install_tools(self, tools: list[StructuredTool]) -> None:
@@ -752,7 +795,9 @@ class HRI_Agent:
         
     def invoke_agent(self, messages, current_frame) -> dict:
         config = {
-            "configurable": {"thread_id": "1"},
+            "configurable": {
+                "thread_id": getattr(self, "conversation_id", "legacy-1")
+            },
             "recursion_limit": 20,
         }
 
