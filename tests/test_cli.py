@@ -7,7 +7,10 @@ from pathlib import Path
 
 from prefmem.cli import (
     DEFAULT_DATASET,
+    DEFAULT_EMBEDDING_BASE_URL,
+    DEFAULT_EMBEDDING_MODEL,
     DEFAULT_MODEL,
+    DEFAULT_MODEL_PROVIDER,
     DEFAULT_TRANSCRIPT,
     DEFAULT_VLLM_BASE_URL,
     parse_args,
@@ -27,8 +30,17 @@ class CliParserTests(unittest.TestCase):
         self.assertFalse(args.display_all)
         self.assertFalse(args.resize_images)
         self.assertEqual(args.model, DEFAULT_MODEL)
-        self.assertEqual(args.model_provider, "ollama")
-        self.assertIsNone(args.model_base_url)
+        self.assertEqual(args.model_provider, DEFAULT_MODEL_PROVIDER)
+        self.assertEqual(args.model_base_url, DEFAULT_VLLM_BASE_URL)
+        self.assertEqual(args.embedding_model, DEFAULT_EMBEDDING_MODEL)
+        self.assertEqual(
+            args.embedding_model_base_url,
+            DEFAULT_EMBEDDING_BASE_URL,
+        )
+        self.assertTrue(args.auto_timeout_replan)
+        self.assertEqual(args.max_consecutive_timeout_replans, 2)
+        self.assertEqual(args.max_timeout_replans_per_instruction, 2)
+        self.assertFalse(args.experiment_oracle_grounding_fallback)
         self.assertEqual(args.monitor_events, "off")
 
     def test_path_and_boolean_options(self) -> None:
@@ -92,6 +104,19 @@ class CliParserTests(unittest.TestCase):
 
         self.assertEqual(args.simulation_viewer_camera, "task")
 
+    def test_each_dual_camera_view_can_be_inspected_explicitly(self) -> None:
+        for camera in ("sam", "prefmem"):
+            with self.subTest(camera=camera):
+                args = parse_args(
+                    [
+                        "--executor",
+                        "mujoco",
+                        "--simulation-viewer-camera",
+                        camera,
+                    ]
+                )
+                self.assertEqual(args.simulation_viewer_camera, camera)
+
     def test_explicit_monitor_event_verbosity_is_preserved(self) -> None:
         args = parse_args(
             ["--executor", "mujoco", "--monitor-events", "verbose"]
@@ -110,6 +135,16 @@ class CliParserTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):
                 parse_args(["--sam-base-url", "https://sam.example.test"])
+
+    def test_oracle_grounding_fallback_is_explicit_and_mujoco_only(self) -> None:
+        args = parse_args(
+            ["--executor", "mujoco", "--experiment-oracle-grounding-fallback"]
+        )
+        self.assertTrue(args.experiment_oracle_grounding_fallback)
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit):
+                parse_args(["--experiment-oracle-grounding-fallback"])
 
     def test_simulation_render_size_rejects_oversized_framebuffer(self) -> None:
         with contextlib.redirect_stderr(io.StringIO()):
@@ -170,7 +205,12 @@ class CliParserTests(unittest.TestCase):
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit) as raised:
                 parse_args(
-                    ["--model-base-url", "http://localhost:8000/v1"]
+                    [
+                        "--model-provider",
+                        "ollama",
+                        "--model-base-url",
+                        "http://localhost:8000/v1",
+                    ]
                 )
 
         self.assertEqual(raised.exception.code, 2)
@@ -198,6 +238,45 @@ class CliParserTests(unittest.TestCase):
                             ]
                         )
 
+                self.assertEqual(raised.exception.code, 2)
+
+    def test_embedding_endpoint_and_timeout_ablation_options(self) -> None:
+        args = parse_args(
+            [
+                "--embedding-model",
+                "/models/embedding-test",
+                "--embedding-model-base-url",
+                "http://127.0.0.1:18080/v1",
+                "--no-auto-timeout-replan",
+                "--max-consecutive-timeout-replans",
+                "4",
+                "--max-timeout-replans-per-instruction",
+                "3",
+            ]
+        )
+
+        self.assertEqual(args.embedding_model, "/models/embedding-test")
+        self.assertEqual(
+            args.embedding_model_base_url,
+            "http://127.0.0.1:18080/v1",
+        )
+        self.assertFalse(args.auto_timeout_replan)
+        self.assertEqual(args.max_consecutive_timeout_replans, 4)
+        self.assertEqual(args.max_timeout_replans_per_instruction, 3)
+
+    def test_embedding_and_timeout_options_are_validated(self) -> None:
+        invalid_arguments = (
+            ["--embedding-model", "   "],
+            ["--embedding-model-base-url", "localhost:8080/v1"],
+            ["--max-consecutive-timeout-replans", "0"],
+            ["--max-timeout-replans-per-instruction", "0"],
+        )
+
+        for arguments in invalid_arguments:
+            with self.subTest(arguments=arguments):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as raised:
+                        parse_args(arguments)
                 self.assertEqual(raised.exception.code, 2)
 
 

@@ -313,14 +313,16 @@ uv sync
 #### Install vLLM
 
 ```bash
-workspace=<path-to-workspace>
+workspace=/workspace
 mkdir -p $workspace/vllm
 cd $workspace/vllm
 uv venv -p 3.12
 source .venv/bin/activate
 
 # CUDA 13.0
-uv pip install vllm --extra-index-url https://wheels.vllm.ai/0.25.1/cu130 --extra-index-url https://download.pytorch.org/whl/cu130 --index-strategy unsafe-best-match
+uv pip install vllm==0.27.0 --extra-index-url https://wheels.vllm.ai/0.25.1/cu130 --extra-index-url https://download.pytorch.org/whl/cu130 --index-strategy unsafe-best-match
+
+uv pip install transformers==5.14
 
 ```
 
@@ -345,7 +347,8 @@ vllm serve /workspace/models/gemma-4-26B-A4B-it \
   --tool-call-parser gemma4 \
   --reasoning-parser gemma4 \
   --mm-processor-kwargs '{"max_soft_tokens": 560}' \
-  --moe-backend triton
+  --moe-backend triton \
+  --trust-remote-code
 
 # Supported values: 70, 140, 280 (default), 560, 1120 tokens per image.
 ```

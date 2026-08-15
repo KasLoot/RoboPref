@@ -163,7 +163,11 @@ class HRI_Agent:
     }
 
     def __init__(self, model_config, args):
-        self.config = HRI_Config(model_config)
+        self.config = HRI_Config(
+            model_config,
+            model=getattr(args, "model", None),
+            model_base_url=getattr(args, "model_base_url", None),
+        )
         self.args = args
 
         self._hri_model = VLLMChatOpenAI(

@@ -1,6 +1,7 @@
+import copy
 import uuid
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 from langchain.tools import tool
 from langchain.chat_models import init_chat_model
@@ -123,7 +124,11 @@ class Memory_Agent:
         args=None,
         metrics: TurnMetrics | None = None,
     ):
-        self.config = Memory_Config(model_config)
+        self.config = Memory_Config(
+            model_config,
+            model=getattr(args, "model", None),
+            model_base_url=getattr(args, "model_base_url", None),
+        )
         self.args = args
         self.metrics = metrics
         self.llm = VLLMChatOpenAI(
@@ -149,6 +154,8 @@ class Memory_Agent:
         self.system_prompt = self.config.system_prompt
         self.thinking_enabled = bool(args.think and (args.think == "all" or "Memory" in args.think))
         self.print_raw = bool(getattr(args, "print_raw", False))
+        self._trace_sink: Callable[[dict], None] | None = None
+        self.last_retrieval_trace: dict | None = None
 
         self.initialize()
 
@@ -234,9 +241,21 @@ class Memory_Agent:
                 dtype=np.float32,
             )
 
+        embedding_model = getattr(
+            self.args,
+            "embedding_model",
+            self.config.embedding_model,
+        ) or self.config.embedding_model
+        embedding_model_base_url = getattr(
+            self.args,
+            "embedding_model_base_url",
+            self.config.embedding_model_base_url,
+        ) or self.config.embedding_model_base_url
+        self.config.embedding_model = embedding_model
+        self.config.embedding_model_base_url = embedding_model_base_url
         self.embedding_model = VLLMEmbeddingGemma(
-            model=self.config.embedding_model,
-            base_url=self.config.embedding_model_base_url,
+            model=embedding_model,
+            base_url=embedding_model_base_url,
         )
 
         self.top_k = self.config.top_k
@@ -246,8 +265,28 @@ class Memory_Agent:
     def _reset_request_state(self, request_type: str | None = None) -> None:
         """Clear retrieval evidence before handling a new memory request."""
         self._request_type = request_type
+        self._request_id = uuid.uuid4().hex
+        self._original_request: str | None = None
         self._retrieval_performed = False
         self._retrieved_memories: dict[str, dict] = {}
+        self.last_retrieval_trace = None
+
+    def set_trace_sink(
+        self,
+        sink: Callable[[dict], None] | None,
+    ) -> None:
+        """Install an experiment observer without changing Memory responses."""
+
+        if sink is not None and not callable(sink):
+            raise TypeError("sink must be callable or None")
+        self._trace_sink = sink
+
+    def _publish_trace(self, trace: dict) -> None:
+        frozen = copy.deepcopy(trace)
+        self.last_retrieval_trace = frozen
+        sink = getattr(self, "_trace_sink", None)
+        if sink is not None:
+            sink(copy.deepcopy(frozen))
 
     def _validate_mutation(self, memory_id: str | None = None) -> dict | None:
         if self._request_type != "MUTATE":
@@ -537,12 +576,42 @@ class Memory_Agent:
         self,
         query: list[str],
     ) -> list[dict]:
-        batch_size = len(query)
-
+        queries = list(query)
+        batch_size = len(queries)
         if batch_size == 0:
             return []
+        if any(not isinstance(item, str) or not item.strip() for item in queries):
+            raise ValueError("every retrieval query must be a non-empty string")
+        queries = [item.strip() for item in queries]
+
+        number_of_documents = len(self.pref_json)
+        trace: dict = {
+            "schema_version": 1,
+            "stage": "RETRIEVAL_CAPPED",
+            "request_id": getattr(self, "_request_id", None) or uuid.uuid4().hex,
+            "request_type": getattr(self, "_request_type", None),
+            "original_request": getattr(self, "_original_request", None),
+            "query_count": batch_size,
+            "queries": queries,
+            "n_current": number_of_documents,
+            "top_k_configured": int(self.top_k),
+            "top_k_effective": min(int(self.top_k), number_of_documents),
+            "top_cap_k": int(self.top_cap_k),
+            "per_query_candidates": [],
+            "merged_before_cap": [],
+            "capped_candidates": [],
+            "semantic_decisions": [],
+            "final_memory_ids": [],
+            "timing_seconds": {
+                "embedding": 0.0,
+                "similarity_search": 0.0,
+                "merge_deduplicate_cap": 0.0,
+                "total_retrieval": 0.0,
+            },
+        }
 
         if self.pref_embedding.size == 0 or not self.pref_json:
+            self._publish_trace(trace)
             return []
 
         document_embeddings = np.asarray(
@@ -557,11 +626,11 @@ class Memory_Agent:
                 "(number_of_documents, embedding_dimension)"
             )
 
-        number_of_documents, embedding_dimension = document_embeddings.shape
+        embedding_count, embedding_dimension = document_embeddings.shape
 
-        if len(self.pref_json) != number_of_documents:
+        if number_of_documents != embedding_count:
             raise ValueError(
-                f"Embedding count ({number_of_documents}) does not match "
+                f"Embedding count ({embedding_count}) does not match "
                 f"memory count ({len(self.pref_json)})"
             )
 
@@ -576,7 +645,7 @@ class Memory_Agent:
 
         embedding_start = perf_counter()
 
-        query_embeddings = self.embedding_model.encode_query(query)
+        query_embeddings = self.embedding_model.encode_query(queries)
         query_embeddings = np.asarray(
             query_embeddings,
             dtype=np.float32,
@@ -638,17 +707,11 @@ class Memory_Agent:
         # Retrieve self.top_k candidates independently for every query.
         partition_start = number_of_documents - per_query_top_k
 
-        top_indices = np.argpartition(
+        unordered_top_indices = np.argpartition(
             similarities,
             kth=partition_start,
             axis=0,
         )[partition_start:, :]
-
-        top_scores = np.take_along_axis(
-            similarities,
-            top_indices,
-            axis=0,
-        )
 
         search_elapsed = perf_counter() - search_start
 
@@ -662,16 +725,34 @@ class Memory_Agent:
         deduplicated: dict[str, dict] = {}
 
         for query_index in range(batch_size):
-            for candidate_index in range(per_query_top_k):
-                document_index = int(
-                    top_indices[candidate_index, query_index]
-                )
-                similarity = float(
-                    top_scores[candidate_index, query_index]
-                )
+            ranked_document_indices = sorted(
+                (
+                    int(document_index)
+                    for document_index in unordered_top_indices[:, query_index]
+                ),
+                key=lambda document_index: (
+                    -float(similarities[document_index, query_index]),
+                    document_index,
+                ),
+            )
+            for rank, document_index in enumerate(
+                ranked_document_indices,
+                start=1,
+            ):
+                similarity = float(similarities[document_index, query_index])
 
                 memory = self.pref_json[document_index]
                 memory_id = memory.get("id")
+                trace["per_query_candidates"].append(
+                    {
+                        "query_index": query_index,
+                        "query": queries[query_index],
+                        "memory_id": memory_id,
+                        "document_index": document_index,
+                        "rank": rank,
+                        "similarity": similarity,
+                    }
+                )
 
                 # Do not accidentally collapse memories that have no ID.
                 if memory_id is None:
@@ -681,20 +762,49 @@ class Memory_Agent:
 
                 existing = deduplicated.get(deduplication_key)
 
-                if existing is None or similarity > existing["similarity"]:
+                candidate = {
+                    "id": memory_id,
+                    "memory_type": "PREFERENCE",
+                    "text": memory["text"],
+                    "similarity": similarity,
+                    "best_query_index": query_index,
+                    "best_query_rank": rank,
+                    "document_index": document_index,
+                }
+                if existing is None or (
+                    similarity,
+                    -query_index,
+                    -rank,
+                    -document_index,
+                ) > (
+                    existing["similarity"],
+                    -existing["best_query_index"],
+                    -existing["best_query_rank"],
+                    -existing["document_index"],
+                ):
                     deduplicated[deduplication_key] = {
-                        "id": memory_id,
-                        "memory_type": "PREFERENCE",
-                        "text": memory["text"],
-                        "similarity": similarity,
+                        **candidate,
                     }
 
         # Rank all unique candidates globally.
-        final_results = sorted(
+        merged_before_cap = sorted(
             deduplicated.values(),
-            key=lambda item: item["similarity"],
-            reverse=True,
-        )[: self.top_cap_k]
+            key=lambda item: (
+                -item["similarity"],
+                "" if item["id"] is None else str(item["id"]),
+                item["document_index"],
+            ),
+        )
+        capped_candidates = merged_before_cap[: self.top_cap_k]
+        final_results = [
+            {
+                "id": item["id"],
+                "memory_type": item["memory_type"],
+                "text": item["text"],
+                "similarity": item["similarity"],
+            }
+            for item in capped_candidates
+        ]
 
         merge_elapsed = perf_counter() - merge_start
         total_elapsed = (
@@ -702,6 +812,15 @@ class Memory_Agent:
             + search_elapsed
             + merge_elapsed
         )
+        trace["merged_before_cap"] = copy.deepcopy(merged_before_cap)
+        trace["capped_candidates"] = copy.deepcopy(final_results)
+        trace["timing_seconds"] = {
+            "embedding": embedding_elapsed,
+            "similarity_search": search_elapsed,
+            "merge_deduplicate_cap": merge_elapsed,
+            "total_retrieval": total_elapsed,
+        }
+        self._publish_trace(trace)
 
         print(
             f"Memory retrieval: "
@@ -719,6 +838,94 @@ class Memory_Agent:
         )
 
         return final_results
+
+    def _finalize_semantic_trace(self, response_content: object) -> None:
+        """Validate that the Memory model only returns capped candidates."""
+
+        if getattr(self, "_request_type", None) != "RETRIEVE":
+            return
+        trace = getattr(self, "last_retrieval_trace", None)
+        if trace is None:
+            raise ValueError("Memory retrieval completed without a retrieval trace")
+        if not isinstance(response_content, str):
+            raise ValueError("Memory retrieval response must be a JSON string")
+        try:
+            payload = json.loads(response_content)
+        except json.JSONDecodeError as error:
+            raise ValueError("Memory retrieval response is not valid JSON") from error
+        if not isinstance(payload, Mapping):
+            raise ValueError("Memory retrieval response must be a JSON object")
+
+        raw_returned = payload.get("retrieved_memory")
+        if not isinstance(raw_returned, list):
+            raise ValueError("Memory retrieval response must contain retrieved_memory")
+
+        capped = trace.get("capped_candidates", [])
+        capped_by_id = {
+            item.get("id"): item
+            for item in capped
+            if isinstance(item, Mapping) and item.get("id") is not None
+        }
+        returned_ids: list[str] = []
+        for index, raw in enumerate(raw_returned):
+            if not isinstance(raw, Mapping):
+                raise ValueError(f"retrieved_memory[{index}] must be an object")
+            memory_id = raw.get("id")
+            if not isinstance(memory_id, str) or memory_id not in capped_by_id:
+                raise ValueError(
+                    f"retrieved_memory[{index}] is not from the capped candidates"
+                )
+            if memory_id in returned_ids:
+                raise ValueError("Memory retrieval response contains duplicate IDs")
+            expected = capped_by_id[memory_id]
+            for field in ("memory_type", "text"):
+                if raw.get(field) != expected.get(field):
+                    raise ValueError(
+                        f"retrieved_memory[{index}].{field} changed capped data"
+                    )
+            try:
+                similarity = float(raw.get("similarity"))
+            except (TypeError, ValueError) as error:
+                raise ValueError(
+                    f"retrieved_memory[{index}].similarity must be numeric"
+                ) from error
+            if not np.isclose(
+                similarity,
+                float(expected["similarity"]),
+                rtol=1e-7,
+                atol=1e-8,
+            ):
+                raise ValueError(
+                    f"retrieved_memory[{index}].similarity changed capped data"
+                )
+            returned_ids.append(memory_id)
+
+        status = payload.get("status")
+        if status == "EMPTY" and returned_ids:
+            raise ValueError("EMPTY Memory response cannot return candidates")
+        if status == "FOUND" and not returned_ids:
+            raise ValueError("FOUND Memory response must return a candidate")
+        if status not in {"FOUND", "EMPTY"}:
+            raise ValueError("Memory retrieval status must be FOUND or EMPTY")
+
+        returned_set = set(returned_ids)
+        updated = copy.deepcopy(trace)
+        updated["stage"] = "SEMANTIC_FILTER_COMPLETE"
+        updated["semantic_decisions"] = [
+            {
+                "memory_id": item.get("id"),
+                "label": (
+                    "APPLICABLE_CONTEXT"
+                    if item.get("id") in returned_set
+                    else "IRRELEVANT"
+                ),
+                "returned": item.get("id") in returned_set,
+                "label_source": "inferred_from_validated_return_set",
+            }
+            for item in capped
+        ]
+        updated["final_memory_ids"] = returned_ids
+        self._publish_trace(updated)
 
     
 
@@ -999,12 +1206,14 @@ class Memory_Agent:
     def run(self, messages, current_frame=None):
 
         request_type = None
+        original_request = None
         for message in reversed(messages):
             if not isinstance(message, HumanMessage):
                 continue
             if not isinstance(message.content, str):
                 break
             request = message.content.lstrip()
+            original_request = request
             if request.startswith("RETRIEVE REQUEST:"):
                 request_type = "RETRIEVE"
             elif request.startswith("MUTATE REQUEST:"):
@@ -1012,6 +1221,7 @@ class Memory_Agent:
             break
 
         self._reset_request_state(request_type)
+        self._original_request = original_request
         # Runtime callers provide the observation they own.  The webcam fetch
         # remains only as a backwards-compatible fallback for standalone use.
         if current_frame is None:
@@ -1025,5 +1235,10 @@ class Memory_Agent:
             messages,
             current_frame=dict(current_frame),
         )
+        if getattr(self, "_retrieval_performed", False):
+            final_messages = response.get("messages", [])
+            if not final_messages:
+                raise RuntimeError("Memory Agent produced no final response")
+            self._finalize_semantic_trace(final_messages[-1].content)
 
         return response

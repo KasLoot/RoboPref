@@ -14,10 +14,23 @@ from prefmem.execution.contracts import (
     ExecutionEvent,
     ExecutionState,
     ManipulationProgram,
+    ObjectReference,
     SceneChangeEvent,
 )
 from prefmem.execution.frames import RGBDFrame
-from prefmem.execution.grounding import RGBDGrounder
+from prefmem.execution.fallback import (
+    AssistedContinuationResult,
+    DownstreamExecutionResult,
+    ExecutionOutcome,
+    GroundingAttempt,
+    OracleGrounding,
+    OracleGroundingProvider,
+    SAM_GROUNDING_SOURCE,
+    SIMULATOR_GROUND_TRUTH_SOURCE,
+    StrictSystemResult,
+)
+from prefmem.execution.grounding import GroundedObject, GroundingError, RGBDGrounder
+from prefmem.execution.sam import SamServiceError
 
 
 class InstructionCompiler(Protocol):
@@ -63,6 +76,10 @@ class ExecutionService:
         *,
         on_event: Callable[[ExecutionEvent], None] | None = None,
         on_scene_change: Callable[[SceneChangeEvent], None] | None = None,
+        on_trace: Callable[[dict], None] | None = None,
+        on_perception: Callable[[dict], None] | None = None,
+        enable_oracle_grounding_fallback: bool = False,
+        oracle_grounding_provider: OracleGroundingProvider | None = None,
         scene_poll_interval: float = 0.5,
         scene_change_confirmations: int = 2,
         clock: Callable[[], float] = time.monotonic,
@@ -81,12 +98,43 @@ class ExecutionService:
             raise ValueError("scene_poll_interval must be positive")
         if scene_change_confirmations < 1:
             raise ValueError("scene_change_confirmations must be positive")
+        if type(enable_oracle_grounding_fallback) is not bool:
+            raise TypeError("enable_oracle_grounding_fallback must be bool")
+        provider_configured = oracle_grounding_provider is not None
+        if enable_oracle_grounding_fallback != provider_configured:
+            raise ValueError(
+                "oracle fallback requires both the explicit opt-in and a provider"
+            )
+        if provider_configured:
+            if not callable(
+                getattr(
+                    oracle_grounding_provider,
+                    "ground_from_simulator_truth",
+                    None,
+                )
+            ):
+                raise TypeError(
+                    "oracle_grounding_provider must expose "
+                    "ground_from_simulator_truth()"
+                )
+            if (
+                getattr(oracle_grounding_provider, "source_id", None)
+                != SIMULATOR_GROUND_TRUTH_SOURCE
+            ):
+                raise ValueError(
+                    "oracle grounding provider must identify "
+                    "SIMULATOR_GROUND_TRUTH"
+                )
         self.compiler = compiler
         self.grounder = grounder
         self.controller = controller
         self.frame_source = frame_source
         self.on_event = on_event
         self.on_scene_change = on_scene_change
+        self.on_trace = on_trace
+        self.on_perception = on_perception
+        self.enable_oracle_grounding_fallback = enable_oracle_grounding_fallback
+        self.oracle_grounding_provider = oracle_grounding_provider
         self.scene_poll_interval = float(scene_poll_interval)
         self.scene_change_confirmations = int(scene_change_confirmations)
         self.clock = clock
@@ -96,12 +144,23 @@ class ExecutionService:
         self._active: _ExecutionJob | None = None
         self._cancel_event: threading.Event | None = None
         self._states: dict[str, ExecutionState] = {}
+        self._outcomes: dict[str, ExecutionOutcome] = {}
         self._stopping = False
         self._worker = threading.Thread(
             target=self._run,
             name="prefmem-execution",
             daemon=True,
         )
+        set_trace_callback = getattr(controller, "set_trace_callback", None)
+        if callable(set_trace_callback):
+            set_trace_callback(self._handle_controller_trace)
+        set_compiler_trace_callback = getattr(
+            compiler,
+            "set_trace_callback",
+            None,
+        )
+        if callable(set_compiler_trace_callback):
+            set_compiler_trace_callback(self._handle_compiler_trace)
         self._worker.start()
 
     def publish(
@@ -140,6 +199,12 @@ class ExecutionService:
                     observed_at=self.clock(),
                 )
             )
+            self._trace(
+                task.publication_id,
+                "EXECUTION_ACCEPTED",
+                instruction=task.instruction,
+                phase=task.phase.value,
+            )
             self._condition.notify_all()
 
     def retire(self, publication_id: str) -> bool:
@@ -167,6 +232,20 @@ class ExecutionService:
     def state(self, publication_id: str) -> ExecutionState | None:
         with self._condition:
             return self._states.get(publication_id)
+
+    def outcome(self, publication_id: str) -> dict | None:
+        """Return the terminal strict/assisted result for one publication."""
+
+        with self._condition:
+            value = self._outcomes.get(publication_id)
+        return None if value is None else value.to_dict()
+
+    def outcomes(self) -> tuple[dict, ...]:
+        """Return all terminal outcomes in publication insertion order."""
+
+        with self._condition:
+            values = tuple(self._outcomes.values())
+        return tuple(value.to_dict() for value in values)
 
     def is_settled(self, publication_id: str) -> bool:
         return self.state(publication_id) is ExecutionState.SETTLED
@@ -216,15 +295,64 @@ class ExecutionService:
         publication_id = task.publication_id
         guard_stop = threading.Event()
         scene_change: list[tuple[str, int | None]] = []
+        grounding_attempts: list[GroundingAttempt] = []
         guard: threading.Thread | None = None
         try:
+            self._trace(
+                publication_id,
+                "COMPILER_REQUESTED",
+                instruction=task.instruction,
+                expected_observation=[
+                    item.description for item in task.expected_observation
+                ],
+            )
             program = self.compiler.compile(task)
+            self._trace(
+                publication_id,
+                "COMPILER_OUTPUT_ACCEPTED",
+                program=program.to_dict(),
+            )
             self._raise_if_cancelled(cancel_event)
             frame = self.frame_source()
             if not isinstance(frame, RGBDFrame):
                 raise TypeError("execution frame source must return RGBDFrame")
-            source = self.grounder.ground(frame, program.source)
-            target = self.grounder.ground(frame, program.target)
+            calibration = frame.calibration
+            self._trace(
+                publication_id,
+                "RGBD_FRAME_CAPTURED",
+                frame_sequence=frame.sequence,
+                simulation_time=frame.simulation_time,
+                resolution=[calibration.width, calibration.height],
+                intrinsic=calibration.intrinsic.astype(float).tolist(),
+                world_from_camera=(
+                    calibration.world_from_camera.astype(float).tolist()
+                ),
+            )
+            self._perception(
+                {
+                    "schema_version": 1,
+                    "kind": "RGBD_FRAME",
+                    "publication_id": publication_id,
+                    "frame_sequence": frame.sequence,
+                    "rgb": frame.rgb.copy(),
+                    "depth_m": frame.depth_m.copy(),
+                    "calibration": calibration,
+                }
+            )
+            source = self._ground_reference(
+                publication_id,
+                frame,
+                program.source,
+                role="source",
+                attempts=grounding_attempts,
+            )
+            target = self._ground_reference(
+                publication_id,
+                frame,
+                program.target,
+                role="target",
+                attempts=grounding_attempts,
+            )
             self._raise_if_cancelled(cancel_event)
 
             if job.dynamic_scope is not None:
@@ -265,31 +393,86 @@ class ExecutionService:
                     guard = None
             if cancel_event.is_set():
                 raise InterruptedError("execution was cancelled")
+            outcome = self._record_outcome(
+                publication_id,
+                ExecutionState.SETTLED,
+                grounding_attempts,
+                DownstreamExecutionResult.PASS,
+            )
             self._emit(
                 publication_id,
                 ExecutionState.SETTLED,
-                "Motion completed and robot is holding position",
+                (
+                    "Motion completed with simulator-ground-truth assistance; "
+                    "strict SAM grounding failed"
+                    if outcome.oracle_fallback_used
+                    else "Motion completed and robot is holding position"
+                ),
+            )
+            self._trace(
+                publication_id,
+                "EXECUTION_SETTLED",
+                execution_outcome=outcome.to_dict(),
             )
         except InterruptedError as error:
             self.controller.safe_hold()
+            outcome = self._record_outcome(
+                publication_id,
+                ExecutionState.CANCELLED,
+                grounding_attempts,
+                DownstreamExecutionResult.CANCELLED,
+            )
             self._emit(
                 publication_id,
                 ExecutionState.CANCELLED,
                 str(error) or "Execution cancelled",
             )
+            self._trace(
+                publication_id,
+                "EXECUTION_CANCELLED",
+                error_type=type(error).__name__,
+                error=str(error),
+                execution_outcome=outcome.to_dict(),
+            )
         except Exception as error:
             self.controller.safe_hold()
             if cancel_event.is_set():
+                outcome = self._record_outcome(
+                    publication_id,
+                    ExecutionState.CANCELLED,
+                    grounding_attempts,
+                    DownstreamExecutionResult.CANCELLED,
+                )
                 self._emit(
                     publication_id,
                     ExecutionState.CANCELLED,
                     "Execution cancelled",
                 )
+                self._trace(
+                    publication_id,
+                    "EXECUTION_CANCELLED",
+                    error_type=type(error).__name__,
+                    error=str(error),
+                    execution_outcome=outcome.to_dict(),
+                )
             else:
+                outcome = self._record_outcome(
+                    publication_id,
+                    ExecutionState.FAULT,
+                    grounding_attempts,
+                    DownstreamExecutionResult.FAIL,
+                )
                 self._emit(
                     publication_id,
                     ExecutionState.FAULT,
                     f"Execution failed: {error}",
+                )
+                self._trace(
+                    publication_id,
+                    "EXECUTION_FAULT",
+                    error_type=type(error).__name__,
+                    error=str(error),
+                    execution_outcome=outcome.to_dict(),
                 )
         finally:
             guard_stop.set()
@@ -305,6 +488,294 @@ class ExecutionService:
                         frame_sequence=sequence,
                     )
                 )
+
+    def _ground_reference(
+        self,
+        publication_id: str,
+        frame: RGBDFrame,
+        reference: ObjectReference,
+        *,
+        role: str,
+        attempts: list[GroundingAttempt],
+    ) -> GroundedObject | OracleGrounding:
+        """Run SAM first and use simulator truth only after a typed failure."""
+
+        self._trace(
+            publication_id,
+            "SAM_GROUNDING_REQUESTED",
+            role=role,
+            query=reference.query,
+            anchor=reference.anchor.value,
+            frame_sequence=frame.sequence,
+            oracle_fallback_enabled=self.enable_oracle_grounding_fallback,
+        )
+        sam_started = time.perf_counter()
+        try:
+            grounded = self.grounder.ground(frame, reference)
+        except GroundingError as error:
+            sam_elapsed = time.perf_counter() - sam_started
+            reason_code = error.reason_code
+            self._trace(
+                publication_id,
+                "SAM_GROUNDING_FAILED",
+                role=role,
+                query=reference.query,
+                anchor=reference.anchor.value,
+                frame_sequence=frame.sequence,
+                strict_grounding_result="FAIL",
+                strict_failure_reason_code=reason_code,
+                strict_failure_message=str(error),
+                sam_grounding_elapsed_seconds=sam_elapsed,
+                oracle_fallback_enabled=self.enable_oracle_grounding_fallback,
+            )
+            self._perception(
+                {
+                    "schema_version": 1,
+                    "kind": "GROUNDING_FAILURE",
+                    "publication_id": publication_id,
+                    "frame_sequence": frame.sequence,
+                    "role": role,
+                    "query": reference.query,
+                    "anchor": reference.anchor.value,
+                    "strict_grounding_result": "FAIL",
+                    "strict_failure_reason_code": reason_code,
+                    "strict_failure_message": str(error),
+                }
+            )
+            if not self.enable_oracle_grounding_fallback:
+                attempts.append(
+                    GroundingAttempt(
+                        role=role,
+                        query=reference.query,
+                        anchor=reference.anchor.value,
+                        strict_grounding_result="FAIL",
+                        strict_failure_reason_code=reason_code,
+                        strict_failure_message=str(error),
+                        grounding_source=None,
+                        oracle_fallback_used=False,
+                        point_world_m=None,
+                        frame_sequence=frame.sequence,
+                    )
+                )
+                raise
+
+            provider = self.oracle_grounding_provider
+            assert provider is not None
+            oracle_started = time.perf_counter()
+            try:
+                assisted = provider.ground_from_simulator_truth(
+                    frame,
+                    reference,
+                    role=role,
+                    strict_failure_reason_code=reason_code,
+                )
+                self._validate_oracle_grounding(frame, reference, assisted)
+            except Exception as fallback_error:
+                attempts.append(
+                    GroundingAttempt(
+                        role=role,
+                        query=reference.query,
+                        anchor=reference.anchor.value,
+                        strict_grounding_result="FAIL",
+                        strict_failure_reason_code=reason_code,
+                        strict_failure_message=str(error),
+                        grounding_source=None,
+                        oracle_fallback_used=False,
+                        point_world_m=None,
+                        frame_sequence=frame.sequence,
+                    )
+                )
+                self._trace(
+                    publication_id,
+                    "ORACLE_GROUNDING_FALLBACK_FAILED",
+                    role=role,
+                    query=reference.query,
+                    strict_failure_reason_code=reason_code,
+                    fallback_error_type=type(fallback_error).__name__,
+                    fallback_error=str(fallback_error),
+                    oracle_grounding_elapsed_seconds=(
+                        time.perf_counter() - oracle_started
+                    ),
+                )
+                raise
+
+            point = tuple(float(value) for value in assisted.point_world)
+            attempt = GroundingAttempt(
+                role=role,
+                query=reference.query,
+                anchor=reference.anchor.value,
+                strict_grounding_result="FAIL",
+                strict_failure_reason_code=reason_code,
+                strict_failure_message=str(error),
+                grounding_source=assisted.source_id,
+                oracle_fallback_used=True,
+                point_world_m=point,
+                frame_sequence=assisted.frame_sequence,
+            )
+            attempts.append(attempt)
+            self._trace(
+                publication_id,
+                "ORACLE_GROUNDING_FALLBACK_USED",
+                **attempt.to_dict(),
+                sam_grounding_elapsed_seconds=sam_elapsed,
+                oracle_grounding_elapsed_seconds=(
+                    time.perf_counter() - oracle_started
+                ),
+                diagnostics=dict(assisted.diagnostics or {}),
+            )
+            self._trace(
+                publication_id,
+                "GROUNDING_COMPLETE",
+                **attempt.to_dict(),
+                uncertainty_m=0.0,
+                sam_grounding_elapsed_seconds=sam_elapsed,
+                diagnostics=dict(assisted.diagnostics or {}),
+            )
+            self._perception(
+                {
+                    "schema_version": 1,
+                    "kind": "ORACLE_GROUNDING_FALLBACK",
+                    "publication_id": publication_id,
+                    **attempt.to_dict(),
+                    "diagnostics": dict(assisted.diagnostics or {}),
+                }
+            )
+            return assisted
+        except SamServiceError as error:
+            sam_elapsed = time.perf_counter() - sam_started
+            self._trace(
+                publication_id,
+                "SAM_GROUNDING_SERVICE_FAILURE",
+                role=role,
+                query=reference.query,
+                anchor=reference.anchor.value,
+                frame_sequence=frame.sequence,
+                error_type=type(error).__name__,
+                error=str(error),
+                sam_grounding_elapsed_seconds=sam_elapsed,
+                oracle_fallback_eligible=False,
+                oracle_fallback_used=False,
+            )
+            self._perception(
+                {
+                    "schema_version": 1,
+                    "kind": "GROUNDING_SERVICE_FAILURE",
+                    "publication_id": publication_id,
+                    "frame_sequence": frame.sequence,
+                    "role": role,
+                    "query": reference.query,
+                    "anchor": reference.anchor.value,
+                    "error_type": type(error).__name__,
+                    "error": str(error),
+                    "oracle_fallback_eligible": False,
+                    "oracle_fallback_used": False,
+                }
+            )
+            raise
+
+        sam_elapsed = time.perf_counter() - sam_started
+        point = tuple(float(value) for value in grounded.point_world)
+        attempt = GroundingAttempt(
+            role=role,
+            query=grounded.query,
+            anchor=grounded.anchor.value,
+            strict_grounding_result="PASS",
+            strict_failure_reason_code=None,
+            strict_failure_message=None,
+            grounding_source=SAM_GROUNDING_SOURCE,
+            oracle_fallback_used=False,
+            point_world_m=point,
+            frame_sequence=grounded.frame_sequence,
+        )
+        attempts.append(attempt)
+        self._trace(
+            publication_id,
+            "GROUNDING_COMPLETE",
+            **attempt.to_dict(),
+            uncertainty_m=grounded.uncertainty_m,
+            sam_grounding_elapsed_seconds=sam_elapsed,
+            diagnostics=dict(grounded.diagnostics or {}),
+        )
+        self._perception(
+            {
+                "schema_version": 1,
+                "kind": "GROUNDING_MASK",
+                "publication_id": publication_id,
+                "frame_sequence": grounded.frame_sequence,
+                "role": role,
+                "query": grounded.query,
+                "box_xyxy": grounded.detection.box_xyxy,
+                "score": grounded.detection.score,
+                "mask": (
+                    None
+                    if grounded.detection.mask is None
+                    else grounded.detection.mask.copy()
+                ),
+                "strict_grounding_result": "PASS",
+                "grounding_source": SAM_GROUNDING_SOURCE,
+                "oracle_fallback_used": False,
+            }
+        )
+        return grounded
+
+    @staticmethod
+    def _validate_oracle_grounding(
+        frame: RGBDFrame,
+        reference: ObjectReference,
+        grounded: OracleGrounding,
+    ) -> None:
+        if not isinstance(grounded, OracleGrounding):
+            raise TypeError("oracle provider must return OracleGrounding")
+        if grounded.query != reference.query or grounded.anchor is not reference.anchor:
+            raise ValueError("oracle grounding changed the requested reference")
+        if grounded.frame_sequence != frame.sequence:
+            raise ValueError("oracle grounding is associated with a different frame")
+
+    def _record_outcome(
+        self,
+        publication_id: str,
+        terminal_state: ExecutionState,
+        grounding_attempts: list[GroundingAttempt],
+        downstream_result: DownstreamExecutionResult,
+    ) -> ExecutionOutcome:
+        attempts = tuple(grounding_attempts)
+        fallback_used = any(item.oracle_fallback_used for item in attempts)
+        strict_grounding_failed = any(
+            item.strict_grounding_result == "FAIL" for item in attempts
+        )
+        if strict_grounding_failed:
+            strict_result = StrictSystemResult.FAIL_GROUNDING
+        elif terminal_state is ExecutionState.SETTLED:
+            strict_result = StrictSystemResult.PASS
+        elif terminal_state is ExecutionState.CANCELLED:
+            strict_result = StrictSystemResult.CANCELLED
+        else:
+            strict_result = StrictSystemResult.FAIL_EXECUTION
+
+        if not fallback_used:
+            assisted_result = AssistedContinuationResult.NOT_APPLICABLE
+        elif downstream_result is DownstreamExecutionResult.PASS:
+            assisted_result = AssistedContinuationResult.PASS
+        elif downstream_result is DownstreamExecutionResult.CANCELLED:
+            assisted_result = AssistedContinuationResult.CANCELLED
+        else:
+            assisted_result = AssistedContinuationResult.FAIL
+
+        outcome = ExecutionOutcome(
+            publication_id=publication_id,
+            terminal_state=terminal_state.value,
+            strict_system_result=strict_result,
+            oracle_fallback_used=fallback_used,
+            oracle_fallback_source=(
+                SIMULATOR_GROUND_TRUTH_SOURCE if fallback_used else None
+            ),
+            assisted_continuation_result=assisted_result,
+            downstream_execution_result=downstream_result,
+            grounding_attempts=attempts,
+        )
+        with self._condition:
+            self._outcomes[publication_id] = outcome
+        return outcome
 
     def _guard_scene(
         self,
@@ -384,6 +855,57 @@ class ExecutionService:
                 callback(event)
             except Exception:
                 pass
+
+    def _handle_controller_trace(self, event: dict) -> None:
+        with self._condition:
+            active = self._active
+            publication_id = (
+                None if active is None else active.task.publication_id
+            )
+        if publication_id is None:
+            return
+        payload = dict(event)
+        kind = str(payload.pop("kind", "CONTROLLER_EVENT"))
+        self._trace(publication_id, kind, **payload)
+
+    def _handle_compiler_trace(self, event: dict) -> None:
+        with self._condition:
+            active = self._active
+            publication_id = (
+                None if active is None else active.task.publication_id
+            )
+        if publication_id is None:
+            return
+        payload = dict(event)
+        kind = str(payload.pop("kind", "EXECUTION_MODEL_CALL"))
+        self._trace(publication_id, kind, **payload)
+
+    def _trace(self, publication_id: str, kind: str, **payload) -> None:
+        callback = self.on_trace
+        if callback is None:
+            return
+        event = {
+            "schema_version": 1,
+            "kind": kind,
+            "publication_id": publication_id,
+            "observed_at": self.clock(),
+            **payload,
+        }
+        try:
+            callback(event)
+        except Exception:
+            # Experiment logging cannot kill the physical-control worker.
+            pass
+
+    def _perception(self, artifact: dict) -> None:
+        callback = self.on_perception
+        if callback is None:
+            return
+        try:
+            callback(artifact)
+        except Exception:
+            # Artifact persistence failures are classified by the harness.
+            pass
 
 
 __all__ = ["ExecutionService", "PickPlaceController", "RGBDFrameSource"]
