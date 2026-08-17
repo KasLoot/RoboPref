@@ -77,6 +77,7 @@ class PlannerTrigger(str, Enum):
     CONFIRMED = "CONFIRMED"
     TASK_SUCCESS = "TASK_SUCCESS"
     TASK_FAIL = "TASK_FAIL"
+    MONITOR_TIMEOUT = "MONITOR_TIMEOUT"
     FINAL_VALIDATION_FAIL = "FINAL_VALIDATION_FAIL"
     USER_REPLAN = "USER_REPLAN"
 
@@ -596,6 +597,168 @@ class GoalContract:
 
 
 @dataclass(frozen=True, slots=True)
+class TerminationCriterion:
+    """One last-observed criterion stored with structured termination data."""
+
+    criterion_id: str
+    state: CriterionState
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "criterion_id",
+            _identifier(self.criterion_id, "termination criterion id"),
+        )
+        try:
+            state = CriterionState(self.state)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                f"invalid termination criterion state: {self.state!r}"
+            ) from error
+        object.__setattr__(self, "state", state)
+
+    @classmethod
+    def from_dict(cls, payload: Mapping[str, Any]) -> TerminationCriterion:
+        payload = _mapping(payload, "termination criterion")
+        _reject_unknown_keys(payload, {"id", "state"}, "termination criterion")
+        return cls(
+            criterion_id=payload.get("id"),
+            state=payload.get("state"),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return {"id": self.criterion_id, "state": self.state.value}
+
+
+@dataclass(frozen=True, slots=True)
+class ExecutionTerminationContext:
+    """Structured host evidence explaining why an attempt was interrupted.
+
+    Fields beyond ``kind`` are optional so records produced before a newer
+    telemetry field was introduced remain loadable.  New Monitor timeout
+    records populate every field.
+    """
+
+    kind: str
+    timeout_seconds: float | None = None
+    elapsed_no_progress_seconds: float | None = None
+    last_progress_at: float | None = None
+    last_frame_sequence: int | None = None
+    last_assessment_disposition: str | None = None
+    criteria: tuple[TerminationCriterion, ...] = ()
+    prior_publication_id: str | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "kind", _identifier(self.kind, "termination kind"))
+        for name, allow_zero in (
+            ("timeout_seconds", False),
+            ("elapsed_no_progress_seconds", True),
+        ):
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(value)
+                or value < 0
+                or (not allow_zero and value == 0)
+            ):
+                qualifier = "non-negative" if allow_zero else "positive"
+                raise ValueError(f"{name} must be a finite {qualifier} number")
+            object.__setattr__(self, name, float(value))
+        progress = self.last_progress_at
+        if progress is not None:
+            if (
+                isinstance(progress, bool)
+                or not isinstance(progress, (int, float))
+                or not math.isfinite(progress)
+            ):
+                raise ValueError("last_progress_at must be finite or None")
+            object.__setattr__(self, "last_progress_at", float(progress))
+        frame = self.last_frame_sequence
+        if frame is not None and (
+            isinstance(frame, bool)
+            or not isinstance(frame, int)
+            or frame < 0
+        ):
+            raise ValueError("last_frame_sequence must be non-negative or None")
+        disposition = self.last_assessment_disposition
+        if disposition is not None:
+            disposition = _identifier(
+                disposition,
+                "last_assessment_disposition",
+            )
+        object.__setattr__(self, "last_assessment_disposition", disposition)
+        criteria = tuple(self.criteria)
+        if not all(isinstance(item, TerminationCriterion) for item in criteria):
+            raise ValueError(
+                "termination criteria must contain TerminationCriterion objects"
+            )
+        criterion_ids = [item.criterion_id for item in criteria]
+        if len(criterion_ids) != len(set(criterion_ids)):
+            raise ValueError("termination criterion IDs must be unique")
+        object.__setattr__(self, "criteria", criteria)
+        publication = self.prior_publication_id
+        if publication is not None:
+            publication = _identifier(publication, "prior_publication_id")
+        object.__setattr__(self, "prior_publication_id", publication)
+
+    @classmethod
+    def from_dict(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> ExecutionTerminationContext:
+        payload = _mapping(payload, "execution termination context")
+        _reject_unknown_keys(
+            payload,
+            {
+                "kind",
+                "timeout_seconds",
+                "elapsed_no_progress_seconds",
+                "last_progress_at",
+                "last_frame_sequence",
+                "last_assessment_disposition",
+                "criteria",
+                "prior_publication_id",
+            },
+            "execution termination context",
+        )
+        raw_criteria = _mapping_sequence(
+            payload.get("criteria", ()),
+            "termination criteria",
+        )
+        return cls(
+            kind=payload.get("kind"),
+            timeout_seconds=payload.get("timeout_seconds"),
+            elapsed_no_progress_seconds=payload.get(
+                "elapsed_no_progress_seconds"
+            ),
+            last_progress_at=payload.get("last_progress_at"),
+            last_frame_sequence=payload.get("last_frame_sequence"),
+            last_assessment_disposition=payload.get(
+                "last_assessment_disposition"
+            ),
+            criteria=tuple(
+                TerminationCriterion.from_dict(item) for item in raw_criteria
+            ),
+            prior_publication_id=payload.get("prior_publication_id"),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "timeout_seconds": self.timeout_seconds,
+            "elapsed_no_progress_seconds": self.elapsed_no_progress_seconds,
+            "last_progress_at": self.last_progress_at,
+            "last_frame_sequence": self.last_frame_sequence,
+            "last_assessment_disposition": self.last_assessment_disposition,
+            "criteria": [item.to_dict() for item in self.criteria],
+            "prior_publication_id": self.prior_publication_id,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionRecord:
     """One immutable terminal outcome in the current goal session."""
 
@@ -607,6 +770,7 @@ class ExecutionRecord:
     observation: str
     failure_reason: str | None = None
     evidence_frame_sequence: int | None = None
+    termination_context: ExecutionTerminationContext | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.cycle_id, bool) or not isinstance(self.cycle_id, int):
@@ -656,6 +820,16 @@ class ExecutionRecord:
             or frame_sequence < 0
         ):
             raise ValueError("evidence_frame_sequence must be non-negative")
+        termination = self.termination_context
+        if termination is not None:
+            if not isinstance(termination, ExecutionTerminationContext):
+                raise ValueError(
+                    "termination_context must be an ExecutionTerminationContext"
+                )
+            if outcome is not ExecutionOutcome.INTERRUPTED:
+                raise ValueError(
+                    "termination_context is valid only for INTERRUPTED outcomes"
+                )
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> ExecutionRecord:
@@ -671,9 +845,11 @@ class ExecutionRecord:
                 "observation",
                 "failure_reason",
                 "evidence_frame_sequence",
+                "termination_context",
             },
             "execution record",
         )
+        termination_payload = payload.get("termination_context")
         return cls(
             cycle_id=payload.get("cycle_id"),
             publication_id=payload.get("publication_id"),
@@ -683,6 +859,13 @@ class ExecutionRecord:
             observation=payload.get("observation"),
             failure_reason=payload.get("failure_reason"),
             evidence_frame_sequence=payload.get("evidence_frame_sequence"),
+            termination_context=(
+                None
+                if termination_payload is None
+                else ExecutionTerminationContext.from_dict(
+                    _mapping(termination_payload, "termination_context")
+                )
+            ),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -695,6 +878,11 @@ class ExecutionRecord:
             "observation": self.observation,
             "failure_reason": self.failure_reason,
             "evidence_frame_sequence": self.evidence_frame_sequence,
+            "termination_context": (
+                None
+                if self.termination_context is None
+                else self.termination_context.to_dict()
+            ),
         }
 
 

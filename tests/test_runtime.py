@@ -18,6 +18,7 @@ from prefmem.controller import (
     RecedingHorizonController,
     RecedingResult,
     RecedingTransition,
+    TimeoutPolicy,
 )
 from prefmem.runtime import PrefMemRuntime
 from prefmem.task_publisher import DisplayState, TaskPublisherResponseError
@@ -334,6 +335,9 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         *,
         frame_sequences=(10, 20, 30, 40),
         executor=None,
+        timeout_policy=TimeoutPolicy.AUTO_REPLAN,
+        max_consecutive_timeout_replans=2,
+        max_timeout_replans_per_instruction=2,
     ):
         clock = FakeClock()
         publisher = RecordingPublisher()
@@ -344,6 +348,11 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             success_stability_seconds=0,
             failure_confirmations=2,
             ongoing_timeout_seconds=30,
+            timeout_policy=timeout_policy,
+            max_consecutive_timeout_replans=max_consecutive_timeout_replans,
+            max_timeout_replans_per_instruction=(
+                max_timeout_replans_per_instruction
+            ),
             clock=clock,
         )
         runtime = PrefMemRuntime(
@@ -358,6 +367,37 @@ class RuntimeOrchestrationTests(unittest.TestCase):
         )
         self.addCleanup(runtime.close)
         return runtime, clock, publisher, monitor
+
+    def test_context_exposes_strict_and_assisted_executor_outcomes(self):
+        class OutcomeExecutor(RecordingExecutor):
+            def outcomes(self):
+                return (
+                    {
+                        "publication_id": "publication-assisted",
+                        "strict_system_result": "FAIL_GROUNDING",
+                        "oracle_fallback_used": True,
+                        "oracle_fallback_source": "SIMULATOR_GROUND_TRUTH",
+                        "assisted_continuation_result": "PASS",
+                    },
+                )
+
+        runtime, _clock, _publisher, _monitor = self.build_runtime(
+            ScriptedPlanner(),
+            executor=OutcomeExecutor(),
+        )
+
+        self.assertEqual(
+            runtime.context_dict()["executor_outcomes"][0][
+                "strict_system_result"
+            ],
+            "FAIL_GROUNDING",
+        )
+        self.assertEqual(
+            runtime.context_dict()["executor_outcomes"][0][
+                "assisted_continuation_result"
+            ],
+            "PASS",
+        )
 
     def test_executor_receives_open_scope_and_monitor_waits_for_settle(self):
         planner = OpenSetPlanner(
@@ -427,6 +467,170 @@ class RuntimeOrchestrationTests(unittest.TestCase):
             settled_assessments[0]["success_confirmation"],
             {"count": 1, "required": 2},
         )
+
+    def test_step_timeout_retires_then_replans_from_a_fresh_frame(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next."),
+            act("Move the blue block left.", "Place the red block later."),
+        )
+        runtime, clock, publisher, monitor = self.build_runtime(
+            planner,
+            frame_sequences=(10, 20, 30, 40),
+        )
+        self.start_goal(runtime)
+        timed_out = monitor.published[0]
+        clock.advance(31)
+
+        self.assertTrue(runtime.check_timeout())
+
+        replacement = monitor.published[1]
+        self.assertEqual(runtime.context_dict()["state"], "EXECUTING")
+        self.assertEqual(
+            monitor.events[:3],
+            [
+                ("publish", timed_out.publication_id),
+                ("retire", timed_out.publication_id),
+                ("publish", replacement.publication_id),
+            ],
+        )
+        self.assertIs(publisher.displays[-1].state, DisplayState.ACTIVE)
+        request = planner.plan_calls[1][0]
+        self.assertEqual(request.trigger.value, "MONITOR_TIMEOUT")
+        self.assertEqual(request.frame_sequence, 40)
+        self.assertEqual(len(request.execution_history), 1)
+        record = request.execution_history[0]
+        self.assertEqual(record.outcome.value, "INTERRUPTED")
+        self.assertEqual(
+            record.observation,
+            "No conclusive post-state was observed.",
+        )
+        self.assertEqual(
+            record.termination_context.prior_publication_id,
+            timed_out.publication_id,
+        )
+        events = []
+        while not runtime.monitor_events.empty():
+            events.append(runtime.monitor_events.get_nowait())
+        timeout_events = [
+            event for event in events
+            if event.get("event") == "AUTO_TIMEOUT_REPLAN"
+        ]
+        self.assertEqual(len(timeout_events), 1)
+        self.assertEqual(
+            timeout_events[0]["old_publication_id"],
+            timed_out.publication_id,
+        )
+        self.assertEqual(timeout_events[0]["fresh_planning_frame_sequence"], 40)
+        self.assertEqual(
+            timeout_events[0]["guard_counters"]["consecutive"],
+            1,
+        )
+
+    def test_active_executor_suppresses_timeout_until_settled(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next."),
+            act("Move the blue block left.", "Place the red block later."),
+        )
+        executor = RecordingExecutor()
+        runtime, clock, _publisher, monitor = self.build_runtime(
+            planner,
+            frame_sequences=(10, 20, 30, 40),
+            executor=executor,
+        )
+        self.start_goal(runtime)
+        active = monitor.published[0]
+        clock.advance(31)
+
+        self.assertFalse(runtime.check_timeout())
+        self.assertEqual(len(planner.plan_calls), 1)
+        self.assertEqual(runtime.context_dict()["execution_history"], [])
+        self.assertEqual(monitor.retired, [])
+
+        executor.settled.add(active.publication_id)
+        self.assertTrue(runtime.check_timeout())
+        self.assertEqual(len(planner.plan_calls), 2)
+        self.assertEqual(monitor.retired, [active.publication_id])
+        self.assertEqual(executor.retired, [active.publication_id])
+
+    def test_executor_state_error_is_attention_not_timeout_history(self) -> None:
+        class FailingExecutor(RecordingExecutor):
+            def is_settled(self, publication_id) -> bool:
+                raise RuntimeError("executor status unavailable")
+
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next.")
+        )
+        executor = FailingExecutor()
+        runtime, clock, _publisher, monitor = self.build_runtime(
+            planner,
+            executor=executor,
+        )
+        self.start_goal(runtime)
+        clock.advance(31)
+
+        self.assertTrue(runtime.check_timeout())
+
+        context = runtime.context_dict()
+        self.assertEqual(context["state"], "NEEDS_ATTENTION")
+        self.assertEqual(context["attention_kind"], "SYSTEM_ERROR")
+        self.assertEqual(context["execution_history"], [])
+        self.assertEqual(monitor.retired, [])
+
+    def test_closed_runtime_does_not_process_timeout_poll(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next.")
+        )
+        runtime, clock, _publisher, monitor = self.build_runtime(planner)
+        self.start_goal(runtime)
+        clock.advance(31)
+        runtime.close()
+
+        self.assertFalse(runtime.check_timeout())
+        self.assertEqual(runtime.context_dict()["execution_history"], [])
+        self.assertEqual(monitor.retired, [])
+
+    def test_step_timeout_attention_gate_retains_legacy_pause(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next.")
+        )
+        runtime, clock, publisher, monitor = self.build_runtime(
+            planner,
+            timeout_policy=TimeoutPolicy.ATTENTION_GATE,
+        )
+        self.start_goal(runtime)
+        current = monitor.published[0]
+        clock.advance(31)
+
+        self.assertTrue(runtime.check_timeout())
+
+        context = runtime.context_dict()
+        self.assertEqual(context["state"], "NEEDS_ATTENTION")
+        self.assertEqual(context["execution_history"], [])
+        self.assertEqual(len(planner.plan_calls), 1)
+        self.assertEqual(monitor.retired, [current.publication_id])
+        self.assertIs(publisher.displays[-1].state, DisplayState.NEEDS_ATTENTION)
+
+    def test_monitor_service_error_is_attention_not_timeout_history(self) -> None:
+        planner = ScriptedPlanner(
+            act("Place the blue block flat.", "Place the red block next.")
+        )
+        runtime, _clock, _publisher, monitor = self.build_runtime(planner)
+        self.start_goal(runtime)
+        current = monitor.published[0]
+
+        runtime._on_monitor_error(
+            MonitorErrorEvent(
+                kind=MonitorErrorKind.MODEL,
+                message="endpoint disconnected",
+                publication_id=current.publication_id,
+            )
+        )
+
+        context = runtime.context_dict()
+        self.assertEqual(context["state"], "NEEDS_ATTENTION")
+        self.assertEqual(context["attention_kind"], "SYSTEM_ERROR")
+        self.assertEqual(context["execution_history"], [])
+        self.assertEqual(len(planner.plan_calls), 1)
 
     def test_monitor_telemetry_is_bounded_and_drops_oldest(self):
         runtime, _clock, _publisher, _monitor = self.build_runtime(

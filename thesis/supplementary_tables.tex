@@ -1,0 +1,217 @@
+\clearpage
+\section{Supplementary Main-Body Tables}
+\label{app:main-body-tables}
+
+\subsection{Related-System Positioning}
+
+{\small
+\renewcommand{\arraystretch}{1.14}
+\begin{longtable}{@{}P{2.35cm}P{4.00cm}P{3.75cm}P{4.35cm}@{}}
+    \caption{Comparison of related personalised and agentic robot systems.
+    ``Adaptation'' refers to changes beyond the immediate inference context.}
+    \label{tab:related-system-comparison} \\
+    \toprule
+    \textbf{System} &
+    \textbf{Preference or interaction evidence} &
+    \textbf{Execution feedback} &
+    \textbf{Principal distinction from PrefMem} \\
+    \midrule
+    \endfirsthead
+    \caption[]{Comparison of related personalised and agentic robot systems
+    (continued).} \\
+    \toprule
+    \textbf{System} &
+    \textbf{Preference or interaction evidence} &
+    \textbf{Execution feedback} &
+    \textbf{Principal distinction from PrefMem} \\
+    \midrule
+    \endhead
+    \midrule
+    \multicolumn{4}{r@{}}{\small Continued on next page} \\
+    \endfoot
+    \bottomrule
+    \endlastfoot
+
+    TidyBot \parencite{wu2023tidybot} &
+    Examples summarised into personalised placement and primitive rules. &
+    Repeated perception and execution during cleanup. &
+    Focuses on preference generalisation rather than consented record
+    lifecycle, exact confirmation, or independent final validation. \\
+
+    LLM-Personalize \parencite{han2024llmpersonalize} &
+    Demonstrations and preference-labelled self-training data. &
+    Iterative planning from a scene graph. &
+    Personalises the planner through optimisation rather than an explicit
+    persistent record store. \\
+
+    APRICOT \parencite{wang2024apricot} &
+    Visual demonstrations and active preference queries. &
+    World-model feedback and constraint-aware plan refinement. &
+    Learns among candidate preferences; PrefMem governs explicit persistent
+    records, conflicts, overrides, and consent. \\
+
+    KnowNo \parencite{ren2023knowno} &
+    Ambiguity represented as a calibrated action prediction set. &
+    Human help is requested when the set is not a singleton. &
+    Provides conformal calibration; PrefMem instead separates semantic,
+    historical, and execution attention states. \\
+
+    Hi Robot \parencite{shi2025hirobot} &
+    Current prompts, observations, and mid-task user feedback. &
+    High-level VLM repeatedly instructs a low-level VLA. &
+    Does not centre persistent preference provenance or exact goal-contract
+    confirmation. \\
+
+    Agentic Robot \parencite{yang2025agenticrobot} &
+    High-level task instruction and visual observations. &
+    Temporal verification, retry, and recovery for planned subgoals. &
+    PrefMem adds consented preference memory, horizon-one fresh replanning,
+    and a separate whole-goal Validator. \\
+
+    MEM \parencite{torne2026mem} &
+    Within-episode video history and semantic event summaries. &
+    Memory conditions high- and low-level VLA policies. &
+    Addresses embodied task memory rather than cross-interaction user
+    preference authority. \\
+
+    RoboClaw \parencite{li2026roboclaw} &
+    Structured task and working memory. &
+    Tool-based skill monitoring, retry, recovery, and human escalation. &
+    Unifies execution with data and policy refinement; PrefMem keeps model
+    weights fixed and separates execution history from user preference memory. \\
+
+    PrefMem &
+    Explicitly mutable, scoped preference records plus current user input. &
+    One published task, temporally fenced Monitor evidence, fresh replanning,
+    and independent final validation. &
+    Studies preference provenance, exact goal authorisation, deterministic
+    state ownership, and evidence-gated terminal decisions as one inspectable
+    orchestration boundary. \\
+\end{longtable}
+}
+
+\subsection{Architectural Alternatives}
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{Architectural trade-off between a monolithic tool-using agent and
+    PrefMem's role-specialised graph.}
+    \label{tab:architecture-alternatives}
+    \begin{tabular}{@{}P{3.1cm}P{5.5cm}P{5.5cm}@{}}
+        \toprule
+        \textbf{Criterion} & \textbf{Monolithic agent} &
+        \textbf{Role-specialised PrefMem} \\
+        \midrule
+        Model residency & One loaded model & One shared loaded model; logical
+        roles do not duplicate weights \\
+        Prompt and tools & Union of all histories, instructions, schemas, and
+        tools & Role-specific context and least-authority tool surfaces \\
+        State ownership & Primarily model/conversation mediated & Deterministic
+        runtime and controller own authoritative state \\
+        Temporal behaviour & One loop multiplexes dialogue, observation, and
+        control & Separate user-turn, planning, monitoring, validation, and
+        execution loops \\
+        Verification & Planner can influence or certify its own result &
+        Separate Monitor and Validator evidence routes; host derives completion \\
+        Testability & End-to-end behaviour is simpler but failures are opaque &
+        Components, interfaces, and host policies can be tested separately \\
+        Cost & Fewer calls and lower orchestration overhead & More calls,
+        schemas, latency, and integration complexity \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Interaction Contracts}
+
+\begin{table}[H]
+    \centering
+    \small
+    \caption{Principal interaction contracts and authority boundaries.}
+    \label{tab:interaction-contracts}
+    \begin{tabular}{@{}P{2.5cm}P{2.7cm}P{4.4cm}P{4.4cm}@{}}
+        \toprule
+        \textbf{Source} & \textbf{Destination} & \textbf{Artifact} &
+        \textbf{Authority rule} \\
+        \midrule
+        User & HRI & Request, clarification, confirmation, guidance & User
+        authorises ambiguous semantics and persistence \\
+        HRI & Memory & Labelled retrieve or mutate request & Memory can return
+        or change only request-valid records \\
+        HRI & Runtime & Preview, confirm, resume, or replan tool call & Runtime
+        validates state and exact identifiers \\
+        Runtime & Planner & Preview payload or \texttt{PlannerCycleRequest} &
+        Planner proposes; host assigns IDs and selects task one \\
+        Runtime & Monitor & \texttt{STEP} \texttt{PublishedTask} & Monitor
+        observes only the current step \\
+        Runtime & Validator & Goal for compilation or final publication &
+        Validator cannot rewrite goal or host-derived status \\
+        Runtime & Executor & \texttt{STEP} \texttt{PublishedTask} & Executor
+        changes the scene but cannot establish completion \\
+        Monitor / Validator & Runtime / Controller & Typed assessment or error &
+        Identity, time, phase, and criteria must match \\
+        Controller & Planner & Immutable \texttt{ExecutionRecord} on next cycle
+        & Only host code appends trusted history \\
+        Runtime & HRI & State summary, attention cause, validation report & HRI
+        reports but cannot fabricate recovery authority \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Requirement-to-Evidence Traceability}
+
+{\small
+\renewcommand{\arraystretch}{1.12}
+\begin{longtable}{@{}P{1.35cm}P{4.25cm}P{4.20cm}P{4.15cm}@{}}
+    \caption{Requirement-to-mechanism and evidence traceability.}
+    \label{tab:requirement-traceability} \\
+    \toprule
+    \textbf{Req.} & \textbf{Primary mechanism} &
+    \textbf{Principal evidence} & \textbf{Important boundary} \\
+    \midrule
+    \endfirsthead
+    \caption[]{Requirement-to-mechanism and evidence traceability
+    (continued).} \\
+    \toprule
+    \textbf{Req.} & \textbf{Primary mechanism} &
+    \textbf{Principal evidence} & \textbf{Important boundary} \\
+    \midrule
+    \endhead
+    \midrule
+    \multicolumn{4}{r@{}}{\small Continued on next page} \\
+    \endfoot
+    \bottomrule
+    \endlastfoot
+
+    R1 & HRI ambiguity policy, scoped Memory use, focused clarification &
+    \texttt{C-HRI-AMB}, interfaces, EXP-01 and EXP-02 & Selected tabletop
+    field resolution, not open-world intent understanding \\
+    R2 & Retrieval provenance, request-scoped mutation guards, explicit-current
+    priority & \texttt{C-MEM}, EXP-02 through EXP-05 & Free-text identity and
+    scope remain longitudinal limitations \\
+    R3 & Host goal ID/revision and exact confirmation tool & HRI tool and state
+    tests, EXP-01--04 and EXP-09 & Confirmation is per run and is not memory
+    consent \\
+    R4 & Stateless Planner, fresh frames, candidate-one selection, terminal
+    history & \texttt{C-PLN}, workflow ladder, \texttt{AB-RPL-F/T} & Host
+    ablations do not establish learned Planner quality \\
+    R5 & Publication IDs, generations, phase and frame-sequence checks &
+    \texttt{C-MON-ERR}, \texttt{C-VAL-RESET}, interaction tests & Fencing does
+    not correct a semantically wrong but schema-valid assessment \\
+    R6 & Repeated success/failure evidence and stability duration &
+    \texttt{C-MON-STABLE}, EXP-06 & Visual label quality limits what host
+    aggregation can stabilise \\
+    R7 & Frozen ValidationContract and host-derived broad status &
+    \texttt{C-VAL}, EXP-07 and EXP-09 & Prevents false completion but may cause
+    false rejection \\
+    R8 & Attention state, timeout records, repetition and cycle guards &
+    \texttt{PF-REPLAN/SAFETY}, \texttt{AB-RPL-T}, EXP-08 & Software recovery
+    policy, not hardware safety certification \\
+    R9 & Narrow PublishedTask boundary and human/MuJoCo adapters &
+    \texttt{C-EXE}, calibration, EXP-08 and EXP-09 & Current adapter is not a
+    learned VLA \\
+    R10 & Typed contracts, immutable attempts, traces, manifests, direct staged
+    metrics & All suite layers and focused reports & Original suite remains
+    development/non-confirmatory evidence \\
+\end{longtable}
+}

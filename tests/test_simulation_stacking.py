@@ -310,10 +310,10 @@ class StackingSimulationTests(unittest.TestCase):
 
         duration = controller._motion_duration(0.6)
 
-        self.assertGreaterEqual(duration, 1.875)
+        self.assertGreaterEqual(duration, 1.25 * 1.875)
         self.assertGreaterEqual(
             duration,
-            np.sqrt((10.0 / np.sqrt(3.0)) * 0.6 / 1.2),
+            1.25 * np.sqrt((10.0 / np.sqrt(3.0)) * 0.6 / 1.2),
         )
 
     def test_controller_physically_builds_a_three_cube_rgb_stack(self):

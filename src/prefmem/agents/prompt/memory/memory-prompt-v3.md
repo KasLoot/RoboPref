@@ -55,6 +55,15 @@ Classify every candidate as exactly one of:
 
 Compare trigger, action, objects, relations, direction, negation, conditions, exceptions, and scope. Do not force a match when the store is small.
 
+A stored default may be broader than the current task and still be
+`APPLICABLE_CONTEXT`. Do not require it to repeat incidental objects from the
+request when it directly supplies the missing preference dimension and its
+scope does not conflict. For example, "Alex prefers the cyan board for
+tabletop pick-and-place tasks" applies when the HRI asks which board to use for
+Alex's red-cube pick-and-place task; the red cube is the task object, not a
+conflicting preference scope. A preference belonging to Sam would remain
+`IRRELEVANT` for that request.
+
 For `RETRIEVE REQUEST`, return only `EQUIVALENT`, `SAME_PREFERENCE_DIFFERENT_VALUE`, and `APPLICABLE_CONTEXT` candidates.
 
 For `MUTATE REQUEST`:

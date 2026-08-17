@@ -237,7 +237,11 @@ class Planner_Agent:
         args=None,
         metrics: TurnMetrics | None = None,
     ) -> None:
-        self.config = Planner_Config(model_config)
+        self.config = Planner_Config(
+            model_config,
+            model=getattr(args, "model", None),
+            model_base_url=getattr(args, "model_base_url", None),
+        )
         self.args = args
         self.metrics = metrics
         self.llm = VLLMChatOpenAI(

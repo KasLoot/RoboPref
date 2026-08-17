@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 import json
 import re
+import time
 from typing import Any, Protocol
 
 from langchain.messages import HumanMessage, SystemMessage
@@ -15,7 +16,7 @@ from prefmem.execution.contracts import ManipulationProgram
 
 
 DEFAULT_EXECUTION_MODEL = "/workspace/models/gemma-4-26B-A4B-it"
-DEFAULT_EXECUTION_BASE_URL = "http://localhost:8000/v1"
+DEFAULT_EXECUTION_BASE_URL = "http://127.0.0.1:8000/v1"
 THINKING_DISABLED_OPTIONS = {
     "extra_body": {"chat_template_kwargs": {"enable_thinking": False}}
 }
@@ -142,7 +143,11 @@ class GemmaExecutionCompiler:
         model_name: str = DEFAULT_EXECUTION_MODEL,
         model_base_url: str = DEFAULT_EXECUTION_BASE_URL,
         timeout: float = 120.0,
+        trace_callback: Callable[[dict], None] | None = None,
     ) -> None:
+        self.model_name = model_name
+        self.model_base_url = model_base_url
+        self._trace_callback = trace_callback
         if model is not None:
             self.model = model
         else:
@@ -154,6 +159,23 @@ class GemmaExecutionCompiler:
                 temperature=0,
                 timeout=timeout,
             )
+
+    def set_trace_callback(
+        self,
+        callback: Callable[[dict], None] | None,
+    ) -> None:
+        if callback is not None and not callable(callback):
+            raise TypeError("trace callback must be callable or None")
+        self._trace_callback = callback
+
+    def _trace(self, event: dict) -> None:
+        callback = self._trace_callback
+        if callback is None:
+            return
+        try:
+            callback(event)
+        except Exception:
+            pass
 
     def compile(self, task: PublishedTask) -> ManipulationProgram:
         if not isinstance(task, PublishedTask):
@@ -190,15 +212,71 @@ class GemmaExecutionCompiler:
                     )
                 ),
             ]
+            started = time.perf_counter()
             response = self.model.invoke(messages, **THINKING_DISABLED_OPTIONS)
+            elapsed_seconds = time.perf_counter() - started
             try:
-                return ManipulationProgram.from_dict(parse_execution_json(response))
+                raw_response = response.model_dump(mode="json")
+            except AttributeError:
+                try:
+                    raw_response = _visible_text(response)
+                except ExecutionCompilerError:
+                    raw_response = repr(response)
+            try:
+                program = ManipulationProgram.from_dict(parse_execution_json(response))
+                self._trace(
+                    {
+                        "schema_version": 1,
+                        "kind": "EXECUTION_MODEL_CALL",
+                        "attempt": attempt,
+                        "model": self.model_name,
+                        "base_url": self.model_base_url,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": SYSTEM_PROMPT,
+                            },
+                            {
+                                "role": "user",
+                                "content": messages[1].content,
+                            },
+                        ],
+                        "raw_response": raw_response,
+                        "parsed_program": program.to_dict(),
+                        "validation_error": None,
+                        "elapsed_seconds": elapsed_seconds,
+                    }
+                )
+                return program
             except (TypeError, ValueError) as error:
                 last_error = error
                 try:
                     invalid_output = _visible_text(response)
                 except ExecutionCompilerError:
                     invalid_output = "<no visible output>"
+                self._trace(
+                    {
+                        "schema_version": 1,
+                        "kind": "EXECUTION_MODEL_CALL",
+                        "attempt": attempt,
+                        "model": self.model_name,
+                        "base_url": self.model_base_url,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": SYSTEM_PROMPT,
+                            },
+                            {
+                                "role": "user",
+                                "content": messages[1].content,
+                            },
+                        ],
+                        "raw_response": raw_response,
+                        "parsed_program": None,
+                        "validation_error": str(error),
+                        "elapsed_seconds": elapsed_seconds,
+                    }
+                )
         raise ExecutionCompilerError(
             "Gemma returned an invalid manipulation program after one correction: "
             f"{last_error}"

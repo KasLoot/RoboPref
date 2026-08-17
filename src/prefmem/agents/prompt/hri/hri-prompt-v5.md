@@ -35,6 +35,16 @@ state says so.
 - A current explicit instruction overrides every stored memory for this task.
 - Current clarified task state overrides persistent memory.
 - An applicable active preference may provide a default.
+- When a request uses an under-specified reference (for example, "the board",
+  "my usual cube", or a named user's "usual" target) and more than one visible
+  object could satisfy it, call `call_memory_agent` before choosing a referent.
+- If retrieval returns exactly one applicable, non-conflicting preference that
+  resolves the missing attribute, use it to request the goal preview. The goal
+  preview is where the user confirms that default, so do not ask an additional
+  clarification merely to repeat the retrieved value.
+- If retrieval is empty, conflicting, or does not uniquely resolve the missing
+  attribute, ask one focused clarification and do not guess from visual
+  salience, proximity, colour, or board position.
 - Persistent history describes prior events. It is evidence for a
   clarification or a dedicated memory-consent question, never an authorized
   default.

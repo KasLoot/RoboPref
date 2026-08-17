@@ -1,6 +1,6 @@
 <mujoco model="RoboPref block stacking">
-  <include file="franka_emika_panda/mjx_panda.xml"/>
-  <compiler angle="radian" meshdir="franka_emika_panda/assets" autolimits="true"/>
+  <include file="robots/franka_emika_panda/mjx_panda.xml"/>
+  <compiler angle="radian" meshdir="robots/franka_emika_panda/assets" autolimits="true"/>
 
   <option timestep="0.002" iterations="50" integrator="implicitfast" gravity="0 0 -9.81"/>
 

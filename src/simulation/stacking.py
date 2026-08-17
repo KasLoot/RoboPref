@@ -1,4 +1,4 @@
-"""Interactive MuJoCo block-stacking environment with synchronized RGB-D."""
+"""Interactive MuJoCo block-stacking environment with synchronized cameras."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 import threading
 import time
-from typing import Final
+from typing import Callable, Final
 
 import mujoco
 import numpy as np
@@ -27,6 +27,16 @@ STORED_BLOCKS: Final[tuple[str, ...]] = (
     "orange_block",
 )
 ALL_BLOCKS: Final[tuple[str, ...]] = TASK_BLOCKS + STORED_BLOCKS
+TB6C_V00_POSITIONS: Final[
+    tuple[tuple[str, tuple[float, float, float]], ...]
+] = (
+    ("red_block", (0.32, -0.34, 0.026)),
+    ("green_block", (0.32, 0.00, 0.026)),
+    ("blue_block", (0.32, 0.34, 0.026)),
+    ("yellow_block", (0.745, -0.34, 0.026)),
+    ("purple_block", (0.76, 0.00, 0.026)),
+    ("orange_block", (0.745, 0.34, 0.026)),
+)
 LOGGER = logging.getLogger(__name__)
 
 
@@ -36,6 +46,26 @@ class SimulationSnapshot:
     qpos: np.ndarray
     control: np.ndarray
     object_positions: dict[str, np.ndarray]
+
+
+@dataclass(frozen=True, slots=True)
+class _RenderStateSnapshot:
+    """One immutable MuJoCo state handed from physics to camera rendering."""
+
+    state_revision: int
+    submission_id: int
+    observed_at: float
+    simulation_time: float
+    data: mujoco.MjData
+
+
+@dataclass(frozen=True, slots=True)
+class _RenderedStream:
+    """Rendered pixels and calibration awaiting atomic pair publication."""
+
+    rgb: np.ndarray
+    depth_m: np.ndarray
+    calibration: CameraCalibration
 
 
 class InMemoryTaskPublisher:
@@ -92,8 +122,10 @@ class StackingEnvironment:
             raise ValueError("render dimensions must be positive")
         if render_hz <= 0:
             raise ValueError("render_hz must be positive")
-        if viewer_camera not in {"task", "overview"}:
-            raise ValueError("viewer_camera must be 'task' or 'overview'")
+        if viewer_camera not in {"sam", "prefmem", "task", "overview"}:
+            raise ValueError(
+                "viewer_camera must be 'sam', 'prefmem', 'task', or 'overview'"
+            )
         source = (
             Path(scene_path)
             if scene_path is not None
@@ -115,25 +147,59 @@ class StackingEnvironment:
         self.realtime = bool(realtime)
         self.viewer_enabled = bool(viewer)
         self.viewer_camera = viewer_camera
+        self._reset_profile = self._detect_reset_profile()
         self._rng = np.random.default_rng(seed)
         self._lock = threading.RLock()
         self._frame_condition = threading.Condition(self._lock)
+        self._render_condition = threading.Condition(threading.RLock())
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        self._render_thread: threading.Thread | None = None
         self._thread_error: BaseException | None = None
-        self._latest_frame: RGBDFrame | None = None
-        self._frame_sequence = 0
+        self._pending_render_snapshot: _RenderStateSnapshot | None = None
+        self._render_in_flight = False
+        # Revisions are reset epochs, not physics-step counters. A render
+        # copied before reset is discarded even if it finishes afterward.
+        self._state_revision = 0
+        self._render_submission_id = 0
+        self._last_published_render_submission = 0
+        self._last_published_state_revision = 0
+        self._periodic_rendering_paused = False
+        self._latest_sam_frame: RGBDFrame | None = None
+        self._latest_prefmem_frame: RGBDFrame | None = None
+        self._sam_frame_sequence = 0
+        self._prefmem_frame_sequence = 0
         self._control_target = np.zeros(self.model.nu, dtype=np.float64)
-        self._camera_id = mujoco.mj_name2id(
-            self.model, mujoco.mjtObj.mjOBJ_CAMERA, "task_camera"
+        self._sam_camera_id = self._resolve_camera_id(
+            "sam_camera",
+            fallback="task_camera",
+            stream_name="SAM",
         )
-        if self._camera_id < 0:
-            raise RuntimeError("stacking scene has no task_camera")
-        self._task_scene_option = mujoco.MjvOption()
-        # Panda visual meshes use geom group 2. Excluding that group from only
-        # the fixed task camera creates the requested unoccluded first
-        # experiment while the interactive viewer still shows the full robot.
-        self._task_scene_option.geomgroup[2] = 0
+        self._prefmem_camera_id = self._resolve_camera_id(
+            "prefmem_camera",
+            fallback="task_camera",
+            stream_name="PrefMem",
+        )
+        # Compatibility for integrations that inspect the former single task
+        # camera directly. The old ``task`` viewer name now means PrefMem's
+        # model-facing view; use ``sam`` to inspect detector input explicitly.
+        self._camera_id = self._prefmem_camera_id
+
+        self._sam_scene_option = mujoco.MjvOption()
+        # Panda visual and collision geometry use groups 2 and 3 respectively.
+        # Hiding both only in the SAM stream gives the detector an unoccluded
+        # top-down workspace without changing collision/physics state. Sites
+        # are an independent visualization category and must also be disabled.
+        self._sam_scene_option.geomgroup[2] = 0
+        self._sam_scene_option.geomgroup[3] = 0
+        self._sam_scene_option.sitegroup[:] = 0
+
+        self._prefmem_scene_option = mujoco.MjvOption()
+        # PrefMem must see the physical embodiment. Collision geometry remains
+        # hidden because it is diagnostic rendering rather than scene evidence.
+        self._prefmem_scene_option.geomgroup[2] = 1
+        self._prefmem_scene_option.geomgroup[3] = 0
+        self._task_scene_option = self._sam_scene_option
         self._arm_qpos_addresses = self._joint_qpos_addresses(
             tuple(f"joint{index}" for index in range(1, 8))
         )
@@ -160,43 +226,212 @@ class StackingEnvironment:
         thread = self._thread
         return bool(thread is not None and thread.is_alive())
 
+    @property
+    def reset_profile(self) -> str:
+        """Name the deterministic scene-reset contract selected at load time."""
+
+        return self._reset_profile
+
     def start(self) -> None:
         if self.running:
             return
         self._stop_event.clear()
         self._thread_error = None
-        self._thread = threading.Thread(
-            target=self._run,
-            name="robopref-mujoco",
+        with self._render_condition:
+            self._pending_render_snapshot = None
+        self._render_thread = threading.Thread(
+            target=self._render_loop,
+            name="robopref-mujoco-render",
             daemon=True,
         )
+        self._thread = threading.Thread(
+            target=self._run,
+            name="robopref-mujoco-physics",
+            daemon=True,
+        )
+        self._render_thread.start()
         self._thread.start()
-        self.wait_for_frame(timeout=10.0)
+        try:
+            self.wait_for_sam_frame(timeout=10.0)
+            self.wait_for_prefmem_frame(timeout=10.0)
+        except BaseException:
+            self.close()
+            raise
 
     def close(self, *, timeout: float = 5.0) -> None:
         self._stop_event.set()
+        with self._render_condition:
+            self._pending_render_snapshot = None
+            self._render_condition.notify_all()
         with self._frame_condition:
             self._frame_condition.notify_all()
-        thread = self._thread
-        if thread is not None and thread is not threading.current_thread():
-            thread.join(timeout=max(0.0, timeout))
+        deadline = time.monotonic() + max(0.0, timeout)
+        for thread in (self._thread, self._render_thread):
+            if thread is not None and thread is not threading.current_thread():
+                thread.join(timeout=max(0.0, deadline - time.monotonic()))
 
     def reset(self) -> None:
+        render_snapshot: _RenderStateSnapshot | None = None
         with self._lock:
             self._reset_locked()
+            if self._render_thread is not None and self._render_thread.is_alive():
+                render_snapshot = self._capture_render_snapshot_locked()
+            self._frame_condition.notify_all()
+        if render_snapshot is not None:
+            self._submit_render_snapshot(render_snapshot)
 
-    def rgbd_frame(self) -> RGBDFrame:
+    @property
+    def periodic_rendering_paused(self) -> bool:
+        with self._lock:
+            return self._periodic_rendering_paused
+
+    def pause_periodic_rendering(self, *, timeout: float = 10.0) -> None:
+        """Pause scheduled camera pairs without pausing physics.
+
+        Controller-only evidence runs may use this after their frozen initial
+        endpoint because neither model-facing stream has a consumer during
+        motion. Explicit endpoint requests remain available while paused.
+        """
+
+        if not np.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
+        with self._lock:
+            self._periodic_rendering_paused = True
+        deadline = time.monotonic() + timeout
+        with self._render_condition:
+            self._pending_render_snapshot = None
+            while self._render_in_flight:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(
+                        "timed out pausing periodic simulation rendering"
+                    )
+                self._render_condition.wait(remaining)
+
+    def resume_periodic_rendering(self) -> None:
+        """Resume scheduled pairs and immediately offer the current state."""
+
+        render_snapshot: _RenderStateSnapshot | None = None
+        with self._lock:
+            if not self._periodic_rendering_paused:
+                return
+            self._periodic_rendering_paused = False
+            if self._render_thread is not None and self._render_thread.is_alive():
+                render_snapshot = self._capture_render_snapshot_locked()
+        if render_snapshot is not None:
+            self._submit_render_snapshot(render_snapshot)
+
+    def render_camera_pair(
+        self,
+        *,
+        timeout: float = 10.0,
+    ) -> tuple[RGBDFrame, RGBDFrame]:
+        """Render and wait for one current synchronized SAM/PrefMem pair."""
+
+        if not np.isfinite(timeout) or timeout <= 0:
+            raise ValueError("timeout must be finite and positive")
+        with self._lock:
+            if self._thread_error is not None:
+                raise RuntimeError("the simulation thread failed") from self._thread_error
+            if self._render_thread is None or not self._render_thread.is_alive():
+                raise RuntimeError("the simulation render worker is not running")
+            snapshot = self._capture_render_snapshot_locked()
+        self._submit_render_snapshot(snapshot)
+        deadline = time.monotonic() + timeout
+        with self._frame_condition:
+            while True:
+                if self._thread_error is not None:
+                    raise RuntimeError(
+                        "the simulation thread failed"
+                    ) from self._thread_error
+                if snapshot.state_revision != self._state_revision:
+                    raise RuntimeError(
+                        "the simulator reset during an explicit camera request"
+                    )
+                if (
+                    self._last_published_render_submission
+                    >= snapshot.submission_id
+                    and self._last_published_state_revision
+                    == snapshot.state_revision
+                    and self._latest_sam_frame is not None
+                    and self._latest_prefmem_frame is not None
+                ):
+                    return (
+                        self._latest_sam_frame,
+                        self._latest_prefmem_frame,
+                    )
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError(
+                        "timed out waiting for an explicit simulation camera pair"
+                    )
+                self._frame_condition.wait(remaining)
+
+    def sam_rgbd_frame(self) -> RGBDFrame:
+        """Return the newest robot-hidden RGB-D frame supplied only to SAM."""
+
         with self._lock:
             if self._thread_error is not None:
                 raise RuntimeError(
                     "the simulation thread failed"
                 ) from self._thread_error
-            if self._latest_frame is None:
-                raise RuntimeError("the simulator has not rendered a frame yet")
-            return self._latest_frame
+            if self._latest_sam_frame is None:
+                raise RuntimeError("the simulator has not rendered a SAM frame yet")
+            return self._latest_sam_frame
+
+    def prefmem_rgbd_frame(self) -> RGBDFrame:
+        """Return the newest third-person RGB-D frame used by PrefMem."""
+
+        with self._lock:
+            if self._thread_error is not None:
+                raise RuntimeError(
+                    "the simulation thread failed"
+                ) from self._thread_error
+            if self._latest_prefmem_frame is None:
+                raise RuntimeError("the simulator has not rendered a PrefMem frame yet")
+            return self._latest_prefmem_frame
+
+    def rgbd_frame(self) -> RGBDFrame:
+        """Backward-compatible alias for the executor/SAM RGB-D stream."""
+
+        return self.sam_rgbd_frame()
+
+    def sam_captured_frame(self):
+        return self.sam_rgbd_frame().captured_frame()
+
+    def prefmem_captured_frame(self):
+        return self.prefmem_rgbd_frame().captured_frame()
 
     def captured_frame(self):
-        return self.rgbd_frame().captured_frame()
+        """Backward-compatible alias for PrefMem's model-facing stream."""
+
+        return self.prefmem_captured_frame()
+
+    def wait_for_sam_frame(
+        self,
+        *,
+        after_sequence: int = -1,
+        timeout: float = 5.0,
+    ) -> RGBDFrame:
+        return self._wait_for_stream(
+            "SAM",
+            lambda: self._latest_sam_frame,
+            after_sequence=after_sequence,
+            timeout=timeout,
+        )
+
+    def wait_for_prefmem_frame(
+        self,
+        *,
+        after_sequence: int = -1,
+        timeout: float = 5.0,
+    ) -> RGBDFrame:
+        return self._wait_for_stream(
+            "PrefMem",
+            lambda: self._latest_prefmem_frame,
+            after_sequence=after_sequence,
+            timeout=timeout,
+        )
 
     def wait_for_frame(
         self,
@@ -204,19 +439,35 @@ class StackingEnvironment:
         after_sequence: int = -1,
         timeout: float = 5.0,
     ) -> RGBDFrame:
+        """Backward-compatible wait for the executor/SAM RGB-D stream."""
+
+        return self.wait_for_sam_frame(
+            after_sequence=after_sequence,
+            timeout=timeout,
+        )
+
+    def _wait_for_stream(
+        self,
+        stream_name: str,
+        frame_getter: Callable[[], RGBDFrame | None],
+        *,
+        after_sequence: int,
+        timeout: float,
+    ) -> RGBDFrame:
         deadline = time.monotonic() + timeout
         with self._frame_condition:
-            while (
-                self._latest_frame is None
-                or self._latest_frame.sequence <= after_sequence
-            ):
+            frame = frame_getter()
+            while frame is None or frame.sequence <= after_sequence:
                 if self._thread_error is not None:
                     raise RuntimeError("the simulation thread failed") from self._thread_error
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
-                    raise TimeoutError("timed out waiting for a simulation frame")
+                    raise TimeoutError(
+                        f"timed out waiting for a {stream_name} simulation frame"
+                    )
                 self._frame_condition.wait(remaining)
-            return self._latest_frame
+                frame = frame_getter()
+            return frame
 
     def set_control(
         self,
@@ -309,6 +560,45 @@ class StackingEnvironment:
             self.data.qvel[velocity_address : velocity_address + 6] = 0.0
             mujoco.mj_forward(self.model, self.data)
 
+    def _resolve_camera_id(
+        self,
+        name: str,
+        *,
+        fallback: str,
+        stream_name: str,
+    ) -> int:
+        camera_id = mujoco.mj_name2id(
+            self.model,
+            mujoco.mjtObj.mjOBJ_CAMERA,
+            name,
+        )
+        if camera_id >= 0:
+            return int(camera_id)
+        camera_id = mujoco.mj_name2id(
+            self.model,
+            mujoco.mjtObj.mjOBJ_CAMERA,
+            fallback,
+        )
+        if camera_id < 0:
+            raise RuntimeError(
+                f"stacking scene has no {name!r} camera for the {stream_name} "
+                f"stream and no legacy {fallback!r} fallback"
+            )
+        return int(camera_id)
+
+    def _detect_reset_profile(self) -> str:
+        board_ids = (
+            mujoco.mj_name2id(
+                self.model,
+                mujoco.mjtObj.mjOBJ_GEOM,
+                name,
+            )
+            for name in ("white_board", "cyan_board")
+        )
+        if all(object_id >= 0 for object_id in board_ids):
+            return "TB6C_V00"
+        return "LEGACY_RANDOM"
+
     def _joint_qpos_addresses(self, names: tuple[str, ...]) -> tuple[int, ...]:
         result: list[int] = []
         for name in names:
@@ -340,28 +630,36 @@ class StackingEnvironment:
         return int(self.model.jnt_qposadr[joint_id])
 
     def _reset_locked(self) -> None:
+        self._state_revision += 1
         mujoco.mj_resetData(self.model, self.data)
         self.data.qpos[list(self._arm_qpos_addresses)] = HOME_QPOS[:7]
         self.data.qpos[list(self._finger_qpos_addresses)] = HOME_QPOS[7:]
         self._control_target[:7] = HOME_QPOS[:7]
         self._control_target[7] = 0.04
         self.data.ctrl[:] = self._control_target
-        positions = self._sample_task_positions()
-        for name, point in zip(TASK_BLOCKS, positions, strict=True):
+        if self._reset_profile == "TB6C_V00":
+            block_positions = TB6C_V00_POSITIONS
+        else:
+            task_positions = self._sample_task_positions()
+            block_positions = tuple(
+                (name, (*point, 0.026))
+                for name, point in zip(TASK_BLOCKS, task_positions, strict=True)
+            ) + tuple(
+                (name, (*point, 0.056))
+                for name, point in zip(
+                    STORED_BLOCKS,
+                    ((-1.30, -0.72), (-1.15, -0.72), (-1.00, -0.72)),
+                    strict=True,
+                )
+            )
+        for name, point in block_positions:
             address = self._freejoint_qpos_address(name)
-            self.data.qpos[address : address + 3] = (*point, 0.026)
-            self.data.qpos[address + 3 : address + 7] = (1.0, 0.0, 0.0, 0.0)
-        for name, point in zip(
-            STORED_BLOCKS,
-            ((-1.30, -0.72), (-1.15, -0.72), (-1.00, -0.72)),
-            strict=True,
-        ):
-            address = self._freejoint_qpos_address(name)
-            self.data.qpos[address : address + 3] = (*point, 0.056)
+            self.data.qpos[address : address + 3] = point
             self.data.qpos[address + 3 : address + 7] = (1.0, 0.0, 0.0, 0.0)
         self.data.qvel[:] = 0.0
         mujoco.mj_forward(self.model, self.data)
-        self._latest_frame = None
+        self._latest_sam_frame = None
+        self._latest_prefmem_frame = None
 
     def _sample_task_positions(self) -> tuple[tuple[float, float], ...]:
         positions: list[tuple[float, float]] = []
@@ -388,12 +686,8 @@ class StackingEnvironment:
         return tuple(positions)
 
     def _run(self) -> None:
-        renderer = None
         viewer = None
         try:
-            renderer = mujoco.Renderer(
-                self.model, height=self.height, width=self.width
-            )
             if self.viewer_enabled:
                 try:
                     from mujoco import viewer as mj_viewer
@@ -413,13 +707,24 @@ class StackingEnvironment:
                     viewer = None
             render_period = 1.0 / self.render_hz
             next_render = 0.0
-            wall_start = time.monotonic() - float(self.data.time)
+            schedule_revision = -1
+            wall_start = time.monotonic()
             while not self._stop_event.is_set():
+                render_snapshot: _RenderStateSnapshot | None = None
                 with self._lock:
+                    if schedule_revision != self._state_revision:
+                        schedule_revision = self._state_revision
+                        next_render = 0.0
+                        # Reset rewinds MuJoCo time.  Rebase real-time pacing so
+                        # the physics thread does not wait for the old epoch.
+                        wall_start = time.monotonic() - float(self.data.time)
                     self.data.ctrl[:] = self._control_target
                     mujoco.mj_step(self.model, self.data)
                     if self.data.time >= next_render:
-                        self._render_locked(renderer)
+                        if not self._periodic_rendering_paused:
+                            render_snapshot = (
+                                self._capture_render_snapshot_locked()
+                            )
                         next_render = self.data.time + render_period
                     if viewer is not None:
                         if viewer.is_running():
@@ -428,27 +733,30 @@ class StackingEnvironment:
                             viewer.close()
                             viewer = None
                     simulation_time = float(self.data.time)
+                if render_snapshot is not None:
+                    self._submit_render_snapshot(render_snapshot)
                 if self.realtime:
                     delay = wall_start + simulation_time - time.monotonic()
                     if delay > 0:
                         self._stop_event.wait(min(delay, 0.01))
         except BaseException as error:
-            with self._frame_condition:
-                self._thread_error = error
-                self._frame_condition.notify_all()
+            self._record_thread_error(error)
         finally:
             if viewer is not None:
                 viewer.close()
-            if renderer is not None:
-                renderer.close()
 
     def _configure_viewer(self, viewer) -> None:
-        """Configure only the interactive view; task rendering is independent."""
+        """Configure only the interactive view; both model streams are independent."""
 
-        if self.viewer_camera == "task":
+        if self.viewer_camera == "sam":
             viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
-            viewer.cam.fixedcamid = self._camera_id
-            viewer.opt.geomgroup[2] = 0
+            viewer.cam.fixedcamid = self._sam_camera_id
+            self._copy_scene_option(viewer.opt, self._sam_scene_option)
+            return
+        if self.viewer_camera in {"task", "prefmem"}:
+            viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+            viewer.cam.fixedcamid = self._prefmem_camera_id
+            self._copy_scene_option(viewer.opt, self._prefmem_scene_option)
             return
         viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FREE
         viewer.cam.fixedcamid = -1
@@ -457,43 +765,205 @@ class StackingEnvironment:
         viewer.cam.azimuth = 145
         viewer.cam.elevation = -28
         viewer.opt.geomgroup[2] = 1
+        viewer.opt.geomgroup[3] = 0
 
-    def _render_locked(self, renderer: mujoco.Renderer) -> None:
+    @staticmethod
+    def _copy_scene_option(target, source: mujoco.MjvOption) -> None:
+        """Copy supported visualization arrays into a viewer option object."""
+
+        target.geomgroup[:] = source.geomgroup
+        for name in ("sitegroup", "jointgroup", "tendongroup", "actuatorgroup", "flags"):
+            target_value = getattr(target, name, None)
+            source_value = getattr(source, name, None)
+            if target_value is not None and source_value is not None:
+                target_value[:] = source_value
+
+    def _capture_render_snapshot_locked(self) -> _RenderStateSnapshot:
+        """Copy authoritative state quickly while the physics lock is held."""
+
+        render_data = mujoco.MjData(self.model)
+        mujoco.mj_copyData(render_data, self.model, self.data)
+        self._render_submission_id += 1
+        return _RenderStateSnapshot(
+            state_revision=self._state_revision,
+            submission_id=self._render_submission_id,
+            observed_at=time.monotonic(),
+            simulation_time=float(self.data.time),
+            data=render_data,
+        )
+
+    def _submit_render_snapshot(self, snapshot: _RenderStateSnapshot) -> None:
+        """Offer the newest scheduled camera state to the render worker.
+
+        Camera consumers need current evidence, not a backlog.  If rendering is
+        slower than the requested stream rate, replace only an unconsumed
+        snapshot; the worker's in-flight snapshot remains immutable.  Reset
+        revisions take precedence, so an old physics iteration cannot replace
+        a newer post-reset request after releasing the environment lock.
+        """
+
+        with self._render_condition:
+            if self._stop_event.is_set():
+                return
+            pending = self._pending_render_snapshot
+            if pending is not None and (
+                snapshot.state_revision,
+                snapshot.submission_id,
+            ) <= (
+                pending.state_revision,
+                pending.submission_id,
+            ):
+                return
+            self._pending_render_snapshot = snapshot
+            self._render_condition.notify_all()
+
+    def _render_loop(self) -> None:
+        renderer: mujoco.Renderer | None = None
+        try:
+            renderer = mujoco.Renderer(
+                self.model,
+                height=self.height,
+                width=self.width,
+            )
+            while True:
+                with self._render_condition:
+                    while (
+                        self._pending_render_snapshot is None
+                        and not self._stop_event.is_set()
+                    ):
+                        self._render_condition.wait()
+                    if self._stop_event.is_set():
+                        self._pending_render_snapshot = None
+                        return
+                    snapshot = self._pending_render_snapshot
+                    self._pending_render_snapshot = None
+                    self._render_in_flight = True
+                assert snapshot is not None
+                try:
+                    sam_render, prefmem_render = self._render_snapshot_pair(
+                        renderer,
+                        snapshot,
+                    )
+                    with self._frame_condition:
+                        # Rendering is intentionally outside the physics lock.
+                        # A reset may complete while pixels are in flight;
+                        # never let that old frame repopulate the cleared
+                        # post-reset streams.
+                        if snapshot.state_revision != self._state_revision:
+                            continue
+                        if (
+                            snapshot.submission_id
+                            <= self._last_published_render_submission
+                        ):
+                            continue
+                        self._sam_frame_sequence += 1
+                        self._prefmem_frame_sequence += 1
+                        sam_frame = RGBDFrame(
+                            rgb=sam_render.rgb,
+                            depth_m=sam_render.depth_m,
+                            calibration=sam_render.calibration,
+                            observed_at=snapshot.observed_at,
+                            sequence=self._sam_frame_sequence,
+                            simulation_time=snapshot.simulation_time,
+                        )
+                        prefmem_frame = RGBDFrame(
+                            rgb=prefmem_render.rgb,
+                            depth_m=prefmem_render.depth_m,
+                            calibration=prefmem_render.calibration,
+                            observed_at=snapshot.observed_at,
+                            sequence=self._prefmem_frame_sequence,
+                            simulation_time=snapshot.simulation_time,
+                        )
+                        # Publish the synchronized pair atomically. Consumers
+                        # can never observe cameras from different snapshots.
+                        self._latest_sam_frame = sam_frame
+                        self._latest_prefmem_frame = prefmem_frame
+                        self._last_published_render_submission = (
+                            snapshot.submission_id
+                        )
+                        self._last_published_state_revision = (
+                            snapshot.state_revision
+                        )
+                        self._frame_condition.notify_all()
+                finally:
+                    with self._render_condition:
+                        self._render_in_flight = False
+                        self._render_condition.notify_all()
+        except BaseException as error:
+            self._record_thread_error(error)
+        finally:
+            with self._render_condition:
+                self._render_in_flight = False
+                self._render_condition.notify_all()
+            if renderer is not None:
+                renderer.close()
+
+    def _render_snapshot_pair(
+        self,
+        renderer: mujoco.Renderer,
+        snapshot: _RenderStateSnapshot,
+    ) -> tuple[_RenderedStream, _RenderedStream]:
+        sam = self._render_rgbd_snapshot(
+            renderer,
+            snapshot.data,
+            camera_id=self._sam_camera_id,
+            scene_option=self._sam_scene_option,
+        )
+        prefmem = self._render_rgbd_snapshot(
+            renderer,
+            snapshot.data,
+            camera_id=self._prefmem_camera_id,
+            scene_option=self._prefmem_scene_option,
+        )
+        return sam, prefmem
+
+    def _render_rgbd_snapshot(
+        self,
+        renderer: mujoco.Renderer,
+        render_data: mujoco.MjData,
+        *,
+        camera_id: int,
+        scene_option: mujoco.MjvOption,
+    ) -> _RenderedStream:
         renderer.disable_depth_rendering()
         renderer.update_scene(
-            self.data,
-            camera=self._camera_id,
-            scene_option=self._task_scene_option,
+            render_data,
+            camera=camera_id,
+            scene_option=scene_option,
         )
         rgb = renderer.render().copy()
         renderer.enable_depth_rendering()
         renderer.update_scene(
-            self.data,
-            camera=self._camera_id,
-            scene_option=self._task_scene_option,
+            render_data,
+            camera=camera_id,
+            scene_option=scene_option,
         )
         depth = renderer.render().copy().astype(np.float32)
         renderer.disable_depth_rendering()
 
-        rotation = self.data.cam_xmat[self._camera_id].reshape(3, 3).copy()
-        position = self.data.cam_xpos[self._camera_id].copy()
+        rotation = render_data.cam_xmat[camera_id].reshape(3, 3).copy()
+        position = render_data.cam_xpos[camera_id].copy()
         calibration = CameraCalibration.from_fovy(
             width=self.width,
             height=self.height,
-            fovy_degrees=float(self.model.cam_fovy[self._camera_id]),
+            fovy_degrees=float(self.model.cam_fovy[camera_id]),
             camera_position=position,
             camera_rotation=rotation,
         )
-        self._frame_sequence += 1
-        self._latest_frame = RGBDFrame(
+        return _RenderedStream(
             rgb=rgb,
             depth_m=depth,
             calibration=calibration,
-            observed_at=time.monotonic(),
-            sequence=self._frame_sequence,
-            simulation_time=float(self.data.time),
         )
-        self._frame_condition.notify_all()
+
+    def _record_thread_error(self, error: BaseException) -> None:
+        with self._frame_condition:
+            if self._thread_error is None:
+                self._thread_error = error
+            self._stop_event.set()
+            self._frame_condition.notify_all()
+        with self._render_condition:
+            self._render_condition.notify_all()
 
 
 __all__ = [
@@ -502,4 +972,5 @@ __all__ = [
     "InMemoryTaskPublisher",
     "SimulationSnapshot",
     "StackingEnvironment",
+    "TB6C_V00_POSITIONS",
 ]

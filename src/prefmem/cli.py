@@ -11,12 +11,14 @@ from urllib.parse import urlsplit
 DEFAULT_DATASET = Path("dataset/v3")
 DEFAULT_TRANSCRIPT = Path("transcripts/transcript.txt")
 DEFAULT_MEMORY_STORE = Path("./memory_store")
-DEFAULT_MODEL = "gemma4:31b-cloud"
-DEFAULT_MODEL_PROVIDER = "ollama"
+DEFAULT_MODEL = "/workspace/models/gemma-4-26B-A4B-it"
+DEFAULT_MODEL_PROVIDER = "vllm"
 DEFAULT_VLLM_BASE_URL = "http://localhost:8000/v1"
 DEFAULT_CAMERA_BASE_URL = "http://127.0.0.1:1234"
 DEFAULT_SAM_BASE_URL = "http://127.0.0.1:9000"
-DEFAULT_EXECUTION_MODEL = "/workspace/models/gemma-4-26B-A4B-it"
+DEFAULT_EXECUTION_MODEL = DEFAULT_MODEL
+DEFAULT_EMBEDDING_MODEL = "/workspace/models/embeddinggemma-300m"
+DEFAULT_EMBEDDING_BASE_URL = "http://127.0.0.1:8080/v1"
 MAX_SIMULATION_RENDER_SIZE = 1024
 
 
@@ -158,6 +160,16 @@ def build_parser() -> argparse.ArgumentParser:
         choices=("vllm", "ollama"),
         default="vllm",
     )
+    parser.add_argument(
+        "--embedding-model",
+        default=DEFAULT_EMBEDDING_MODEL,
+        help="Pinned EmbeddingGemma model ID used by preference retrieval.",
+    )
+    parser.add_argument(
+        "--embedding-model-base-url",
+        default=DEFAULT_EMBEDDING_BASE_URL,
+        help="OpenAI-compatible EmbeddingGemma endpoint.",
+    )
 
     parser.add_argument("--interactive", action="store_true")
     parser.add_argument("--query-file", type=Path, default=None)
@@ -196,6 +208,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Forwarded SAM 3.1 service used by the MuJoCo executor.",
     )
     parser.add_argument("--sam-threshold", type=_probability, default=0.5)
+    parser.add_argument(
+        "--experiment-oracle-grounding-fallback",
+        action="store_true",
+        help=(
+            "After a typed SAM/3-D grounding failure in MuJoCo experiments, "
+            "continue with explicitly labelled simulator truth while retaining "
+            "the strict system failure. Disabled by default."
+        ),
+    )
     parser.add_argument("--execution-model", default=DEFAULT_EXECUTION_MODEL)
     parser.add_argument(
         "--execution-model-base-url",
@@ -221,11 +242,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--simulation-viewer-camera",
-        choices=("task", "overview"),
+        choices=("sam", "prefmem", "task", "overview"),
         default="overview",
         help=(
             "Initial MuJoCo viewer camera. 'overview' is freely navigable and "
-            "shows the robot; 'task' matches Monitor and is fixed."
+            "shows the robot; 'sam' shows the robot-hidden detector RGB-D view; "
+            "'prefmem' shows the fixed third-person agent view. 'task' is a "
+            "backward-compatible alias for 'prefmem'."
         ),
     )
     parser.add_argument(
@@ -258,6 +281,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--monitor-timeout",
         type=_positive_float,
         default=30.0,
+    )
+    parser.add_argument(
+        "--auto-timeout-replan",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Automatically retire a no-progress STEP publication and plan "
+            "again; disable for the ATTENTION_GATE ablation."
+        ),
+    )
+    parser.add_argument(
+        "--max-consecutive-timeout-replans",
+        type=_integer_at_least(1),
+        default=2,
+        metavar="COUNT",
+    )
+    parser.add_argument(
+        "--max-timeout-replans-per-instruction",
+        type=_integer_at_least(1),
+        default=2,
+        metavar="COUNT",
     )
     parser.add_argument(
         "--success-confirmations",
@@ -293,6 +337,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             parser.error(str(error))
     elif args.model_provider == "vllm":
         args.model_base_url = DEFAULT_VLLM_BASE_URL
+    if not isinstance(args.model, str) or not args.model.strip():
+        parser.error("--model must be non-empty")
+    args.model = args.model.strip()
 
     try:
         args.camera_base_url = _http_url(args.camera_base_url, allow_path=False)
@@ -302,12 +349,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         args.sam_base_url = _loopback_http_url(args.sam_base_url)
     except argparse.ArgumentTypeError as error:
         parser.error(f"--sam-base-url {error}")
+    if args.experiment_oracle_grounding_fallback and args.executor != "mujoco":
+        parser.error(
+            "--experiment-oracle-grounding-fallback requires --executor mujoco"
+        )
     try:
         args.execution_model_base_url = _http_url(
             args.execution_model_base_url
         )
     except argparse.ArgumentTypeError as error:
         parser.error(f"--execution-model-base-url {error}")
+    try:
+        args.embedding_model_base_url = _http_url(
+            args.embedding_model_base_url
+        )
+    except argparse.ArgumentTypeError as error:
+        parser.error(f"--embedding-model-base-url {error}")
+    if not isinstance(args.embedding_model, str) or not args.embedding_model.strip():
+        parser.error("--embedding-model must be non-empty")
+    args.embedding_model = args.embedding_model.strip()
     if args.success_stability_seconds < 0:
         parser.error("--success-stability-seconds must be non-negative")
 
@@ -350,6 +410,8 @@ def main(argv: Sequence[str] | None = None) -> None:
 __all__ = [
     "DEFAULT_CAMERA_BASE_URL",
     "DEFAULT_DATASET",
+    "DEFAULT_EMBEDDING_BASE_URL",
+    "DEFAULT_EMBEDDING_MODEL",
     "DEFAULT_EXECUTION_MODEL",
     "DEFAULT_MODEL",
     "DEFAULT_MODEL_PROVIDER",

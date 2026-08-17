@@ -15,11 +15,13 @@ from prefmem.agents.planner import (
 from prefmem.contracts import (
     ExecutionOutcome,
     ExecutionRecord,
+    ExecutionTerminationContext,
     GoalContract,
     PlanStatus,
     PlannerCycleRequest,
     PlannerDecisionType,
     PlannerTrigger,
+    TerminationCriterion,
 )
 
 
@@ -123,6 +125,61 @@ def act_json(**updates) -> str:
 
 
 class PlannerJsonTests(unittest.TestCase):
+    def test_legacy_execution_record_loads_without_termination_context(self) -> None:
+        payload = {
+            "cycle_id": 1,
+            "publication_id": "tower-1:c1:a1",
+            "instruction": "Place the green block on the red block.",
+            "expected_observation": [
+                "The green block rests centrally on the red block."
+            ],
+            "outcome": "FAIL",
+            "observation": "The two-block stack collapsed.",
+            "failure_reason": "The green block slid off after release.",
+            "evidence_frame_sequence": 17,
+        }
+
+        record = ExecutionRecord.from_dict(payload)
+
+        self.assertIsNone(record.termination_context)
+        self.assertEqual(record.outcome, ExecutionOutcome.FAIL)
+
+    def test_timeout_termination_context_round_trips(self) -> None:
+        record = ExecutionRecord(
+            cycle_id=1,
+            publication_id="tower-1:c1:a1",
+            instruction="Place the green block on the red block.",
+            expected_observation=(
+                "The green block rests centrally on the red block.",
+            ),
+            outcome=ExecutionOutcome.INTERRUPTED,
+            observation="The target remained occluded.",
+            evidence_frame_sequence=17,
+            termination_context=ExecutionTerminationContext(
+                kind="MONITOR_TIMEOUT",
+                timeout_seconds=30,
+                elapsed_no_progress_seconds=31,
+                last_progress_at=100,
+                last_frame_sequence=17,
+                last_assessment_disposition="ACCEPTED",
+                criteria=(
+                    TerminationCriterion(
+                        criterion_id="tower-1:c1:criterion-1",
+                        state="UNKNOWN",
+                    ),
+                ),
+                prior_publication_id="tower-1:c1:a1",
+            ),
+        )
+
+        restored = ExecutionRecord.from_dict(record.to_dict())
+
+        self.assertEqual(restored, record)
+        self.assertEqual(
+            restored.termination_context.criteria[0].state.value,
+            "UNKNOWN",
+        )
+
     def test_parser_tolerates_fence_and_ghost_thinking(self) -> None:
         response = AIMessage(
             content=(

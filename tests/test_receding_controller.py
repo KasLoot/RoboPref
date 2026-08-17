@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import threading
 
 from prefmem.contracts import (
     GoalContract,
@@ -8,10 +9,12 @@ from prefmem.contracts import (
     PlannerDecision,
 )
 from prefmem.controller import (
+    AttentionKind,
     InvalidTransitionError,
     RecedingControllerState,
     RecedingHorizonController,
     RecedingResult,
+    TimeoutPolicy,
 )
 
 
@@ -302,10 +305,16 @@ class RecedingHorizonControllerTests(unittest.TestCase):
         self.assertIs(completed.result, RecedingResult.COMPLETE)
         self.assertIs(self.controller.snapshot.state, RecedingControllerState.COMPLETE)
 
-    def test_old_publication_is_ignored_after_resume(self) -> None:
+    def test_attention_gate_can_resume_with_a_new_publication(self) -> None:
+        self.controller = RecedingHorizonController(
+            ongoing_timeout_seconds=10.0,
+            timeout_policy=TimeoutPolicy.ATTENTION_GATE,
+            clock=self.clock,
+        )
         old_task = self.start_task()
         self.clock.advance(10.0)
-        self.assertIsNotNone(self.controller.check_timeout())
+        timeout = self.controller.check_timeout()
+        self.assertIs(timeout.result, RecedingResult.NEEDS_ATTENTION)
         new_task = self.controller.resume_after_attention(
             frame_sequence=20
         ).task_to_publish
@@ -315,6 +324,266 @@ class RecedingHorizonControllerTests(unittest.TestCase):
             assessment(old_task, when=self.clock.value, frame=21, status="SUCCESS")
         )
         self.assertIs(stale.result, RecedingResult.IGNORED_STALE)
+
+    def test_step_timeout_records_interrupted_and_requests_fresh_cycle_once(self) -> None:
+        task = self.start_task()
+        self.clock.advance(0.1)
+        accepted = self.controller.record_assessment(
+            assessment(
+                task,
+                when=self.clock.value,
+                frame=11,
+                status="ONGOING",
+                state="UNKNOWN",
+            )
+        )
+        self.assertIs(accepted.result, RecedingResult.ACCEPTED)
+        self.clock.advance(9.9)
+
+        timeout = self.controller.check_timeout(
+            publication_id=task.publication_id
+        )
+
+        self.assertIs(timeout.result, RecedingResult.REPLAN_REQUESTED)
+        self.assertIs(timeout.task_to_retire, task)
+        self.assertEqual(timeout.planner_request.trigger.value, "MONITOR_TIMEOUT")
+        self.assertEqual(timeout.planner_request.cycle_id, 2)
+        self.assertEqual(len(timeout.snapshot.execution_history), 1)
+        record = timeout.snapshot.execution_history[0]
+        self.assertEqual(record.outcome.value, "INTERRUPTED")
+        self.assertEqual(record.observation, "The block is temporarily occluded.")
+        self.assertIsNone(record.failure_reason)
+        self.assertEqual(record.evidence_frame_sequence, 11)
+        self.assertEqual(
+            record.termination_context.to_dict(),
+            {
+                "kind": "MONITOR_TIMEOUT",
+                "timeout_seconds": 10.0,
+                "elapsed_no_progress_seconds": 10.0,
+                "last_progress_at": 100.0,
+                "last_frame_sequence": 11,
+                "last_assessment_disposition": "ACCEPTED",
+                "criteria": [
+                    {
+                        "id": task.expected_observation[0].criterion_id,
+                        "state": "UNKNOWN",
+                    }
+                ],
+                "prior_publication_id": task.publication_id,
+            },
+        )
+        self.assertIsNone(
+            self.controller.check_timeout(publication_id=task.publication_id)
+        )
+        self.assertEqual(len(self.controller.snapshot.execution_history), 1)
+
+    def test_timeout_without_assessment_uses_truthful_observation(self) -> None:
+        task = self.start_task()
+        self.clock.advance(10.0)
+
+        timeout = self.controller.check_timeout()
+
+        record = timeout.snapshot.execution_history[-1]
+        self.assertEqual(record.observation, "No conclusive post-state was observed.")
+        self.assertEqual(record.termination_context.criteria, ())
+        self.assertIsNone(
+            record.termination_context.last_assessment_disposition
+        )
+        self.assertIs(timeout.task_to_retire, task)
+
+    def test_concurrent_timeout_polls_are_idempotent(self) -> None:
+        task = self.start_task()
+        self.clock.advance(10.0)
+        barrier = threading.Barrier(3)
+        results = []
+
+        def poll() -> None:
+            barrier.wait()
+            results.append(
+                self.controller.check_timeout(
+                    now=self.clock.value,
+                    publication_id=task.publication_id,
+                )
+            )
+
+        threads = [threading.Thread(target=poll) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        barrier.wait()
+        for thread in threads:
+            thread.join(timeout=2.0)
+
+        self.assertEqual(
+            sum(item is not None for item in results),
+            1,
+        )
+        self.assertEqual(len(self.controller.snapshot.execution_history), 1)
+        self.assertEqual(
+            self.controller.snapshot.pending_request.trigger.value,
+            "MONITOR_TIMEOUT",
+        )
+
+    def test_late_old_publication_assessments_are_stale_after_timeout(self) -> None:
+        old_task = self.start_task()
+        self.clock.advance(10.0)
+        timeout = self.controller.check_timeout()
+
+        for status in ("SUCCESS", "FAIL"):
+            with self.subTest(status=status):
+                stale = self.controller.record_assessment(
+                    assessment(
+                        old_task,
+                        when=self.clock.advance(0.1),
+                        frame=20 if status == "SUCCESS" else 21,
+                        status=status,
+                    )
+                )
+                self.assertIs(stale.result, RecedingResult.IGNORED_STALE)
+
+        replacement = self.controller.apply_planner_decision(
+            timeout.planner_request,
+            act("Place the red block beside the blue block."),
+        ).task_to_publish
+        stale = self.controller.record_assessment(
+            assessment(
+                old_task,
+                when=self.clock.advance(0.1),
+                frame=22,
+                status="SUCCESS",
+            )
+        )
+        self.assertIs(stale.result, RecedingResult.IGNORED_STALE)
+        self.assertEqual(
+            self.controller.snapshot.current_task.publication_id,
+            replacement.publication_id,
+        )
+
+    def test_final_validation_timeout_remains_attention_without_history(self) -> None:
+        self.controller.stage_goal(self.goal)
+        planning = self.controller.confirm_goal(self.goal, confirmed=True)
+        transition = self.controller.apply_planner_decision(
+            planning.planner_request,
+            PlannerDecision.from_dict(
+                {
+                    "decision": "REQUEST_FINAL_VALIDATION",
+                    "candidate_tasks": [],
+                    "reason": "The goal appears satisfied.",
+                    "blocked_reason": None,
+                    "user_question": None,
+                }
+            ),
+        )
+        task = transition.task_to_publish
+        self.clock.advance(10.0)
+
+        timeout = self.controller.check_timeout()
+
+        self.assertIs(timeout.result, RecedingResult.NEEDS_ATTENTION)
+        self.assertIs(timeout.task_to_retire, task)
+        self.assertIs(timeout.snapshot.attention_kind, AttentionKind.NO_PROGRESS)
+        self.assertEqual(timeout.snapshot.execution_history, ())
+        self.assertIsNone(timeout.planner_request)
+
+    def test_consecutive_timeout_guard_stops_replan_loop(self) -> None:
+        task = self.start_task()
+        for expected_count in (1, 2):
+            self.clock.advance(10.0)
+            timeout = self.controller.check_timeout()
+            self.assertIs(timeout.result, RecedingResult.REPLAN_REQUESTED)
+            self.assertEqual(
+                timeout.snapshot.consecutive_timeout_replans,
+                expected_count,
+            )
+            task = self.controller.apply_planner_decision(
+                timeout.planner_request,
+                act(),
+            ).task_to_publish
+
+        self.clock.advance(10.0)
+        guarded = self.controller.check_timeout()
+
+        self.assertIs(guarded.result, RecedingResult.NEEDS_ATTENTION)
+        self.assertIs(guarded.snapshot.attention_kind, AttentionKind.LOOP_GUARD)
+        self.assertIn("Consecutive", guarded.snapshot.attention_reason)
+        self.assertIn(task.instruction, guarded.snapshot.attention_reason)
+        self.assertEqual(len(guarded.snapshot.execution_history), 2)
+
+    def test_stable_success_resets_consecutive_timeout_guard(self) -> None:
+        self.controller = RecedingHorizonController(
+            success_confirmations=2,
+            success_stability_seconds=0.0,
+            ongoing_timeout_seconds=10.0,
+            max_consecutive_timeout_replans=1,
+            max_timeout_replans_per_instruction=3,
+            clock=self.clock,
+        )
+        self.start_task()
+        self.clock.advance(10.0)
+        timeout = self.controller.check_timeout()
+        successful_task = self.controller.apply_planner_decision(
+            timeout.planner_request,
+            act("Place the red block upright."),
+        ).task_to_publish
+        for frame in (21, 22):
+            success = self.controller.record_assessment(
+                assessment(
+                    successful_task,
+                    when=self.clock.advance(0.1),
+                    frame=frame,
+                    status="SUCCESS",
+                )
+            )
+        self.assertIs(success.result, RecedingResult.REPLAN_REQUESTED)
+        self.assertEqual(success.snapshot.consecutive_timeout_replans, 0)
+        next_task = self.controller.apply_planner_decision(
+            success.planner_request,
+            act("Place the green block upright."),
+        ).task_to_publish
+        self.clock.advance(10.0)
+
+        next_timeout = self.controller.check_timeout()
+
+        self.assertIs(next_timeout.result, RecedingResult.REPLAN_REQUESTED)
+        self.assertIs(next_timeout.task_to_retire, next_task)
+
+    def test_per_instruction_timeout_guard_survives_success_reset(self) -> None:
+        repeated = "Place the blue block flat in the marked area."
+        self.controller = RecedingHorizonController(
+            success_confirmations=2,
+            success_stability_seconds=0.0,
+            ongoing_timeout_seconds=10.0,
+            max_consecutive_timeout_replans=3,
+            max_timeout_replans_per_instruction=1,
+            clock=self.clock,
+        )
+        self.start_task()
+        self.clock.advance(10.0)
+        timeout = self.controller.check_timeout()
+        successful_task = self.controller.apply_planner_decision(
+            timeout.planner_request,
+            act("Place the red block upright."),
+        ).task_to_publish
+        for frame in (31, 32):
+            success = self.controller.record_assessment(
+                assessment(
+                    successful_task,
+                    when=self.clock.advance(0.1),
+                    frame=frame,
+                    status="SUCCESS",
+                )
+            )
+        repeated_task = self.controller.apply_planner_decision(
+            success.planner_request,
+            act(repeated),
+        ).task_to_publish
+        self.clock.advance(10.0)
+
+        guarded = self.controller.check_timeout()
+
+        self.assertIs(guarded.result, RecedingResult.NEEDS_ATTENTION)
+        self.assertIs(guarded.snapshot.attention_kind, AttentionKind.LOOP_GUARD)
+        self.assertIn("Per-instruction", guarded.snapshot.attention_reason)
+        self.assertIs(guarded.task_to_retire, repeated_task)
 
     def test_emergency_is_terminal_and_cannot_be_reset(self) -> None:
         self.start_task()

@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import json
+import time
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 from urllib.request import Request, urlopen
@@ -162,9 +165,21 @@ def optional_sum(values: list[int | None]) -> int | None:
 
 
 class TurnMetrics:
-    def __init__(self, token_counter: VLLMTokenCounter | None) -> None:
+    def __init__(
+        self,
+        token_counter: VLLMTokenCounter | None,
+        *,
+        trace_sink: Callable[[dict], None] | None = None,
+    ) -> None:
         self.token_counter = token_counter
         self.calls: list[LLMCallMetric] = []
+        self.trace_sink = trace_sink
+        self.trace_errors: list[str] = []
+
+    def set_trace_sink(self, sink: Callable[[dict], None] | None) -> None:
+        if sink is not None and not callable(sink):
+            raise TypeError("trace sink must be callable or None")
+        self.trace_sink = sink
 
     def reset(self) -> None:
         self.calls.clear()
@@ -199,9 +214,8 @@ class TurnMetrics:
         server_metrics = response.response_metadata.get("vllm_metrics") or {}
         server_tps = server_metrics.get("tokens_per_second")
 
-        self.calls.append(
-            LLMCallMetric(
-                agent=agent,
+        metric = LLMCallMetric(
+            agent=agent,
                 system_texts=tuple(
                     text
                     for message in prompt_messages
@@ -239,9 +253,53 @@ class TurnMetrics:
                 server_tokens_per_second=(
                     float(server_tps) if server_tps is not None else None
                 ),
-                generated_tool_call=bool(response.tool_calls),
-            )
+            generated_tool_call=bool(response.tool_calls),
         )
+        self.calls.append(metric)
+
+        sink = self.trace_sink
+        if sink is not None:
+            event = {
+                "schema_version": 1,
+                "kind": "MODEL_CALL",
+                "call_id": uuid.uuid4().hex,
+                "agent": agent,
+                "recorded_at_unix": time.time(),
+                "elapsed_seconds": elapsed_seconds,
+                "prompt_messages": [
+                    self._message_payload(message)
+                    for message in prompt_messages
+                ],
+                "raw_response": self._message_payload(response),
+                "usage": {
+                    "input_tokens": metric.input_tokens,
+                    "output_tokens": metric.output_tokens,
+                    "total_tokens": metric.total_tokens,
+                    "provider_reasoning_tokens": (
+                        metric.provider_reasoning_tokens
+                    ),
+                    "server_tokens_per_second": (
+                        metric.server_tokens_per_second
+                    ),
+                },
+            }
+            try:
+                sink(event)
+            except Exception as error:
+                self.trace_errors.append(
+                    f"{type(error).__name__}: {error}"
+                )
+
+    @staticmethod
+    def _message_payload(message: BaseMessage) -> dict:
+        try:
+            payload = message.model_dump(mode="json")
+        except (AttributeError, TypeError, ValueError):
+            payload = {
+                "type": type(message).__name__,
+                "content": str(getattr(message, "content", message)),
+            }
+        return payload
 
     def _raw_text_tokens(self, texts: tuple[str, ...]) -> int | None:
         if not texts:

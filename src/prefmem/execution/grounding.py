@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 import math
+from types import MappingProxyType
+from typing import Any, Mapping
 
 import numpy as np
 
@@ -13,7 +16,19 @@ from prefmem.execution.sam import OpenVocabularyDetector, SamDetection
 
 
 class GroundingError(RuntimeError):
-    """A requested destination could not be grounded safely."""
+    """A requested reference could not be grounded safely.
+
+    The stable ``reason_code`` lets an experiment distinguish a valid SAM
+    capability miss from an endpoint outage.  Only these typed grounding
+    failures are eligible for the explicit simulator-oracle continuation;
+    detector transport/response failures remain ordinary service errors.
+    """
+
+    def __init__(self, message: str, *, reason_code: str = "GROUNDING_FAILED") -> None:
+        super().__init__(message)
+        if not isinstance(reason_code, str) or not reason_code.strip():
+            raise ValueError("reason_code must be non-empty")
+        self.reason_code = reason_code.strip()
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +39,7 @@ class GroundedObject:
     detection: SamDetection
     frame_sequence: int
     uncertainty_m: float
+    diagnostics: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.query, str) or not self.query.strip():
@@ -55,6 +71,8 @@ class GroundedObject:
         object.__setattr__(self, "anchor", anchor)
         object.__setattr__(self, "point_world", point)
         object.__setattr__(self, "uncertainty_m", float(self.uncertainty_m))
+        diagnostics = {} if self.diagnostics is None else copy.deepcopy(dict(self.diagnostics))
+        object.__setattr__(self, "diagnostics", MappingProxyType(diagnostics))
 
 
 class RGBDGrounder:
@@ -82,7 +100,10 @@ class RGBDGrounder:
             raise TypeError("reference must be ObjectReference")
         detections = self.detector.detect(frame.rgb, reference.query)
         if not detections:
-            raise GroundingError(f"SAM did not detect {reference.query!r}")
+            raise GroundingError(
+                f"SAM did not detect {reference.query!r}",
+                reason_code="SAM_ZERO_DETECTIONS",
+            )
         if len(detections) > 1:
             ranked = sorted(
                 detections,
@@ -94,21 +115,27 @@ class RGBDGrounder:
             )
             if ranked[0].score is None or ranked[1].score is None:
                 raise GroundingError(
-                    f"SAM returned multiple unranked matches for {reference.query!r}"
+                    f"SAM returned multiple unranked matches for {reference.query!r}",
+                    reason_code="SAM_MULTIPLE_UNRANKED_MATCHES",
                 )
             if ranked[0].score - ranked[1].score < 0.05:
                 raise GroundingError(
-                    f"SAM returned multiple ambiguous matches for {reference.query!r}"
+                    f"SAM returned multiple ambiguous matches for {reference.query!r}",
+                    reason_code="SAM_AMBIGUOUS_MATCHES",
                 )
             detection = ranked[0]
         else:
             detection = detections[0]
-        points = self._points_for_detection(frame, detection)
-        point, uncertainty = self._anchor_point(points, reference.anchor)
+        points, depth_diagnostics = self._points_for_detection(frame, detection)
+        point, uncertainty, anchor_diagnostics = self._anchor_point(
+            points,
+            reference.anchor,
+        )
         if uncertainty > self.maximum_uncertainty_m:
             raise GroundingError(
                 f"3D grounding for {reference.query!r} is too uncertain "
-                f"({uncertainty:.3f} m)"
+                f"({uncertainty:.3f} m)",
+                reason_code="GROUNDING_EXCESSIVE_UNCERTAINTY",
             )
         return GroundedObject(
             query=reference.query,
@@ -117,6 +144,30 @@ class RGBDGrounder:
             detection=detection,
             frame_sequence=frame.sequence,
             uncertainty_m=uncertainty,
+            diagnostics={
+                "frame_sequence": frame.sequence,
+                "query": reference.query,
+                "anchor": reference.anchor.value,
+                "detection_candidates": [
+                    {
+                        "object_id": item.object_id,
+                        "box_xyxy": list(item.box_xyxy),
+                        "mask_area": item.mask_area,
+                        "score": item.score,
+                    }
+                    for item in detections
+                ],
+                "selected_detection": {
+                    "object_id": detection.object_id,
+                    "box_xyxy": list(detection.box_xyxy),
+                    "mask_area": detection.mask_area,
+                    "score": detection.score,
+                },
+                **depth_diagnostics,
+                **anchor_diagnostics,
+                "point_world_m": point.astype(float).tolist(),
+                "uncertainty_m": uncertainty,
+            },
         )
 
     def count(self, frame: RGBDFrame, query: str) -> int:
@@ -126,11 +177,13 @@ class RGBDGrounder:
         self,
         frame: RGBDFrame,
         detection: SamDetection,
-    ) -> np.ndarray:
+    ) -> tuple[np.ndarray, dict[str, Any]]:
         if detection.mask is not None:
             mask = detection.mask
+            mask_source = "sam_mask"
         else:
             mask = np.zeros(frame.depth_m.shape, dtype=bool)
+            mask_source = "central_box_crop"
             x1, y1, x2, y2 = detection.box_xyxy
             # A conservative central crop avoids box-edge background depth.
             margin_x = max(1, int((x2 - x1) * 0.2))
@@ -141,33 +194,58 @@ class RGBDGrounder:
                 left, right, top, bottom = x1, x2, y1, y2
             mask[top:bottom, left:right] = True
         ys, xs = np.nonzero(mask)
+        raw_mask_points = len(xs)
         if len(xs) < self.minimum_points:
-            raise GroundingError("detection contains too few pixels for 3D grounding")
+            raise GroundingError(
+                "detection contains too few pixels for 3D grounding",
+                reason_code="GROUNDING_TOO_FEW_MASK_PIXELS",
+            )
         depths = frame.depth_m[ys, xs].astype(np.float64)
         valid = np.isfinite(depths) & (depths > 0) & (depths < 10.0)
         xs, ys, depths = xs[valid], ys[valid], depths[valid]
+        valid_depth_points = len(depths)
         if len(depths) < self.minimum_points:
-            raise GroundingError("detection has too few valid depth samples")
+            raise GroundingError(
+                "detection has too few valid depth samples",
+                reason_code="GROUNDING_TOO_FEW_VALID_DEPTH_SAMPLES",
+            )
         median = float(np.median(depths))
         mad = float(np.median(np.abs(depths - median)))
         tolerance = max(0.01, 4.0 * 1.4826 * mad)
         inliers = np.abs(depths - median) <= tolerance
         xs, ys, depths = xs[inliers], ys[inliers], depths[inliers]
+        retained_depth_points = len(depths)
         if len(depths) < self.minimum_points:
-            raise GroundingError("depth filtering removed too many detection pixels")
+            raise GroundingError(
+                "depth filtering removed too many detection pixels",
+                reason_code="GROUNDING_DEPTH_FILTER_REJECTED",
+            )
         pixels = np.column_stack((xs.astype(float), ys.astype(float)))
         points = frame.calibration.backproject(pixels, depths)
+        deprojected_points = len(points)
         if len(points) > 5000:
             indices = np.linspace(0, len(points) - 1, 5000, dtype=int)
             points = points[indices]
-        return points
+        return points, {
+            "mask_source": mask_source,
+            "raw_mask_points": raw_mask_points,
+            "valid_depth_points": valid_depth_points,
+            "invalid_depth_points": raw_mask_points - valid_depth_points,
+            "depth_median_m": median,
+            "depth_mad_m": mad,
+            "depth_inlier_tolerance_m": tolerance,
+            "retained_depth_points": retained_depth_points,
+            "deprojected_points": deprojected_points,
+            "anchor_input_points": len(points),
+        }
 
     @staticmethod
     def _anchor_point(
         points: np.ndarray,
         anchor: AnchorKind,
-    ) -> tuple[np.ndarray, float]:
+    ) -> tuple[np.ndarray, float, dict[str, Any]]:
         if anchor is AnchorKind.TOP_CENTER:
+            algorithm = "top_quantile_median"
             top_threshold = float(np.quantile(points[:, 2], 0.8))
             selected = points[points[:, 2] >= top_threshold - 0.004]
             if len(selected) < 3:
@@ -180,6 +258,7 @@ class RGBDGrounder:
                 ]
             )
         elif anchor is AnchorKind.SURFACE_CENTER:
+            algorithm = "trimmed_world_xy_extent_center"
             # Image pixels are not uniformly distributed over an obliquely
             # viewed plane, so their median is biased toward the camera. Use
             # robust world-XY extents to recover the geometric surface centre;
@@ -194,6 +273,7 @@ class RGBDGrounder:
                 ]
             )
         else:
+            algorithm = "world_median"
             point = np.median(points, axis=0)
         # Do not treat an object's physical width as measurement uncertainty.
         # The residual in world Z is the useful signal for this tabletop
@@ -205,7 +285,13 @@ class RGBDGrounder:
             else np.abs(points[:, 2] - point[2])
         )
         uncertainty = max(0.001, float(1.4826 * np.median(residual)))
-        return point, uncertainty
+        return point, uncertainty, {
+            "anchor_algorithm": algorithm,
+            "anchor_selected_points": (
+                len(selected) if anchor is AnchorKind.TOP_CENTER else len(points)
+            ),
+            "anchor_residual_median_m": float(np.median(residual)),
+        }
 
 
 __all__ = ["GroundedObject", "GroundingError", "RGBDGrounder"]

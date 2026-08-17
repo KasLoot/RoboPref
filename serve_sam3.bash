@@ -26,6 +26,56 @@ export SAM3_COMPILE
 export SAM3_MAX_OBJECTS
 export SAM3_MULTIPLEX_COUNT
 
+
+# -----------------------------------------------------------------------------
+# Python environment
+# -----------------------------------------------------------------------------
+
+echo "Creating uv environment..."
+mkdir -p "$(dirname "${VENV}")"
+
+if [[ ! -x "${VENV}/bin/python" ]]; then
+    uv venv --python 3.12 "${VENV}"
+fi
+
+# shellcheck disable=SC1091
+source "${VENV}/bin/activate"
+
+echo "Installing PyTorch..."
+uv pip install \
+    torch==2.10.0 \
+    torchvision \
+    --index-url https://download.pytorch.org/whl/cu128
+
+echo "Installing SAM 3..."
+uv pip install -e "${REPO_DIR}"
+
+echo "Installing API dependencies..."
+uv pip install \
+    fastapi \
+    "uvicorn[standard]" \
+    python-multipart \
+    pillow \
+    einops \
+    pycocotools \
+    psutil
+
+# Optional optimized inference dependencies.
+if [[ "${SAM3_USE_FA3}" == "1" ]]; then
+    echo "Installing FlashAttention 3..."
+    uv pip install einops ninja
+
+    uv pip install \
+        flash-attn-3 \
+        --no-deps \
+        --index-url https://download.pytorch.org/whl/cu128
+
+    uv pip install \
+        "git+https://github.com/ronghanghu/cc_torch.git"
+fi
+
+hf download facebook/sam3.1 --local-dir ${MODEL_DIR}
+
 # -----------------------------------------------------------------------------
 # Preconditions
 # -----------------------------------------------------------------------------
@@ -57,6 +107,8 @@ fi
 # -----------------------------------------------------------------------------
 
 mkdir -p "${WORKSPACE}"
+
+git clone https://github.com/facebookresearch/sam3.git
 
 if [[ -d "${REPO_DIR}/.git" ]]; then
     echo "Updating SAM 3 repo..."
@@ -111,52 +163,7 @@ else:
     )
 PY
 
-# -----------------------------------------------------------------------------
-# Python environment
-# -----------------------------------------------------------------------------
 
-echo "Creating uv environment..."
-mkdir -p "$(dirname "${VENV}")"
-
-if [[ ! -x "${VENV}/bin/python" ]]; then
-    uv venv --python 3.12 "${VENV}"
-fi
-
-# shellcheck disable=SC1091
-source "${VENV}/bin/activate"
-
-echo "Installing PyTorch..."
-uv pip install \
-    torch==2.10.0 \
-    torchvision \
-    --index-url https://download.pytorch.org/whl/cu128
-
-echo "Installing SAM 3..."
-uv pip install -e "${REPO_DIR}"
-
-echo "Installing API dependencies..."
-uv pip install \
-    fastapi \
-    "uvicorn[standard]" \
-    python-multipart \
-    pillow \
-    einops \
-    pycocotools \
-    psutil
-
-# Optional optimized inference dependencies.
-if [[ "${SAM3_USE_FA3}" == "1" ]]; then
-    echo "Installing FlashAttention 3..."
-    uv pip install einops ninja
-
-    uv pip install \
-        flash-attn-3 \
-        --no-deps \
-        --index-url https://download.pytorch.org/whl/cu128
-
-    uv pip install \
-        "git+https://github.com/ronghanghu/cc_torch.git"
-fi
 
 # -----------------------------------------------------------------------------
 # REST server

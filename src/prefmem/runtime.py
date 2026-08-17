@@ -42,6 +42,7 @@ from prefmem.controller import (
     RecedingHorizonController,
     RecedingResult,
     RecedingTransition,
+    TimeoutPolicy,
 )
 from prefmem.emergency import (
     EmergencyStopCoordinator,
@@ -87,6 +88,9 @@ class PrefMemRuntime:
         failure_confirmations: int = 2,
         ongoing_timeout_seconds: float = 30.0,
         max_cycles: int = 20,
+        timeout_policy: TimeoutPolicy | str = TimeoutPolicy.AUTO_REPLAN,
+        max_consecutive_timeout_replans: int = 2,
+        max_timeout_replans_per_instruction: int = 2,
         session_id: str | None = None,
         reset_display: bool = True,
         executor: Any | None = None,
@@ -102,6 +106,13 @@ class PrefMemRuntime:
             failure_confirmations=failure_confirmations,
             ongoing_timeout_seconds=ongoing_timeout_seconds,
             max_cycles=max_cycles,
+            timeout_policy=timeout_policy,
+            max_consecutive_timeout_replans=(
+                max_consecutive_timeout_replans
+            ),
+            max_timeout_replans_per_instruction=(
+                max_timeout_replans_per_instruction
+            ),
         )
         self.publisher = task_publisher or CameraTaskPublisher(camera_base_url)
         snapshot_url = f"{camera_base_url.rstrip('/')}/snapshot.jpg"
@@ -379,24 +390,133 @@ class PrefMemRuntime:
         return self.context_dict()
 
     def check_timeout(self) -> bool:
+        if self._closed or self.emergency.latched:
+            return False
         active_task = self.controller.snapshot.current_task
         if (
             self.executor is not None
             and active_task is not None
             and active_task.phase is TaskPhase.STEP
-            and not self.executor.is_settled(active_task.publication_id)
         ):
-            # Compiler, detector, and motion-controller calls have their own
-            # bounded failures. Do not apply the visual no-progress timeout to
-            # an executor that is still preparing or moving.
-            return False
-        transition = self.controller.check_timeout()
+            try:
+                executor_settled = self.executor.is_settled(
+                    active_task.publication_id
+                )
+            except Exception as error:
+                attention = self.controller.record_system_error(
+                    f"Executor state check failed: {error}"
+                )
+                self._publish_transition(attention, best_effort=True)
+                self.notifications.put(
+                    attention.snapshot.attention_reason
+                    or "Executor state check failed"
+                )
+                return True
+            if not executor_settled:
+                # Compiler, detector, and motion-controller calls have their
+                # own bounded failures. Do not apply the visual no-progress
+                # timeout to an executor that is still preparing or moving.
+                return False
+        transition = self.controller.check_timeout(
+            publication_id=(
+                None if active_task is None else active_task.publication_id
+            )
+        )
         if transition is None:
             return False
-        timed_out_task = transition.snapshot.current_task
+        timed_out_task = (
+            transition.task_to_retire or transition.snapshot.current_task
+        )
         if timed_out_task is not None:
-            self._retire_task(timed_out_task)
-        self._publish_transition(transition)
+            try:
+                self._retire_task(timed_out_task)
+            except Exception as error:
+                attention = self.controller.record_system_error(
+                    f"Timed-out publication retirement failed: {error}"
+                )
+                self._publish_transition(attention, best_effort=True)
+                self.notifications.put(
+                    attention.snapshot.attention_reason
+                    or "Timed-out publication retirement failed"
+                )
+                return True
+        if not self._publish_transition(transition):
+            return True
+        if transition.result is RecedingResult.REPLAN_REQUESTED:
+            assert timed_out_task is not None
+            assert transition.planner_request is not None
+            try:
+                frame = self._capture_frame()
+                timeout_record = transition.snapshot.execution_history[-1]
+                termination = timeout_record.termination_context
+                minimum_sequence = max(
+                    value
+                    for value in (
+                        timed_out_task.frame_sequence,
+                        None if termination is None else termination.last_frame_sequence,
+                        -1,
+                    )
+                    if value is not None
+                )
+                if frame.sequence <= minimum_sequence:
+                    raise RuntimeError(
+                        "fresh planning frame is not newer than the retired "
+                        "publication evidence"
+                    )
+            except Exception as error:
+                attention = self.controller.record_system_error(
+                    f"Timeout replanning frame capture failed: {error}"
+                )
+                self._publish_transition(attention, best_effort=True)
+                self.notifications.put(
+                    attention.snapshot.attention_reason
+                    or "Timeout replanning frame capture failed"
+                )
+                return True
+            counters = self.controller.timeout_guard_counters(
+                timed_out_task.instruction
+            )
+            self._queue_monitor_event(
+                {
+                    "event": "AUTO_TIMEOUT_REPLAN",
+                    "goal_id": timed_out_task.plan_id,
+                    "revision": timed_out_task.revision,
+                    "goal_revision": timed_out_task.revision,
+                    "old_cycle_id": timed_out_task.cycle_id,
+                    "old_publication_id": timed_out_task.publication_id,
+                    "new_cycle_id": transition.planner_request.cycle_id,
+                    "timeout_seconds": (
+                        None if termination is None else termination.timeout_seconds
+                    ),
+                    "elapsed_no_progress_seconds": (
+                        None
+                        if termination is None
+                        else termination.elapsed_no_progress_seconds
+                    ),
+                    "last_progress_at": (
+                        None if termination is None else termination.last_progress_at
+                    ),
+                    "last_assessment_disposition": (
+                        None
+                        if termination is None
+                        else termination.last_assessment_disposition
+                    ),
+                    "last_observation": timeout_record.observation,
+                    "last_accepted_observation": timeout_record.observation,
+                    "criteria": (
+                        []
+                        if termination is None
+                        else [item.to_dict() for item in termination.criteria]
+                    ),
+                    "fresh_planning_frame_sequence": frame.sequence,
+                    "guard_counters": counters,
+                }
+            )
+            self._run_planning_cycle(
+                transition.planner_request,
+                frame=frame,
+            )
+            return True
         if (
             timed_out_task is not None
             and timed_out_task.phase is TaskPhase.FINAL_VALIDATION
@@ -444,7 +564,21 @@ class PrefMemRuntime:
             ),
             "attention_reason": snapshot.attention_reason,
             "latest_observation": snapshot.latest_observation,
+            "timeout_policy": snapshot.timeout_policy.value,
+            "timeout_guards": {
+                "consecutive_replans": snapshot.consecutive_timeout_replans,
+                "max_consecutive_replans": (
+                    snapshot.max_consecutive_timeout_replans
+                ),
+                "max_replans_per_instruction": (
+                    snapshot.max_timeout_replans_per_instruction
+                ),
+            },
             "validation": self._public_validation_context(),
+            # Experiment-only oracle assistance remains visible at the system
+            # boundary.  Each entry preserves the strict result separately
+            # from any downstream assisted continuation.
+            "executor_outcomes": self._executor_outcomes(),
             "emergency_latched": self.emergency.latched,
         }
 
@@ -612,6 +746,20 @@ class PrefMemRuntime:
             )
         except Exception:
             return "UNKNOWN"
+
+    def _executor_outcomes(self) -> list[dict[str, Any]]:
+        if self.executor is None:
+            return []
+        reader = getattr(self.executor, "outcomes", None)
+        if not callable(reader):
+            return []
+        try:
+            values = reader()
+        except Exception:
+            return []
+        if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+            return []
+        return [dict(value) for value in values if isinstance(value, dict)]
 
     def _emit_monitor_assessment_event(
         self,
@@ -1359,13 +1507,31 @@ def build_runtime(args):
             model_base_url=args.execution_model_base_url,
         )
         controller = PandaPickPlaceController(environment)
+        oracle_fallback_enabled = bool(
+            getattr(args, "experiment_oracle_grounding_fallback", False)
+        )
+        oracle_grounding_provider = None
+        if oracle_fallback_enabled:
+            from simulation.oracle_grounding import (
+                MuJoCoOracleGroundingProvider,
+            )
+
+            oracle_grounding_provider = MuJoCoOracleGroundingProvider(
+                environment
+            )
         executor = ExecutionService(
             compiler,
             RGBDGrounder(sam),
             controller,
-            environment.rgbd_frame,
+            # The execution boundary is the only consumer of the calibrated,
+            # robot-hidden overhead RGB-D stream submitted to SAM 3.1.
+            environment.sam_rgbd_frame,
+            enable_oracle_grounding_fallback=oracle_fallback_enabled,
+            oracle_grounding_provider=oracle_grounding_provider,
         )
-        frame_source = environment.captured_frame
+        # HRI, Planner, Monitor, and Validator all share the separate approved
+        # third-person view. No PrefMem model receives the SAM camera image.
+        frame_source = environment.prefmem_captured_frame
         task_publisher = InMemoryTaskPublisher()
         owned_resources = (sam, environment)
 
@@ -1376,13 +1542,25 @@ def build_runtime(args):
             task_publisher=task_publisher,
             frame_source=frame_source,
             monitor_min_interval=args.monitor_min_interval,
-            model_base_url="http://localhost:8000/v1",
+            model_name=hri.config.model,
+            model_base_url=hri.config.model_base_url,
             metrics=hri.metrics,
             success_confirmations=args.success_confirmations,
             success_stability_seconds=args.success_stability_seconds,
             failure_confirmations=args.failure_confirmations,
             ongoing_timeout_seconds=args.monitor_timeout,
             max_cycles=args.max_planning_cycles,
+            timeout_policy=(
+                TimeoutPolicy.AUTO_REPLAN
+                if args.auto_timeout_replan
+                else TimeoutPolicy.ATTENTION_GATE
+            ),
+            max_consecutive_timeout_replans=(
+                args.max_consecutive_timeout_replans
+            ),
+            max_timeout_replans_per_instruction=(
+                args.max_timeout_replans_per_instruction
+            ),
             executor=executor,
             owned_resources=owned_resources,
         )

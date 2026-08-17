@@ -13,6 +13,7 @@ from prefmem.contracts import (
     CriterionState,
     ExecutionOutcome,
     ExecutionRecord,
+    ExecutionTerminationContext,
     ExecutionPlan,
     GoalContract,
     MonitorAssessment,
@@ -24,6 +25,7 @@ from prefmem.contracts import (
     PublishedTask,
     TaskPhase,
     TaskStatus,
+    TerminationCriterion,
     ObservationCriterion,
 )
 
@@ -512,6 +514,13 @@ class RecedingResult(str, Enum):
     EMERGENCY_STOPPED = "EMERGENCY_STOPPED"
 
 
+class TimeoutPolicy(str, Enum):
+    """Host policy for a STEP publication with no observable progress."""
+
+    AUTO_REPLAN = "AUTO_REPLAN"
+    ATTENTION_GATE = "ATTENTION_GATE"
+
+
 class AttentionKind(str, Enum):
     NO_PROGRESS = "NO_PROGRESS"
     SYSTEM_ERROR = "SYSTEM_ERROR"
@@ -534,6 +543,10 @@ class RecedingControllerSnapshot:
     latest_observation: str | None
     consecutive_successes: int
     consecutive_failures: int
+    timeout_policy: TimeoutPolicy
+    consecutive_timeout_replans: int
+    max_consecutive_timeout_replans: int
+    max_timeout_replans_per_instruction: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -544,6 +557,7 @@ class RecedingTransition:
     snapshot: RecedingControllerSnapshot
     task_to_publish: PublishedTask | None = None
     planner_request: PlannerCycleRequest | None = None
+    task_to_retire: PublishedTask | None = None
 
 
 class RecedingHorizonController:
@@ -564,6 +578,9 @@ class RecedingHorizonController:
         max_cycles: int = 20,
         max_consecutive_failures: int = 3,
         max_identical_failed_attempts: int = 2,
+        timeout_policy: TimeoutPolicy | str = TimeoutPolicy.AUTO_REPLAN,
+        max_consecutive_timeout_replans: int = 2,
+        max_timeout_replans_per_instruction: int = 2,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         for name, value, minimum in (
@@ -572,6 +589,16 @@ class RecedingHorizonController:
             ("max_cycles", max_cycles, 1),
             ("max_consecutive_failures", max_consecutive_failures, 1),
             ("max_identical_failed_attempts", max_identical_failed_attempts, 1),
+            (
+                "max_consecutive_timeout_replans",
+                max_consecutive_timeout_replans,
+                1,
+            ),
+            (
+                "max_timeout_replans_per_instruction",
+                max_timeout_replans_per_instruction,
+                1,
+            ),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
                 raise ValueError(f"{name} must be at least {minimum}")
@@ -590,6 +617,10 @@ class RecedingHorizonController:
                 raise ValueError(f"{name} must be a finite {qualifier} number")
         if not callable(clock):
             raise TypeError("clock must be callable")
+        try:
+            timeout_policy = TimeoutPolicy(timeout_policy)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"invalid timeout_policy: {timeout_policy!r}") from error
 
         self._success_confirmations = success_confirmations
         self._success_stability_seconds = float(success_stability_seconds)
@@ -598,6 +629,11 @@ class RecedingHorizonController:
         self._max_cycles = max_cycles
         self._max_consecutive_failures = max_consecutive_failures
         self._max_identical_failed_attempts = max_identical_failed_attempts
+        self._timeout_policy = timeout_policy
+        self._max_consecutive_timeout_replans = max_consecutive_timeout_replans
+        self._max_timeout_replans_per_instruction = (
+            max_timeout_replans_per_instruction
+        )
         self._clock = clock
         self._lock = threading.RLock()
 
@@ -620,6 +656,11 @@ class RecedingHorizonController:
         self._last_progress_at: float | None = None
         self._best_met_count = 0
         self._consecutive_terminal_failures = 0
+        self._consecutive_timeout_replans = 0
+        self._timeout_replans_by_instruction: dict[str, int] = {}
+        self._last_assessment_disposition: str | None = None
+        self._last_assessment_criteria = ()
+        self._latest_task_observation: str | None = None
 
     @property
     def snapshot(self) -> RecedingControllerSnapshot:
@@ -633,6 +674,27 @@ class RecedingHorizonController:
     @property
     def failure_confirmations(self) -> int:
         return self._failure_confirmations
+
+    @property
+    def timeout_policy(self) -> TimeoutPolicy:
+        return self._timeout_policy
+
+    def timeout_guard_counters(self, instruction: str) -> dict[str, int]:
+        """Return an immutable-by-copy view used by timeout telemetry."""
+
+        normalized = self._normalize_instruction(instruction)
+        with self._lock:
+            return {
+                "consecutive": self._consecutive_timeout_replans,
+                "consecutive_limit": self._max_consecutive_timeout_replans,
+                "same_instruction": self._timeout_replans_by_instruction.get(
+                    normalized,
+                    0,
+                ),
+                "same_instruction_limit": (
+                    self._max_timeout_replans_per_instruction
+                ),
+            }
 
     def stage_goal(self, goal: GoalContract) -> RecedingTransition:
         if not isinstance(goal, GoalContract):
@@ -655,6 +717,8 @@ class RecedingHorizonController:
             self._attention_reason = None
             self._latest_observation = None
             self._consecutive_terminal_failures = 0
+            self._consecutive_timeout_replans = 0
+            self._timeout_replans_by_instruction = {}
             self._reset_evidence_locked()
             self._set_state_locked(RecedingControllerState.AWAITING_CONFIRMATION)
             return self._transition_locked(RecedingResult.STAGED)
@@ -678,6 +742,8 @@ class RecedingHorizonController:
             self._attention_reason = None
             self._latest_observation = None
             self._consecutive_terminal_failures = 0
+            self._consecutive_timeout_replans = 0
+            self._timeout_replans_by_instruction = {}
             self._reset_evidence_locked()
             self._set_state_locked(RecedingControllerState.IDLE)
             return self._transition_locked(RecedingResult.CANCELLED)
@@ -849,6 +915,9 @@ class RecedingHorizonController:
                 return self._transition_locked(RecedingResult.IGNORED_INVALID)
 
             self._latest_observation = assessment.observation
+            self._latest_task_observation = assessment.observation
+            self._last_assessment_disposition = RecedingResult.ACCEPTED.value
+            self._last_assessment_criteria = assessment.criteria
             met_count = sum(
                 criterion.state is CriterionState.MET
                 for criterion in assessment.criteria
@@ -891,6 +960,7 @@ class RecedingHorizonController:
                     return self._transition_locked(RecedingResult.ACCEPTED)
 
                 if self._state is RecedingControllerState.FINAL_VALIDATION:
+                    self._consecutive_timeout_replans = 0
                     self._current_task = None
                     self._pending_request = None
                     self._attention_kind = None
@@ -905,6 +975,7 @@ class RecedingHorizonController:
                     ExecutionOutcome.SUCCESS,
                 )
                 self._consecutive_terminal_failures = 0
+                self._consecutive_timeout_replans = 0
                 request = self._request_next_cycle_locked(
                     PlannerTrigger.TASK_SUCCESS,
                     assessment.frame_sequence,
@@ -957,21 +1028,143 @@ class RecedingHorizonController:
                 planner_request=request,
             )
 
-    def check_timeout(self, *, now: float | None = None) -> RecedingTransition | None:
+    def check_timeout(
+        self,
+        *,
+        now: float | None = None,
+        publication_id: str | None = None,
+    ) -> RecedingTransition | None:
+        """Apply the configured no-progress policy to the exact publication.
+
+        The state/publication/deadline/guard checks and the timeout history
+        mutation occur under one lock.  Therefore concurrent polls can retire
+        an attempt at most once.
+        """
+
         timestamp = self._clock() if now is None else float(now)
+        if not math.isfinite(timestamp):
+            raise ValueError("now must be finite")
+        if publication_id is not None and (
+            not isinstance(publication_id, str) or not publication_id.strip()
+        ):
+            raise ValueError("publication_id must be non-empty or None")
         with self._lock:
             if self._state not in {
                 RecedingControllerState.EXECUTING,
                 RecedingControllerState.FINAL_VALIDATION,
             } or self._last_progress_at is None:
                 return None
-            if timestamp - self._last_progress_at < self._ongoing_timeout_seconds:
+            task = self._current_task
+            if task is None:
                 return None
-            self._attention_kind = AttentionKind.NO_PROGRESS
-            self._attention_reason = "No observable progress before the monitoring timeout"
-            self._reset_streaks_locked()
-            self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
-            return self._transition_locked(RecedingResult.NEEDS_ATTENTION)
+            if publication_id is not None and task.publication_id != publication_id:
+                return None
+            elapsed = timestamp - self._last_progress_at
+            if elapsed < self._ongoing_timeout_seconds:
+                return None
+
+            # Missing final evidence never proves a physical-plan failure.
+            if (
+                task.phase is TaskPhase.FINAL_VALIDATION
+                or self._timeout_policy is TimeoutPolicy.ATTENTION_GATE
+            ):
+                self._attention_kind = AttentionKind.NO_PROGRESS
+                self._attention_reason = (
+                    "No observable progress before the monitoring timeout"
+                )
+                self._reset_streaks_locked()
+                self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+                return self._transition_locked(
+                    RecedingResult.NEEDS_ATTENTION,
+                    task_to_retire=task,
+                )
+
+            # AUTO_REPLAN is STEP-only.  Check every loop guard before
+            # changing history or requesting a new cycle.
+            normalized = self._normalize_instruction(task.instruction)
+            instruction_count = self._timeout_replans_by_instruction.get(
+                normalized,
+                0,
+            )
+            guard_reason: str | None = None
+            if (
+                self._consecutive_timeout_replans
+                >= self._max_consecutive_timeout_replans
+            ):
+                guard_reason = (
+                    "Consecutive automatic timeout-replan guard reached for "
+                    f"instruction: {task.instruction}"
+                )
+            elif (
+                instruction_count
+                >= self._max_timeout_replans_per_instruction
+            ):
+                guard_reason = (
+                    "Per-instruction automatic timeout-replan guard reached for "
+                    f"instruction: {task.instruction}"
+                )
+            elif self._cycle_id >= self._max_cycles:
+                guard_reason = (
+                    "Maximum planning-cycle guard reached for timed-out "
+                    f"instruction: {task.instruction}"
+                )
+            if guard_reason is not None:
+                self._attention_kind = AttentionKind.LOOP_GUARD
+                self._attention_reason = guard_reason
+                self._reset_streaks_locked()
+                self._set_state_locked(RecedingControllerState.NEEDS_ATTENTION)
+                return self._transition_locked(
+                    RecedingResult.NEEDS_ATTENTION,
+                    task_to_retire=task,
+                )
+
+            observation = self._latest_task_observation or (
+                "No conclusive post-state was observed."
+            )
+            termination_context = ExecutionTerminationContext(
+                kind=PlannerTrigger.MONITOR_TIMEOUT.value,
+                timeout_seconds=self._ongoing_timeout_seconds,
+                elapsed_no_progress_seconds=max(0.0, elapsed),
+                last_progress_at=self._last_progress_at,
+                last_frame_sequence=self._last_frame_sequence,
+                last_assessment_disposition=self._last_assessment_disposition,
+                criteria=tuple(
+                    TerminationCriterion(
+                        criterion_id=item.criterion_id,
+                        state=item.state,
+                    )
+                    for item in self._last_assessment_criteria
+                ),
+                prior_publication_id=task.publication_id,
+            )
+            self._history.append(
+                ExecutionRecord(
+                    cycle_id=self._cycle_id,
+                    publication_id=task.publication_id,
+                    instruction=task.instruction,
+                    expected_observation=tuple(
+                        item.description for item in task.expected_observation
+                    ),
+                    outcome=ExecutionOutcome.INTERRUPTED,
+                    observation=observation,
+                    evidence_frame_sequence=self._last_frame_sequence,
+                    termination_context=termination_context,
+                )
+            )
+            self._consecutive_timeout_replans += 1
+            self._timeout_replans_by_instruction[normalized] = (
+                instruction_count + 1
+            )
+            request = self._request_next_cycle_locked(
+                PlannerTrigger.MONITOR_TIMEOUT,
+                None,
+            )
+            assert request is not None
+            return self._transition_locked(
+                RecedingResult.REPLAN_REQUESTED,
+                planner_request=request,
+                task_to_retire=task,
+            )
 
     def record_system_error(self, reason: str) -> RecedingTransition:
         with self._lock:
@@ -1252,6 +1445,9 @@ class RecedingHorizonController:
         self._last_frame_sequence = None
         self._last_progress_at = None
         self._best_met_count = 0
+        self._last_assessment_disposition = None
+        self._last_assessment_criteria = ()
+        self._latest_task_observation = None
 
     def _reset_streaks_locked(self) -> None:
         self._success_count = 0
@@ -1269,6 +1465,12 @@ class RecedingHorizonController:
     def _bump_sequence_locked(self) -> None:
         self._state_sequence += 1
 
+    @staticmethod
+    def _normalize_instruction(instruction: str) -> str:
+        if not isinstance(instruction, str) or not instruction.strip():
+            raise ValueError("instruction must be non-empty")
+        return " ".join(instruction.casefold().split())
+
     def _snapshot_locked(self) -> RecedingControllerSnapshot:
         return RecedingControllerSnapshot(
             state=self._state,
@@ -1283,6 +1485,14 @@ class RecedingHorizonController:
             latest_observation=self._latest_observation,
             consecutive_successes=self._success_count,
             consecutive_failures=self._failure_count,
+            timeout_policy=self._timeout_policy,
+            consecutive_timeout_replans=self._consecutive_timeout_replans,
+            max_consecutive_timeout_replans=(
+                self._max_consecutive_timeout_replans
+            ),
+            max_timeout_replans_per_instruction=(
+                self._max_timeout_replans_per_instruction
+            ),
         )
 
     def _transition_locked(
@@ -1291,10 +1501,12 @@ class RecedingHorizonController:
         *,
         task_to_publish: PublishedTask | None = None,
         planner_request: PlannerCycleRequest | None = None,
+        task_to_retire: PublishedTask | None = None,
     ) -> RecedingTransition:
         return RecedingTransition(
             result=result,
             snapshot=self._snapshot_locked(),
             task_to_publish=task_to_publish,
             planner_request=planner_request,
+            task_to_retire=task_to_retire,
         )
