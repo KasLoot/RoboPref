@@ -46,6 +46,42 @@ class MessagesState(TypedDict):
 class CurrentFrameContext(TypedDict):
     current_frame: dict
 
+
+def _parse_memory_json_object(response_content: object) -> dict:
+    """Decode one Memory JSON object with an optional transport fence.
+
+    Gemma occasionally wraps an otherwise valid JSON-only response in a
+    single Markdown fence.  Accept that one wrapper, but reject prose outside
+    it, nested/additional fences, non-object JSON, and malformed content.  The
+    caller still performs the full candidate provenance and schema checks.
+    """
+
+    if not isinstance(response_content, str):
+        raise ValueError("Memory retrieval response must be a JSON string")
+    text = response_content.strip()
+    if text.startswith("```"):
+        lines = text.splitlines()
+        if (
+            len(lines) < 3
+            or lines[0].strip().casefold() not in {"```", "```json"}
+            or lines[-1].strip() != "```"
+            or any("```" in line for line in lines[1:-1])
+        ):
+            raise ValueError(
+                "Memory retrieval response must contain one JSON object"
+            )
+        text = "\n".join(lines[1:-1]).strip()
+    elif "```" in text:
+        raise ValueError("Memory retrieval response contains an invalid fence")
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise ValueError("Memory retrieval response is not valid JSON") from error
+    if not isinstance(payload, Mapping):
+        raise ValueError("Memory retrieval response must be a JSON object")
+    return dict(payload)
+
 class VLLMChatOpenAI(ChatOpenAI):
     def _convert_chunk_to_generation_chunk(
         self, chunk, default_chunk_class, base_generation_info
@@ -847,14 +883,7 @@ class Memory_Agent:
         trace = getattr(self, "last_retrieval_trace", None)
         if trace is None:
             raise ValueError("Memory retrieval completed without a retrieval trace")
-        if not isinstance(response_content, str):
-            raise ValueError("Memory retrieval response must be a JSON string")
-        try:
-            payload = json.loads(response_content)
-        except json.JSONDecodeError as error:
-            raise ValueError("Memory retrieval response is not valid JSON") from error
-        if not isinstance(payload, Mapping):
-            raise ValueError("Memory retrieval response must be a JSON object")
+        payload = _parse_memory_json_object(response_content)
 
         raw_returned = payload.get("retrieved_memory")
         if not isinstance(raw_returned, list):
@@ -1052,7 +1081,13 @@ class Memory_Agent:
 
 
     def invoke_agent(self, messages, current_frame) -> dict:
+        # ``InMemorySaver`` requires a thread identifier for every graph
+        # invocation.  Memory requests are deliberately isolated from one
+        # another: retrieval/mutation authority is reset per request and prior
+        # tool traces must not leak into the next semantic decision.
+        request_id = getattr(self, "_request_id", None) or uuid.uuid4().hex
         config = {
+            "configurable": {"thread_id": f"memory-request-{request_id}"},
             "recursion_limit": 20,
         }
 

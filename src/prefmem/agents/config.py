@@ -102,5 +102,9 @@ class Memory_Config(Global_Model_Config):
         self.embedding_model = "/workspace/models/embeddinggemma-300m"
         self.embedding_model_base_url = "http://127.0.0.1:8080/v1"
         self.embedding_dimensions = 768
-        self.top_k = 5
-        self.top_cap_k = 10
+        # AB-MEM-Q's frozen development/held-out selection chose q=1, k=3,
+        # cap=3.  Keep the production candidate window aligned with that
+        # measured setting so downstream semantic filtering is not exposed to
+        # seven additional, uncalibrated candidates.
+        self.top_k = 3
+        self.top_cap_k = 3
