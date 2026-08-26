@@ -1,5 +1,9 @@
 \documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+
+% --------------------
+% Packages
+% --------------------
+\usepackage{graphicx}
 \usepackage[a4paper, margin=1in]{geometry}
 \usepackage{amsmath}
 
@@ -18,90 +22,142 @@
 \usepackage{longtable}
 \usepackage{float}
 
+% Hyperlinks
+\usepackage[hidelinks]{hyperref}
+
+% --------------------
+% Custom commands
+% --------------------
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\githuburl}{https://github.com/KasLoot/RoboPref}
+\newcommand{\resultsurl}{https://liveuclac-my.sharepoint.com/:u:/g/personal/ucabibp_ucl_ac_uk/IQCUJvx2H20nSIxwF1vrFhgmAYJn0NPS3Deujkp-VIlDPq8?e=BPVJlf}
+
 \newcolumntype{P}[1]{>{\raggedright\arraybackslash}p{#1}}
 
+% --------------------
+% Float spacing
+% --------------------
 \setlength{\intextsep}{7pt plus 2pt minus 2pt}
 \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
 \setlength{\floatsep}{8pt plus 2pt minus 2pt}
 \setlength{\abovecaptionskip}{5pt}
 \setlength{\belowcaptionskip}{0pt}
 
+% --------------------
+% Title information
+% --------------------
+\title{
+    PrefMem: A Preference-Aware, Evidence-Gated Agentic System for
+    Interactive Robot Manipulation with Ambiguous Instructions
+    \\[0.6em]
+    \large
+    \href{\githuburl}{\texttt{Click to access the GitHub repository}}
+    \\[0.3em]
+    \href{\resultsurl}{\texttt{Click to access the experiment results}}
+}
 
-\title{PrefMem: A Preference-Aware, Evidence-Gated Agentic System for Interactive Robot Manipulation with Ambiguous Instructions}
-\author{}
+\author{Candidate Number: VGWF5}
+
 \date{June 2026}
+
+
+% ============================================================
+% DOCUMENT
+% ============================================================
 
 \begin{document}
 
+% ============================================================
+% TITLE PAGE
+% ============================================================
+
+\begin{titlepage}
+
+    \centering
+
+    \vspace*{\fill}
+
+    % --------------------
+    % Main title
+    % --------------------
+    {\LARGE\bfseries
+    PrefMem: A Preference-Aware, Evidence-Gated Agentic System for
+    Interactive Robot Manipulation with Ambiguous Instructions
+    \par}
+
+    \vspace{2cm}
+
+    % --------------------
+    % Author information
+    % --------------------
+    {\large
+    % \textbf{Author}\\[0.4cm]
+
+    Candidate Number: VGWF5\\[0.3cm]
+
+    MSc. Robotics and Artificial Intelligence\\
+    Department of Computer Science\\
+    University College London\\[0.8cm]
+
+
+
+    \par}
+
+    \vfill
+
+    % --------------------
+    % Disclaimer
+    % --------------------
+    \begin{minipage}{0.85\textwidth}
+
+        \small
+
+        \textbf{Disclaimer:}
+        The report will be distributed to the internal and external
+        examiners, but thereafter may not be copied or distributed
+        except with permission from the author.
+
+    \end{minipage}
+
+    \vspace{1.5cm}
+
+    {\large June 2026\par}
+
+    \vspace*{\fill}
+
+\end{titlepage}
+
+
+% ============================================================
+% SECOND TITLE / ABSTRACT PAGE
+% ============================================================
+
 \maketitle
+
 \begin{abstract}
-Vision--Language--Action (VLA) policies map language and visual observations to robot actions, but this interface does not by itself specify how an interactive robot should resolve under-specified intent, apply persistent user preferences, authorize an exact physical goal, recover from task-level failures, or establish that the complete goal has been achieved. This thesis presents PrefMem, a preference-aware, evidence-gated orchestration layer above an interchangeable action executor. PrefMem is not a new VLA and does not perform online policy learning. Five model-facing agents support human interaction, preference memory, planning, step monitoring, and final validation, while a deterministic runtime and receding-horizon controller own goal identity, confirmation, task publication, state transitions, temporal evidence requirements, and bounded recovery.
+Vision-language-Action (VLA) models map language and visual observations to robot actions. However, user intentions often lie beyond single language instructions. Moreover, current works show that VLAs tend to remember training trajectories instead of understanding and following specific semantic instructions \cite{ni2026semanticvla}. When given a long-horizon task in a new environment, they often follow the training data trajectories rather than generalise to act in the new environment. There are works that exist, such as SemanticVLA \cite{ni2026semanticvla}, that try to make the VLA follow instructions with semantic understanding, and MeM \cite{torne2026mem} that enables memory summarization prompt fallbacks to extend VLA abilities for long-horizon tasks. However, they are VLA models with new architecture designs and require training. And MeM \cite{torne2026mem} uses temporal long-term memory to leverage long-horizon tasks with ambiguous instructions, it does not solve the problem of understanding user intention. 
 
-PrefMem is evaluated using development, non-confirmatory experiments in a restricted tabletop domain. With one applicable scoped preference, autonomous correct goal resolution increased from 0/36 observations under empty Memory to 36/36 under populated Memory, while both conditions achieved 36/36 final goal correctness after permitted clarification. Conflicting preferences caused clarification before commitment in 36/36 observations, and a held-out override replication selected the conflicting historical destination in 0/36 observations. A 30-interaction lifecycle experiment nevertheless retained the focal preference at the delayed final probe in only 2/8 stores, exposing a free-text identity limitation. Production Monitor improved the registered host route from 12/36 to 22/36 paired observations, while production Validator prevented false completion in all 21 visibly incomplete states compared with 0/21 for a stop-after-actions control. In twelve focused MuJoCo episodes, correct contracts and simulator-truth physical goals occurred in 12/12, all-strict grounding in 11/12, Validator completion in 9/12, and the exact one-action strict chain in 8/12.
+This project, \textbf{PrefMem}, however, takes a different path, instead of trying to design and train a new VLA model. PrefMem solves user intention understanding and long-horizon task execution by designing an agentic system; PrefMem does not need training and can be used out-of-the-box. PrefMem offers a preference-aware, evidence-gated orchestration layer above an interchangeable action executor. PrefMem features five model-facing agents which support human interaction, preference memory, planning, step monitoring, and final validation, while a deterministic runtime and receding-horizon controller own goal identity, confirmation, task publication, state transitions, temporal evidence requirements, and bounded recovery.
 
-These results support PrefMem as an inspectable systems architecture with measurable boundary-specific effects and identifiable failure mechanisms. They do not establish VLA superiority, general household competence, real-robot safety, or robust preference retention over unrestricted histories.
+PrefMem is evaluated using development, non-confirmatory experiments in a restricted tabletop domain. With one applicable scoped preference, autonomous correct goal resolution increased from 0/36 observations under empty Memory to 36/36 under populated Memory, while both conditions achieved 36/36 final goal correctness after permitted clarification. Conflicting preferences caused clarification before commitment in 36/36 observations, and a held-out override replication selected the conflicting historical destination in 0/36 observations. A 30-interaction lifecycle experiment nevertheless retained the focal preference at the delayed final probe in only 2/8 stores, exposing a free-text identity limitation. Production Monitor improved the registered host route from 12/36 to 22/36 paired observations, while production Validator prevented false completion in all 21 visibly incomplete states compared with 0/21 for a stop-after-actions control. In 12 MuJoCo simulation episodes, correct contracts and simulator-truth physical goals occurred in 12/12, all-strict grounding in 11/12, Validator completion in 9/12, and exact one-action strict chain in 8/12.
+
+These results support the PrefMem design as an inspectable systems architecture with measurable boundary-specific effects and identifiable failure mechanisms.
 
 \end{abstract}
 \section{Introduction}
 \subsection{Motivation}
-General-purpose robot policies increasingly combine visual observations,
-natural-language instructions, and continuous action generation.
-\textcite{brohan2022rt1} demonstrated that a high-capacity transformer trained
-on large, diverse real-robot data can acquire scalable multi-task behaviour.
-\textcite{brohan2023rt2} subsequently represented robot actions as tokens and
-co-fine-tuned a vision--language model on web and robot data, showing that
-semantic knowledge can transfer into control. \textcite{kim2024openvla}
-introduced an openly available 7-billion-parameter VLA trained on 970,000
-real-world robot demonstrations and reported an absolute 16.5-point advantage
-over RT-2-X across 29 tasks. The flow-matching action expert in \(\pi_0\)
-targets dexterous continuous control across several embodiments
-\parencite{black2025pi0}. These systems motivate the conceptual executor
-abstraction considered by this project: an instruction and an image are
-encoded into a multimodal representation, from which an action head predicts
-a continuous action or action chunk in a closed loop.
+General-purpose robot policies produce robotic actions from natural language instructions and visual observations. RT-1 Brohan et al. (2022) demonstrated that a Vision-Language-Model trained on a large, diverse real-robot dataset can acquire multi-task behaviour in scale. And, RT-2 Brohan et al. (2023) shows that semantic knowledge can transfer into control by represented robot actions as tokens and fine-tuning a VLM on robot action data. Then, OpenVLAKim et al. (2024) introduces a 7-billion parameter sized VLA, trained on 970,000 real-world robot demonstrations and increased 16.5 percent success rate on the RT-2-X across 29 tasks. Then Octo and Pi 0 models shows a different action decoder design using diffusion policy. These models motivate the conceptual executor abstraction considered by this project: an instruction and an image are encoded into a multimodal representation, from which an action head predicts a continuous action or action chunk in a closed loop.
 
-The direct vision-and-language-to-action formulation is powerful, but it does
-not by itself provide explicit mechanisms for several task-level decisions. A
-command can be syntactically clear and still be underdetermined for a
-particular person. ``Tidy this up'' does not say where each object belongs;
-``put the cube on my board'' does not identify the board unless the robot can
-retrieve a scoped preference; and ``do the usual thing'' is unsafe when
-several incompatible histories are equally plausible. TidyBot showed that a
-language-model-based system can infer household placement preferences from a
-handful of examples, achieving 91.2\% accuracy on unseen benchmark objects and
-85.0\% placement success on its real robot
-\parencite{wu2023tidybot}. APRICOT further showed that preference inference
-must be reconciled with physical constraints and that active questions can
-disambiguate several plausible explanations \parencite{wang2024apricot}. The
-present thesis starts from the same premise that personalisation matters, but
-focuses on how preference evidence should be scoped, confirmed, preserved,
-and carried into execution.
+The direct vision and language to action generation formulation is powerful, but it cannot do high-level task reasoning and making decisions. For example, a command “Tidy this up” is syntactically clear but still underdetermined for different person who gives the command, and it is too ambiguous without referring to a specific use case history or clarifying with the user. “Tidy this up” does not say where each object belongs. “Put the cube on my board” does not identify the board unless the robot can retrieve a scoped preference. And, “do the usual thing” is nonsense when there is no context in the current run. TidyBot \cite{wu2023tidybot} showes that a language-model-based system can infer household placement preferences from a few demostrations, and achieves 91.2\% accuracy on unseen benchmark objects and 85.0\% placement success on its real robot.
+And, APRICOT \cite{wang2024apricot} shows that preference inference must be considered with physical constraints and decomposes the instruction into plausible explanations. PrefMem agrees that personalisation matters, and focuses on how preference evidence should be scoped, confirmed, preserved, and carried out into execution.
 
-Long-horizon operation introduces a second source of risk. A multi-step plan
-generated from an old observation may become stale after the first action. A
-monitor may mistake transient contact for stable success, while a final image
-may be insufficient to prove every part of the original request. Research on
-grounded language planning has repeatedly shown the value of connecting
-semantic plans to affordances and feedback. SayCan scores language-model
-proposals with skill value functions \parencite{ahn2022saycan}; Inner
-Monologue feeds success detection, scene descriptions, and human feedback back
-into planning \parencite{huang2022innermonologue}; and ReAct interleaves
-reasoning with environment-facing actions and observations
-\parencite{yao2023react}. More recent hierarchical systems place a reasoning
-model above a low-level VLA or policy, including Hi Robot and Agentic Robot
-\parencite{shi2025hirobot,yang2025agenticrobot}. PrefMem adopts the
-architectural lesson that semantic reasoning, physical execution, and
-verification should be separated, then adds explicit preference-memory and
-confirmation boundaries. The central problem is therefore not simply how to
-predict a motor command. It is how to maintain a trustworthy task contract
-between a person and an action-generating subsystem. The system must decide
-which historical preference is applicable, know when not to decide, preserve
-a current explicit correction over old memory, prevent a speculative preview
-from becoming an action, reject stale planning results, demand stable evidence
-after every action, and reserve final completion for a separate validation
-route. These responsibilities are difficult to audit when they are implicit
-in a single model prompt. PrefMem makes them explicit through typed messages
-and deterministic host state.
+In long-horizon task execution, a multi-step plan generated from an the old observation will become stale after or even during each step’s execution. A real-world deployable system must adapt to dynamically changing environments. Research on grounded language planning has shown the importance of connecting semantic plans to affordances and feedback. SayCan \cite{ahn2022saycan} scores language-model proposals with skill value functions.
+And ReAct \cite{yao2023react} interleaves reasoning with environment-facing actions and observations.
+More recent hierarchical systems like HiRobot \cite{shi2025hirobot} and AgenticRobot \cite{yang2025agenticrobot} place a reasoning model above a low-level VLA or policy.
+
+
+PrefMem adopts and enhances the architectural design of semantic reasoning, physical execution, and verification with a multi-agent system, then adds explicit preference-memory and confirmation boundaries. This design allows PrefMem to maintain a trustworthy task contract between a person and the underlying execution system. In real running, the system must decide which historical preference is applicable, know when not to decide, preserve a current explicit correction over old memory, prevent a speculative preview from becoming an action, reject stale planning results, rely on stable evidence after each actions, and reserve final completion for a separate validation route. These responsibilities are difficult to audit when they are implicit in a single model prompt. PrefMem makes them explicit through typed messages and distributes them to different sub-agents within the system.
 
 \subsection{Research Problem and Aim}
 \label{subsec:research-problem}
@@ -857,6 +913,8 @@ authoritative state. Only deterministic transitions append an
 \texttt{ExecutionRecord}, request another planning cycle, enter attention, or
 establish completion. This implements the rule that models may propose
 semantics, but host code owns lifecycle state.
+
+\newpage
 
 \subsection{HRI Agent Design}
 \label{subsec:methodology-hri}
@@ -1773,7 +1831,248 @@ architecture with measurable boundary effects and localised failure mechanisms,
 not a universal improvement score.
 
 
-\input{discussion}
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Interpretation of the Main Findings}
+\label{subsec:discussion-findings}
+
+PrefMem addresses a task-level problem that is not solved by predicting a robot
+action alone: maintaining a trustworthy agreement about what the robot should
+do, why a historical preference is applicable, when the robot must ask, and
+what evidence permits completion. The evaluation supports this framing while
+showing that explicit boundaries do not make every learned decision reliable.
+Detailed measurements are reported in Section~\ref{sec:experiments-evaluation}
+and Appendices~\ref{app:supporting-results}--\ref{app:representative-outputs};
+this chapter interprets their combined implications.
+
+The strongest positive result is selective use of preference evidence. One
+applicable record removed a clarification turn without changing final
+correctness; equal conflict caused abstention; and a held-out replication
+preserved a current explicit board against opposing history. PrefMem therefore
+implements more than generic personalisation: history may fill an omitted field
+only when its scope and provenance justify doing so. This complements systems
+that infer household preferences from examples
+\parencite{wu2023tidybot,wang2024apricot} by emphasising authority, confirmation,
+conflict, and revocability before action.
+
+Fresh replanning, Monitor, and Validator also produced distinct effects. Fresh
+replanning retired a failed queue; Monitor supplied endpoint and progress
+evidence; and Validator prevented every registered false completion in visibly
+incomplete scenes. These roles operate at different temporal scales and prevent
+an action attempt, a local success, or a Planner prediction from becoming
+whole-goal evidence merely because it occurs late in a sequence.
+
+The evidence does not support a claim that every additional agent improves the
+complete stack. The cumulative ladder was not monotonic, the old Memory
+integration was harmful on its development endpoint, Monitor recovered only a
+minority of visual discrepancies, and Validator sometimes rejected correct
+states. Most importantly, delayed preference recall survived mutation pressure
+in only two of eight stores. The project has implemented and evaluated the
+preference lifecycle, but has not solved robust long-term personal memory.
+
+The focused end-to-end study illustrates the value of staged evaluation. All
+twelve episodes formed the intended contract and reached the registered
+physical arrangement, whereas nine received Validator completion and eight
+satisfied the exact one-action strict chain. A global score would hide whether
+a failure arose from intent, grounding, action efficiency, physical outcome, or
+visual closure. PrefMem's central systems contribution is that these stages are
+represented by named contracts, publications, evidence, and authorities.
+
+\subsection{Project Achievements}
+\label{subsec:discussion-achievements}
+
+\subsubsection{Preference-Aware Task Contracts}
+
+The first achievement is a conservative interaction policy. PrefMem retrieves
+before deciding, fills only a missing field from one applicable record, asks
+under conflict, preserves current explicit values, and separates physical goal
+confirmation from consent to change future memory. Embedding similarity is
+candidate generation rather than authority; HRI still evaluates user, task,
+field, and wording. This is an appropriate default for manipulation because a
+wrong physical commitment is costlier than one focused question.
+
+The tested ambiguities concern known cube, board, and order fields rather than
+open-world intention understanding. Nevertheless, they represent a practical
+household interaction pattern: users omit habitual details. The project shows
+that these omissions can be governed through explicit scope, provenance, and
+abstention instead of an undocumented prompt convention.
+
+\subsubsection{Inspectable Graph and Loop Engineering}
+
+The second achievement is an explicit control graph. HRI, Memory, Planner,
+Monitor, Validator, Runtime, Controller, and the executor exchange typed goal
+proposals, contracts, publications, assessments, history records, and
+notifications rather than sharing an unrestricted conversation. Models propose
+semantic content; deterministic host code confirms goals, publishes actions,
+owns history, applies guards, and establishes completion.
+
+Loop engineering supplies temporal discipline. One task is published, only
+post-publication evidence is accepted, stable outcomes retire the old identity,
+and the next cycle uses a fresh frame. Final validation is a separate bounded
+loop over a frozen checklist. This extends feedback-based embodied reasoning
+\parencite{ahn2022saycan,huang2022innermonologue,yao2023react} with explicit
+preference provenance, publication identity, confirmation, and terminal
+evidence.
+
+One all-tools agent could reproduce much nominal behaviour. Role separation is
+useful because each role needs different context, temporal scope, and authority:
+Memory sees preference tools, Planner sees the frozen goal, Monitor sees one
+publication, Validator sees the whole checklist, and only HRI addresses the
+user. This improves failure localisation and supports shorter role-specific
+contexts on edge hardware. It is an implemented authority architecture, not yet
+an empirical proof of superiority over a matched monolithic agent.
+
+\subsubsection{Independent Evidence and Completion}
+
+The third achievement is separation of progress from completion. Monitor is
+step-bound, Validator is goal-bound, and Controller aggregates their evidence.
+Executor return is not visual success; finishing an action list is not proof of
+the goal; and Planner cannot certify its own plan. Validator's prevention of all
+registered incomplete-state completions directly supports this boundary, while
+its false rejection quantifies the cost of imperfect evidence.
+
+Monitor's contribution is smaller but distinct: it advanced endpoints and
+registered progress that the no-visual control could not. Deterministic holds
+and timeouts were unchanged, correctly locating those behaviours in host policy
+rather than learned vision. The architecture therefore permits both benefit and
+failure cost to be assigned to the responsible layer.
+
+\subsubsection{End-to-End Feasibility and Research Deliverables}
+
+The fourth achievement is a functioning preference-to-physical-state path. In
+the focused MuJoCo study, the system applied the expected record, confirmed the
+goal, issued the correct first compiler request, and reached the physical outcome
+in all twelve episodes; eleven remained strict through SAM grounding. The
+executor is supporting infrastructure, not a new VLA. Its narrow boundary makes
+PrefMem complementary to semantic and hierarchical VLA research
+\parencite{ni2026semanticvla,shi2025hirobot,yang2025agenticrobot,li2026roboclaw}.
+
+The project also delivers typed control software, scoped Memory, human and
+MuJoCo adapters, calibration, bounded recovery, evidence recording, component
+fixtures, focused protocols, and a 107-experiment catalogue. Strict and assisted
+runs remain separate, invalid attempts retain lineage, and capability failures
+are not rerun for replacement. Retaining positive, null, and negative evidence
+is itself important for an auditable systems contribution.
+
+\subsection{Shortcomings and Failure Analysis}
+\label{subsec:discussion-shortcomings}
+
+\subsubsection{Memory Identity and Scope}
+
+The most serious shortcoming is free-text memory identity. Retrieval often
+returned useful records alongside wrong-task candidates, and HRI compensation
+does not make that retrieval precise. Mutation arbitration sometimes treated a
+related new preference as an update across task scope or user ownership. The
+store stayed structurally valid while the intended semantic identity was lost.
+Similarity is suitable for search but not as a primary key for ownership,
+dimension, supersession, or revocation; increasing store or context size would
+not address this mechanism.
+
+\subsubsection{Semantic and Interface Brittleness}
+
+HRI sometimes previewed unresolved requests; Planner was weaker on spatial
+relations and capability fencing; the compiler accepted too many unsupported
+instructions; and healthy Monitor calls sometimes violated the schema. Typed
+parsing contains malformed responses but cannot correct a schema-valid semantic
+error. Conversely, brittle lexical evaluation can reject a semantically useful
+answer. The present system still relies heavily on prompting rather than a
+canonical task language shared across roles.
+
+\subsubsection{Visual Feedback and Correlated Error}
+
+Monitor recovered only 3/15 registered visual discrepancies. Validator rejected
+some correct states, including all three low-contrast blue-on-cyan finalisations
+in EXP-09, causing redundant action or attention despite correct physical
+placement. Role separation provides procedural independence, not statistical
+independence: the roles share one Gemma endpoint and similar views, so correlated
+perceptual error remains possible.
+
+\subsubsection{Execution and Integration Boundaries}
+
+The surrogate has vocabulary, detection, and control limits. Reasonable aliases
+may fall outside the selector vocabulary; SAM is accurate when detected but has
+coverage gaps; isolated actions can encounter IK exceptions; and successful
+placements retain an approximately $+4$ mm signed $x$-bias. Several original
+Memory and recovery tests also measured configuration or event-injection seams
+rather than the intended learned capability. Modularity improves observability
+but creates interfaces that must be versioned and tested; the present design
+makes these failures inspectable without yet making every seam robust.
+
+\subsection{Limitations}
+\label{subsec:discussion-limitations}
+
+\paragraph{Scope and evidence.}
+Physical evidence uses one MuJoCo tabletop scene, one Panda, two boards, six
+cubes, and one camera family; it does not establish real-robot transfer or
+safety. Most evidence is development and non-confirmatory, with clustered
+paraphrases and small focused families. The results locate large effects and
+mechanisms rather than broad reliability.
+
+\paragraph{Baselines and users.}
+There is no trained VLA, matched monolithic agent, or model-size comparison.
+Deterministic replanning isolates host policy, and frozen EXP-08/09 preference
+fixtures do not estimate production retrieval. Scripted turns also do not
+measure satisfaction, trust, clarification tolerance, or consent comprehension.
+
+\paragraph{Model and executor validity.}
+All semantic roles share one Gemma-family endpoint, and the workstation result
+does not prove that a VLA-integrated stack fits one edge GPU. The compiler,
+SAM, RGB-D, and deterministic IK approximate a VLA interface but not continuous
+learned-action uncertainty, policy latency, or embodiment-conditioned recovery.
+
+\subsection{Future Work}
+\label{subsec:discussion-future-work}
+
+Future work should proceed in the following order:
+
+\begin{enumerate}
+    \setlength{\itemsep}{2pt}
+    \setlength{\parsep}{0pt}
+    \item \textbf{Structure preference identity.} Give each record immutable
+    user, task, dimension, object, provenance, and supersession keys. Host code
+    should classify create, update, revoke, or conflict before a model proposes
+    text, and writes should be transactional. A held-out EXP-05 replication
+    should measure focal survival, scope violations, update identity, and
+    revocation over longer histories while retaining the current 2/8 baseline.
+
+    \item \textbf{Canonicalise the task/execution language.} Map aliases,
+    objects, target regions, relations, tolerances, and visibility requirements
+    into a versioned ontology before compilation. An allowlist grammar should
+    reject unsupported actions before motion and be tested on held-out aliases,
+    not tuned against EXP-08 failures.
+
+    \item \textbf{Calibrate Monitor and Validator.} Combine VLM semantics with
+    segmentation, depth geometry, and multiple views. Treat unknown as a
+    calibrated outcome. A held-out low-contrast set should measure false
+    completion and false rejection together; constrained decoding and an
+    independent model or sensor path could reduce malformed and correlated
+    errors.
+
+    \item \textbf{Test architecture and VLA integration.} Compare the graph
+    with a matched all-tools agent under the same model, prompt content, calls,
+    tokens, and GPU budget; measure accuracy, authority violations, latency,
+    VRAM, and failure localisation. Then substitute a frozen VLA through
+    PublishedTask without granting preference, goal-revision, or completion
+    authority.
+
+    \item \textbf{Expand physical, human, and confirmatory evaluation.} Re-run
+    focused cases on a supervised robot with independent pose scoring, and use a
+    separate approved study for clarification burden, trust, and consent.
+    Report edge-resource use and freeze broader users, tasks, layouts, histories,
+    endpoints, and scorers before inspection, while retaining stage-specific
+    outcomes.
+\end{enumerate}
+
+\subsection{Concluding Perspective}
+\label{subsec:discussion-conclusion}
+
+PrefMem makes preference, confirmation, planning, monitoring, and validation
+explicit contracts around an executor. Evidence supports selective memory use,
+replanning, completion gating, and simulated feasibility while exposing memory
+and visual limits. The contribution is an inspectable authority-and-evidence
+architecture.
+
 
 \clearpage
 \appendix
@@ -1782,8 +2081,8 @@ not a universal improvement score.
 
 \section{Experimental Design and Run Accounting}
 Core results are summarised below. Complete experiment reports and artifacts
-are available in the project repository:
-\url{https://github.com/KasLoot/RoboPref}.
+are available in:
+\url{https://liveuclac-my.sharepoint.com/:u:/g/personal/ucabibp_ucl_ac_uk/IQCUJvx2H20nSIxwF1vrFhgmAYJn0NPS3Deujkp-VIlDPq8?e=Lcfqzm}.
 \label{app:experiment-design}
 
 \subsection{Run Accounting}
@@ -1821,7 +2120,7 @@ are available in the project repository:
     Direct effects only at the frozen replacement boundary \\
     Original end to end & Nominal, ambiguity, and recovery development cases &
     24 & 24 & Broad development evidence with mixed upstream/downstream failure \\
-    Focused thesis studies & Paired claim studies, robustness envelope, and
+    Focused studies & Paired claim studies, robustness envelope, and
     fresh simulated chain & 9 & 9 & Principal thesis evidence \\
     \textbf{Total} & & \textbf{107} & \textbf{107} & No suite-wide success
     percentage is defined \\
@@ -1936,7 +2235,7 @@ are available in the project repository:
 \end{longtable}
 }
 
-\subsection{Component and Interface Diagnostics}
+\subsection{Component Diagnostics}
 
 {\footnotesize
 \renewcommand{\arraystretch}{1.1}
@@ -1966,8 +2265,7 @@ are available in the project repository:
     request fencing. \\
     Memory & Candidate construction 40/40 and empty/undersized-store handling
     40/40. Four original semantic aims stopped before inference. & Deterministic
-    capped retrieval layer. & Thread/checkpointer defect prevented a learned
-    semantic estimate in the original component block. \\
+    capped retrieval layer. & Context disabled to prevent referring to previous decisions. \\
     Monitor & Criteria 35/40; state 25/40; stability 30/40; progress timing 40/40;
     error routing 35/40. & Host timing and progress policy. & Wrong-object, slip,
     and unexpected states often remained ongoing. \\
@@ -1979,14 +2277,6 @@ are available in the project repository:
     5/20; SAM and anchor rows 28/40; oracle-coordinate motion 35/40. & Supports
     a real simulated state change. & Compiler permissiveness, detection coverage,
     and IK are separate limitations. \\
-    Named interfaces & HRI final reporting 40/40; Planner--Monitor success route
-    30/40; timeout route 35/40; Planner--Validator final route 27/40. & Typed host
-    state can contain variable learned outputs. & Memory-linked interfaces were
-    blocked by the original Memory configuration defect. \\
-    Workflow ladder & Exact-command ceiling 39/40 assisted and 28/40 strict;
-    raw ambiguous path 4/40; HRI level 28/40; full conjunctive level 4/40. &
-    Exposes integration stages. & Requirements change at every level, so rates
-    are not a causal component ranking. \\
 \end{longtable}
 }
 
@@ -2011,10 +2301,9 @@ are available in the project repository:
     \bottomrule
     \endlastfoot
     AB-RPL-F & Fresh replanning recovered 40/40 stable-failure traces. & Frozen
-    queue recovered 0/40. & Paired difference $+1.00$, exact McNemar
-    $p\approx1.82\times10^{-12}$. Planner outputs were deterministic fixtures. \\
+    queue recovered 0/40. & Planner outputs were deterministic fixtures. \\
     AB-RPL-T & Automatic timeout replanning recovered 40/40 with zero operator
-    interventions. & Attention-gated policy recovered 40/40 with 45 operator
+    interventions. & Recovered 40/40 with 45 operator
     interventions. & Same recovery and safety; interaction-cost improvement at
     the host-policy boundary. \\
 \end{longtable}
@@ -2382,7 +2671,7 @@ False-negative structured output (abridged)
 
 
 \input{supplementary_tables}
-
+Generative AI was used to correct writing, improve phrasing, fix bugs, and draw the diagrams.
 \printbibliography
 
 \end{document}
